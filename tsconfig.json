@@ -22,6 +22,11 @@
       "@/*": ["./src/*"]
     }
   },
-  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],
-  "exclude": ["node_modules"]
+  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx"],
+  // .next is deliberately NOT type-checked. Next generates route validator
+  // files there that reference pages by path, so a stale build makes
+  // `pnpm typecheck` fail after any page is deleted - including the intended
+  // deletion of src/app/(guest). Typecheck should reflect the source tree, not
+  // leftover build output. `next build` still runs its own route validation.
+  "exclude": ["node_modules", ".next"]
 }
