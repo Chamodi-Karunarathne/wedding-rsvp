@@ -14,6 +14,12 @@ import * as schema from '@/db/schema';
 
 export type Db = NeonDatabase<typeof schema>;
 
+/** The handle passed to a db.transaction() callback. */
+export type Tx = Parameters<Parameters<Db['transaction']>[0]>[0];
+
+/** Accept either, so a helper can be called inside or outside a transaction. */
+export type DbLike = Db | Tx;
+
 // Neon's driver needs a WebSocket implementation. Node 22+ and the Edge
 // runtime both provide one globally, which is why `ws` is not a dependency.
 if (!neonConfig.webSocketConstructor && typeof globalThis.WebSocket !== 'undefined') {
