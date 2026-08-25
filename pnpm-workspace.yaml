@@ -1,0 +1,10 @@
+# pnpm 11 reads settings from here rather than the "pnpm" field in package.json.
+#
+# esbuild: false because three versions are hoisted here and 0.28.2's
+# postinstall validates `esbuild --version` against whichever shim wins on
+# PATH, which is 0.25.12. The script only validates and fetches a fallback
+# binary; the real one ships as the @esbuild/win32-x64 optional dependency,
+# so drizzle-kit works without it. Verified by running db:generate.
+allowBuilds:
+  esbuild: false
+  sharp: true
