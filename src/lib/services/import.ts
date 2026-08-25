@@ -1,0 +1,239 @@
+import { asc } from 'drizzle-orm';
+import { getDb } from '@/db/client';
+import { events, guests, DELIVERY_CHANNELS, LOCALES, SIDES } from '@/db/schema';
+import { parseCsvWithHeader } from '@/lib/domain/csv';
+import { importKey, normalizePhone } from '@/lib/domain/phone';
+import { ok, type Result } from '@/lib/domain/result';
+import type { DeliveryChannelName, Locale, Side } from './types';
+import { createGuest, setDeliveryChannel, updateGuest } from './guests';
+
+/**
+ * PERMANENT. CSV import for the guest list.
+ *
+ * Three properties the spec asks for, and why each matters:
+ *   - Idempotent on (sort_name, phone), normalized. Re-running the same file
+ *     updates rather than duplicating, so a half-finished import can simply be
+ *     run again.
+ *   - Per-row errors. One bad row reports itself and the other 499 still land.
+ *   - Generates token and short_code for new rows only, so re-importing never
+ *     invalidates a code already printed on a card.
+ */
+
+export type ImportRowResult = {
+  /** 1-based, counting the header as row 1, so it matches what Excel shows. */
+  row: number;
+  status: 'created' | 'updated' | 'skipped' | 'error';
+  displayName: string;
+  message?: string;
+  token?: string;
+  shortCode?: string;
+};
+
+export type ImportSummary = {
+  created: number;
+  updated: number;
+  skipped: number;
+  errors: number;
+  results: ImportRowResult[];
+  dryRun: boolean;
+};
+
+const HEADER_HELP =
+  'Expected columns: display_name (required), side (bride|groom|both, required), ' +
+  'sort_name, language, max_party_size, phone, postal_address, personal_note, ' +
+  'events, channels.';
+
+/** Accepts "display_name", "display name" and "displayname". */
+function pick(record: Record<string, string>, name: string): string {
+  const variants = [name, name.replace(/_/g, ' '), name.replace(/_/g, '')];
+  for (const variant of variants) {
+    const value = record[variant];
+    if (value !== undefined && value !== '') return value;
+  }
+  return '';
+}
+
+/** Multi-values use ; or | so they never collide with CSV's own comma. */
+function splitList(value: string): string[] {
+  return value
+    .split(/[;|]/)
+    .map((part) => part.trim())
+    .filter((part) => part !== '');
+}
+
+export async function importGuestsCsv(
+  csv: string,
+  options: { defaultEventSlugs?: string[]; dryRun?: boolean } = {},
+): Promise<Result<ImportSummary>> {
+  const db = getDb();
+  const dryRun = options.dryRun ?? false;
+
+  const { headers, rows } = parseCsvWithHeader(csv);
+  if (headers.length === 0) {
+    return ok({ created: 0, updated: 0, skipped: 0, errors: 0, results: [], dryRun });
+  }
+
+  const [existingGuests, eventRows] = await Promise.all([
+    db.select().from(guests),
+    db.select().from(events).orderBy(asc(events.sortOrder)),
+  ]);
+
+  const knownSlugs = new Set(eventRows.map((row) => row.slug));
+  const defaultSlugs = (options.defaultEventSlugs ?? []).filter((slug) => knownSlugs.has(slug));
+
+  // Existing rows, keyed the same way new rows will be.
+  const byKey = new Map(
+    existingGuests.map((row) => [importKey(row.sortName, row.phone), row]),
+  );
+
+  // Rows seen earlier in THIS file, so a file that repeats a household reports
+  // the repeat rather than writing it twice.
+  const seenInFile = new Map<string, number>();
+
+  const results: ImportRowResult[] = [];
+
+  for (const [index, record] of rows.entries()) {
+    const rowNumber = index + 2; // +1 for zero-index, +1 for the header row
+    const displayName = pick(record, 'display_name');
+
+    const fail = (message: string) =>
+      results.push({ row: rowNumber, status: 'error', displayName, message });
+
+    if (displayName === '') {
+      fail(`display_name is required. ${HEADER_HELP}`);
+      continue;
+    }
+
+    const sideRaw = pick(record, 'side').toLowerCase();
+    if (!(SIDES as readonly string[]).includes(sideRaw)) {
+      fail(`side must be one of ${SIDES.join(', ')} (got '${sideRaw || 'empty'}').`);
+      continue;
+    }
+    const side = sideRaw as Side;
+
+    const languageRaw = pick(record, 'language').toLowerCase();
+    if (languageRaw !== '' && !(LOCALES as readonly string[]).includes(languageRaw)) {
+      fail(`language must be one of ${LOCALES.join(', ')} (got '${languageRaw}').`);
+      continue;
+    }
+    const language = (languageRaw || 'en') as Locale;
+
+    const maxRaw = pick(record, 'max_party_size');
+    const maxPartySize = maxRaw === '' ? 2 : Number(maxRaw);
+    if (!Number.isInteger(maxPartySize) || maxPartySize < 1 || maxPartySize > 50) {
+      fail(`max_party_size must be a whole number between 1 and 50 (got '${maxRaw}').`);
+      continue;
+    }
+
+    const phone = pick(record, 'phone') || null;
+    // Derived rather than required: most real lists do not carry a sort name.
+    const sortName = pick(record, 'sort_name') || displayName;
+
+    const eventsRaw = splitList(pick(record, 'events'));
+    const unknownEvents = eventsRaw.filter((slug) => !knownSlugs.has(slug));
+    if (unknownEvents.length) {
+      fail(
+        `unknown event slug: ${unknownEvents.join(', ')}. ` +
+          `Known slugs: ${[...knownSlugs].join(', ')}.`,
+      );
+      continue;
+    }
+    const eventSlugs = eventsRaw.length ? eventsRaw : defaultSlugs;
+
+    const channelsRaw = splitList(pick(record, 'channels'));
+    const unknownChannels = channelsRaw.filter(
+      (channel) => !(DELIVERY_CHANNELS as readonly string[]).includes(channel),
+    );
+    if (unknownChannels.length) {
+      fail(
+        `unknown delivery channel: ${unknownChannels.join(', ')}. ` +
+          `Known channels: ${DELIVERY_CHANNELS.join(', ')}.`,
+      );
+      continue;
+    }
+
+    const key = importKey(sortName, phone);
+
+    const duplicateOf = seenInFile.get(key);
+    if (duplicateOf !== undefined) {
+      fail(
+        `duplicate of row ${duplicateOf} - same sort_name and phone. ` +
+          'Give one of them a distinct phone number, or merge the rows.',
+      );
+      continue;
+    }
+    seenInFile.set(key, rowNumber);
+
+    const existing = byKey.get(key);
+
+    const payload = {
+      displayName,
+      sortName,
+      side,
+      language,
+      maxPartySize,
+      phone: normalizePhone(phone),
+      postalAddress: pick(record, 'postal_address') || null,
+      personalNote: pick(record, 'personal_note') || null,
+      ...(eventSlugs.length ? { eventSlugs } : {}),
+    };
+
+    if (dryRun) {
+      results.push({
+        row: rowNumber,
+        status: existing ? 'updated' : 'created',
+        displayName,
+        ...(existing ? { token: existing.token, shortCode: existing.shortCode } : {}),
+      });
+      continue;
+    }
+
+    if (existing) {
+      // Note: token and short_code are NOT regenerated. A printed card stays
+      // valid no matter how many times the list is re-imported.
+      const updated = await updateGuest(existing.id, payload, db);
+      if (!updated.ok) {
+        fail(updated.error.message);
+        continue;
+      }
+      for (const channel of channelsRaw) {
+        await setDeliveryChannel(existing.id, channel as DeliveryChannelName, {}, db);
+      }
+      results.push({
+        row: rowNumber,
+        status: 'updated',
+        displayName,
+        token: existing.token,
+        shortCode: existing.shortCode,
+      });
+      continue;
+    }
+
+    const created = await createGuest(payload, db);
+    if (!created.ok) {
+      fail(created.error.message);
+      continue;
+    }
+    for (const channel of channelsRaw) {
+      await setDeliveryChannel(created.data.id, channel as DeliveryChannelName, {}, db);
+    }
+    // No byKey.set here: seenInFile already catches a repeat within this file,
+    // and byKey only ever needs to describe rows that existed before it began.
+    results.push({
+      row: rowNumber,
+      status: 'created',
+      displayName,
+      token: created.data.token,
+      shortCode: created.data.shortCode,
+    });
+  }
+
+  return ok({
+    created: results.filter((r) => r.status === 'created').length,
+    updated: results.filter((r) => r.status === 'updated').length,
+    skipped: results.filter((r) => r.status === 'skipped').length,
+    errors: results.filter((r) => r.status === 'error').length,
+    results,
+    dryRun,
+  });
+}

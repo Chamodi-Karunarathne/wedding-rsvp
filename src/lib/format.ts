@@ -39,6 +39,46 @@ export function formatDateTimeShort(date: Date, timeZone: string, locale = 'en-G
   }).format(date);
 }
 
+/** Milliseconds `timeZone` is ahead of UTC at the given instant. */
+function zoneOffsetMs(instant: Date, timeZone: string): number {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone,
+    hour12: false,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+  }).formatToParts(instant);
+
+  const get = (type: string) => Number(parts.find((p) => p.type === type)?.value ?? '0');
+  const wallClockAsUtc = Date.UTC(
+    get('year'),
+    get('month') - 1,
+    get('day'),
+    get('hour') % 24,
+    get('minute'),
+    get('second'),
+  );
+  return wallClockAsUtc - instant.getTime();
+}
+
+/**
+ * Turns a datetime-local value ("2026-11-01T00:00") into the instant it names
+ * IN THE WEDDING'S TIMEZONE.
+ *
+ * Without this, `new Date("2026-11-01T00:00")` would be parsed in whatever zone
+ * the server happens to run in - so phase boundaries set from the admin UI
+ * would silently shift by hours once deployed.
+ */
+export function fromDateTimeLocalValue(value: string, timeZone: string): Date {
+  const normalized = value.length === 16 ? `${value}:00` : value;
+  const asIfUtc = new Date(`${normalized}Z`);
+  if (Number.isNaN(asIfUtc.getTime())) return asIfUtc;
+  return new Date(asIfUtc.getTime() - zoneOffsetMs(asIfUtc, timeZone));
+}
+
 /** For <input type="datetime-local">, which wants local wall time. */
 export function toDateTimeLocalValue(date: Date, timeZone: string): string {
   const parts = new Intl.DateTimeFormat('en-CA', {
