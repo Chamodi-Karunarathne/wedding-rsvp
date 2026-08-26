@@ -58,8 +58,8 @@ export default async function AdminPrintPage() {
         <tbody>
           {printing.map((row) => (
             <tr key={row.guest.id}>
-              <td className="border px-2 py-1 break-words">{row.guest.displayName}</td>
-              <td className="border px-2 py-1 break-words">
+              <td className="border px-2 py-1 wrap-break-word">{row.guest.displayName}</td>
+              <td className="border px-2 py-1 wrap-break-word">
                 {row.guest.postalAddress ?? <span className="text-red-700">missing</span>}
               </td>
               <td className="border px-2 py-1 font-mono">{row.guest.shortCode}</td>
