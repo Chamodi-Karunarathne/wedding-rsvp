@@ -11,7 +11,7 @@ import { SESSION_COOKIE, verifySessionCookie } from '@/lib/auth';
 
 const PUBLIC_ADMIN_PATHS = new Set(['/admin/login', '/api/admin/login', '/api/admin/logout']);
 
-export async function middleware(request: NextRequest): Promise<NextResponse> {
+export async function proxy(request: NextRequest): Promise<NextResponse> {
   const { pathname } = request.nextUrl;
 
   if (PUBLIC_ADMIN_PATHS.has(pathname)) return NextResponse.next();

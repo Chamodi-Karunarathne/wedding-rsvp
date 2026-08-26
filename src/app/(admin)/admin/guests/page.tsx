@@ -4,6 +4,10 @@ import { CsvImport } from './csv-import';
 import { GuestRow } from './guest-row';
 import { GuestEditor } from './guest-editor';
 
+// TODO: Cache Components adoption. Refactor this route so this opt-out can be removed.
+// See: https://nextjs.org/docs/app/guides/migrating-to-cache-components
+export const instant = false;
+
 export const dynamic = 'force-dynamic';
 
 export default async function AdminGuestsPage() {
