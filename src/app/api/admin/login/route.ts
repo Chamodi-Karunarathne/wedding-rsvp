@@ -6,8 +6,8 @@ import { createSessionCookie, SESSION_COOKIE, SESSION_TTL_MS, verifyAdminPasswor
 /**
  * PERMANENT. Exchanges the shared password for a signed session cookie.
  *
- * Exempt from the middleware gate, for obvious reasons. Runs on Node so the
- * password never touches an Edge log; the comparison itself is constant-time.
+ * Exempt from the proxy gate, for obvious reasons. Pinned to the Node runtime;
+ * the password comparison itself is constant-time.
  */
 
 export const runtime = 'nodejs';

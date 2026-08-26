@@ -4,9 +4,10 @@ import { SESSION_COOKIE, verifySessionCookie } from '@/lib/auth';
 /**
  * PERMANENT. Gate on /admin/* and /api/admin/*.
  *
- * Runs on the Edge runtime, which is why lib/auth.ts uses Web Crypto rather
- * than node:crypto. The noindex header is set globally in next.config.ts
- * instead of here, so it also covers responses middleware does not see.
+ * Next 16 renamed middleware to proxy and always runs it on Node, so no route
+ * segment config is allowed in this file. The noindex header is set globally
+ * in next.config.ts instead of here, so it also covers responses the proxy
+ * does not see.
  */
 
 const PUBLIC_ADMIN_PATHS = new Set(['/admin/login', '/api/admin/login', '/api/admin/logout']);

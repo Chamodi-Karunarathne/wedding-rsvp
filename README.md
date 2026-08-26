@@ -96,7 +96,7 @@ Exports are written with a UTF-8 BOM, because Excel will not read UTF-8 without 
 
 ## Admin auth
 
-One shared password, no user system. A signed httpOnly cookie carrying only an expiry, verified in Edge middleware. `lib/auth.ts` uses Web Crypto rather than `node:crypto` so the same code runs in middleware and in the Node login handler. The password comparison hashes both sides before comparing, so the real password's length does not leak.
+One shared password, no user system. A signed httpOnly cookie carrying only an expiry, verified in `src/proxy.ts` (Next 16 renamed middleware to proxy; it always runs on Node). `lib/auth.ts` uses Web Crypto rather than `node:crypto` so the same code runs in the proxy and in the login handler. The password comparison hashes both sides before comparing, so the real password's length does not leak.
 
 ## Not in scope
 

@@ -5,8 +5,8 @@ const nextConfig: NextConfig = {
     return [
       {
         // The entire site is private: guest pages, admin pages and API alike.
-        // Applied here rather than in middleware so it also covers responses
-        // that middleware does not run for.
+        // Applied here rather than in the proxy so it also covers responses
+        // that the proxy does not run for.
         source: '/:path*',
         headers: [
           { key: 'X-Robots-Tag', value: 'noindex, nofollow, noarchive, nosnippet' },

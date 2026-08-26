@@ -6,7 +6,7 @@
  * to keep in sync.
  *
  * Uses Web Crypto throughout rather than node:crypto so the exact same code
- * runs in Edge middleware and in a Node route handler.
+ * runs in the proxy and in a route handler, on any runtime Next may use.
  */
 
 export const SESSION_COOKIE = 'wedding_admin';
