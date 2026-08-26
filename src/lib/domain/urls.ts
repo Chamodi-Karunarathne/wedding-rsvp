@@ -7,6 +7,15 @@
  * from this file so they cannot drift apart.
  */
 
+/**
+ * Strips trailing slashes. Applied to EVERY origin, not just the one read from
+ * the environment: callers such as the print export pass an origin in, and a
+ * trailing slash there would put "example.com//c/CODE" onto a printed card.
+ */
+function normalizeOrigin(origin: string): string {
+  return origin.replace(/\/+$/, '');
+}
+
 /** Reads NEXT_PUBLIC_SITE_URL, without a trailing slash. */
 export function siteOrigin(): string {
   const raw = process.env.NEXT_PUBLIC_SITE_URL;
@@ -16,7 +25,7 @@ export function siteOrigin(): string {
         'so it must be the final production origin before cards go to print.',
     );
   }
-  return raw.replace(/\/+$/, '');
+  return normalizeOrigin(raw);
 }
 
 export function invitationPath(token: string): string {
@@ -32,7 +41,7 @@ export function qrPath(code: string): string {
 }
 
 export function invitationUrl(token: string, origin = siteOrigin()): string {
-  return `${origin}${invitationPath(token)}`;
+  return `${normalizeOrigin(origin)}${invitationPath(token)}`;
 }
 
 /**
@@ -41,12 +50,12 @@ export function invitationUrl(token: string, origin = siteOrigin()): string {
  * scanning and typing lead to the same place.
  */
 export function shortCodeUrl(code: string, origin = siteOrigin()): string {
-  return `${origin}${shortCodePath(code)}`;
+  return `${normalizeOrigin(origin)}${shortCodePath(code)}`;
 }
 
 /** Absolute URL of the QR image itself, for the print export's mail merge. */
 export function qrUrl(code: string, origin = siteOrigin()): string {
-  return `${origin}${qrPath(code)}`;
+  return `${normalizeOrigin(origin)}${qrPath(code)}`;
 }
 
 /** wa.me deep link with the invitation message pre-filled. */

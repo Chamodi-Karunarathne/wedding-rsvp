@@ -14,7 +14,9 @@
     "db:migrate": "drizzle-kit migrate",
     "db:push": "drizzle-kit push",
     "db:studio": "drizzle-kit studio",
-    "db:seed": "node --env-file-if-exists=.env src/db/seed.ts"
+    "db:seed": "node --env-file-if-exists=.env src/db/seed.ts",
+    "verify": "node --env-file-if-exists=.env scripts/verify.ts",
+    "make-test-csv": "node --env-file-if-exists=.env scripts/make-test-csv.ts"
   },
   "dependencies": {
     "@neondatabase/serverless": "^1.1.0",
