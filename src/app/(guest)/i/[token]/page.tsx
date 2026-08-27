@@ -2,6 +2,7 @@ import { headers } from 'next/headers';
 import { notFound } from 'next/navigation';
 import type { Metadata } from 'next';
 import { copyFor } from '@/lib/copy';
+import { renderTemplate } from '@/lib/domain/template';
 import { formatDate, formatEventDateTime } from '@/lib/format';
 import { loadInvitation } from '@/lib/services/invitation';
 import { recordOpen } from '@/lib/services/opens';
@@ -79,7 +80,7 @@ function Section({
           <p className="text-sm text-gray-600">
             {guest.maxPartySize === 1
               ? copy.invitation.partyOfOne
-              : copy.invitation.partyOf(guest.maxPartySize)}
+              : renderTemplate(copy.invitation.partyOf, { n: guest.maxPartySize })}
           </p>
         </section>
       );
@@ -159,7 +160,9 @@ function Section({
           <p className="mt-1 text-sm text-gray-600">
             {invitation.rsvpDeadlinePassed
               ? copy.rsvp.deadlinePassed
-              : copy.rsvp.deadline(formatDate(invitation.rsvpDeadline, site.timezone))}
+              : renderTemplate(copy.rsvp.deadline, {
+                  date: formatDate(invitation.rsvpDeadline, site.timezone),
+                })}
           </p>
 
           <ul className="mt-2 text-sm text-gray-600">
@@ -168,7 +171,7 @@ function Section({
               const status = !existing
                 ? copy.rsvp.noResponseYet
                 : existing.attending
-                  ? copy.rsvp.currentlyAttending(existing.partyCount)
+                  ? renderTemplate(copy.rsvp.currentlyAttending, { n: existing.partyCount })
                   : copy.rsvp.currentlyDeclined;
 
               return (

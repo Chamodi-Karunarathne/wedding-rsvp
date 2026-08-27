@@ -151,14 +151,6 @@ export const DEFAULT_CONFIG: AppConfig = {
 /* helpers                                                                    */
 /* -------------------------------------------------------------------------- */
 
-/** Fills {{placeholders}}. Unknown ones are left alone. */
-export function renderTemplate(
-  template: string,
-  vars: Readonly<Record<string, string>>,
-): string {
-  return template.replace(/\{\{(\w+)\}\}/g, (match, key: string) => vars[key] ?? match);
-}
-
 /** Phase dates must be strictly increasing for the phases to be reachable. */
 export function validatePhaseOrdering(
   values: PhaseConfigValues,

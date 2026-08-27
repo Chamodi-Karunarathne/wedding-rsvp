@@ -82,6 +82,7 @@ All in `lib/domain`, none in the UI:
 - RSVPs are upserts. `submitted_at` records the first answer; `updated_at` moves on every change. Nothing is ever hard-deleted or duplicated.
 - Every overwrite copies the previous answer into `rsvp_history` first, carrying `source`, `recorded_by` and `attendee_names`. A guest submitting over a response transcribed from a phone call must not erase it silently — when the counts look wrong in November, this is the audit trail.
 - The reply date is **displayed and never enforced**. A late answer saves normally and the copy softens rather than closing the form; `submitted_at` already says who was late.
+- Every value in `lib/copy.ts` is a plain string, and must stay one. The whole bundle is handed to `RsvpForm`, a Client Component, so a function anywhere in it throws "Functions cannot be passed directly to Client Components" at render - and only on the routes that reach the form, so a type check and a build both pass while the invitation page 500s. Strings carry `{{placeholders}}` filled by `renderTemplate`; `copy.test.ts` fails if a non-string creeps back in.
 - A `display_name` over 28 characters warns in admin and saves anyway. `display_name_fallback` holds the shorter card form; `cardName` resolves the two while `displayName` stays truthful, so admin can still see the real name it is warning about.
 - A guest may only RSVP to events they hold an `invitations` row for — otherwise 403.
 - Phase controls section **order**, never visibility. The RSVP form is reachable in every phase.

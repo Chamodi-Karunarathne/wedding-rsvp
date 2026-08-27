@@ -7,6 +7,16 @@ import type { Locale } from '@/lib/services/types';
  * here so that adding it later means writing one more object below - not
  * hunting through JSX. Nothing user-visible should be hard-coded in a
  * component.
+ *
+ * EVERY VALUE IS A PLAIN STRING, and must stay one.
+ *
+ * The whole bundle is handed to RsvpForm, which is a Client Component, so it
+ * crosses the server/client boundary and has to be serializable. A function
+ * here - the obvious way to write "party of {n}" - throws at render with
+ * "Functions cannot be passed directly to Client Components", and only for
+ * the routes that actually reach the form. Strings with {{placeholders}},
+ * filled by renderTemplate at the call site, instead. copy.test.ts fails if
+ * a non-string ever creeps back in.
  */
 
 export type CopyBundle = {
@@ -15,7 +25,8 @@ export type CopyBundle = {
     youAreInvited: string;
     inviteesLabel: string;
     partyOfOne: string;
-    partyOf: (n: number) => string;
+    /** {{n}} - the maximum party size. */
+    partyOf: string;
   };
   events: {
     heading: string;
@@ -28,27 +39,32 @@ export type CopyBundle = {
   rsvp: {
     heading: string;
     intro: string;
-    /** Used only if a second event is ever added, to tell them apart. */
-    attendingQuestion: (eventName: string) => string;
+    /** {{event}}. Used only if a second event is ever added, to tell them apart. */
+    attendingQuestion: string;
     attendingQuestionSingle: string;
     yes: string;
     no: string;
     partyCountLabel: string;
-    partyCountHelp: (max: number) => string;
+    partyCountHelpOne: string;
+    /** {{max}} - the maximum party size. */
+    partyCountHelpMany: string;
     attendeeNamesLabel: string;
     attendeeNamesHelp: string;
     messageLabel: string;
     messageHelp: string;
-    deadline: (date: string) => string;
+    /** {{date}} - the reply date, already formatted in the wedding's zone. */
+    deadline: string;
     deadlinePassed: string;
     submit: string;
     submitting: string;
     saved: string;
-    savedAt: (when: string) => string;
+    /** {{when}} - when the answer was last saved. */
+    savedAt: string;
     changeAnytime: string;
     error: string;
     noResponseYet: string;
-    currentlyAttending: (n: number) => string;
+    /** {{n}} - the party count on the current answer. */
+    currentlyAttending: string;
     currentlyDeclined: string;
   };
   note: {
@@ -70,7 +86,7 @@ const en: CopyBundle = {
     youAreInvited: 'request the pleasure of your company',
     inviteesLabel: 'This invitation is for',
     partyOfOne: 'Reserved for you',
-    partyOf: (n) => `Reserved for up to ${n} guests`,
+    partyOf: 'Reserved for up to {{n}} guests',
   },
   events: {
     heading: 'The day',
@@ -83,29 +99,29 @@ const en: CopyBundle = {
   rsvp: {
     heading: 'Will you join us?',
     intro: 'Please let us know whether you can join us.',
-    attendingQuestion: (eventName) => `Will you attend the ${eventName}?`,
+    attendingQuestion: 'Will you attend the {{event}}?',
     attendingQuestionSingle: 'Will you be joining us?',
     yes: 'Joyfully accepts',
     no: 'Regretfully declines',
     partyCountLabel: 'How many of you?',
-    partyCountHelp: (max) =>
-      max === 1 ? 'This invitation is for one guest.' : `Up to ${max} guests.`,
+    partyCountHelpOne: 'This invitation is for one guest.',
+    partyCountHelpMany: 'Up to {{max}} guests.',
     attendeeNamesLabel: 'Who is coming?',
     attendeeNamesHelp: 'Optional. Helps us with place settings.',
     messageLabel: 'A message for us',
     messageHelp: 'Optional.',
-    deadline: (date) => `Please let us know by ${date}.`,
+    deadline: 'Please let us know by {{date}}.',
     deadlinePassed:
       'Our reply date has passed, but please do still tell us - we would far rather hear ' +
       'from you late than not hear from you at all.',
     submit: 'Send response',
     submitting: 'Sending...',
     saved: 'Thank you - your response has been saved.',
-    savedAt: (when) => `Last updated ${when}.`,
+    savedAt: 'Last updated {{when}}.',
     changeAnytime: 'You can change your answer at any time by returning to this page.',
     error: 'Something went wrong. Please try again.',
     noResponseYet: 'No response recorded yet.',
-    currentlyAttending: (n) => `Currently attending, party of ${n}.`,
+    currentlyAttending: 'Currently attending, party of {{n}}.',
     currentlyDeclined: 'Currently declined.',
   },
   note: {

@@ -1,5 +1,5 @@
-import { renderTemplate } from '@/lib/domain/config';
 import { DELIVERY_STATES, DELIVERY_STATE_LABELS, deliveryState } from '@/lib/domain/delivery';
+import { renderTemplate } from '@/lib/domain/template';
 import { invitationUrl, whatsappSendUrl } from '@/lib/domain/urls';
 import { formatDate, formatEventDateTime } from '@/lib/format';
 import { getConfig } from '@/lib/services/config';

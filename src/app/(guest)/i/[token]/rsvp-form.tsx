@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import type { CopyBundle } from '@/lib/copy';
+import { renderTemplate } from '@/lib/domain/template';
 import type { EventView, RsvpView } from '@/lib/services/types';
 
 /*
@@ -109,7 +110,7 @@ export function RsvpForm({ token, events, rsvps, message, maxPartySize, copy }: 
             */}
             <legend className="font-medium">
               {events.length > 1
-                ? copy.rsvp.attendingQuestion(event.name)
+                ? renderTemplate(copy.rsvp.attendingQuestion, { event: event.name })
                 : copy.rsvp.attendingQuestionSingle}
             </legend>
 
@@ -152,7 +153,9 @@ export function RsvpForm({ token, events, rsvps, message, maxPartySize, copy }: 
                     className="border px-2 py-1"
                   />
                   <p className="text-sm text-gray-600">
-                    {copy.rsvp.partyCountHelp(maxPartySize)}
+                    {maxPartySize === 1
+                      ? copy.rsvp.partyCountHelpOne
+                      : renderTemplate(copy.rsvp.partyCountHelpMany, { max: maxPartySize })}
                   </p>
                 </div>
 
