@@ -27,3 +27,19 @@ export async function recordOpen(
       set: { lastOpen: now, firstOpen: sql`COALESCE(${guestOpens.firstOpen}, ${now})` },
     });
 }
+
+export type GuestOpen = { firstOpen: Date | null; lastOpen: Date | null };
+
+/**
+ * Every recorded open, keyed by guest.
+ *
+ * One query for the whole list rather than one per guest: /admin/send needs
+ * this for all ~500 households at once, and absence of a key is itself the
+ * answer ("nobody has opened it").
+ */
+export async function listOpens(db: DbLike = getDb()): Promise<Map<string, GuestOpen>> {
+  const rows = await db.select().from(guestOpens);
+  return new Map(
+    rows.map((row) => [row.guestId, { firstOpen: row.firstOpen, lastOpen: row.lastOpen }]),
+  );
+}

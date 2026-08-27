@@ -1,4 +1,5 @@
 import { toCsv } from '@/lib/domain/csv';
+import { deliveryState } from '@/lib/domain/delivery';
 import { invitationUrl } from '@/lib/domain/urls';
 import { applyFilters, type DashboardFilters } from './dashboard';
 import { listGuests } from './guests';
@@ -74,13 +75,27 @@ export async function buildRsvpExportCsv(filters: DashboardFilters = {}): Promis
 export async function buildSendListCsv(origin?: string): Promise<string> {
   const rows = await listGuests();
 
-  const header = ['display_name', 'phone', 'invitation_url', 'channels', 'notes'];
+  const header = [
+    'display_name',
+    'phone',
+    'invitation_url',
+    'channels',
+    'state',
+    'first_open',
+    'notes',
+  ];
 
   const body = rows.map((row) => [
     row.guest.displayName,
     row.guest.phone ?? '',
     invitationUrl(row.guest.token, origin),
     row.channels.map((c) => `${c.channel}:${c.status}`).join('|'),
+    deliveryState({
+      channels: row.channels,
+      firstOpen: row.firstOpen,
+      hasResponse: row.rsvps.length > 0,
+    }),
+    row.firstOpen?.toISOString() ?? '',
     row.guest.notes ?? '',
   ]);
 

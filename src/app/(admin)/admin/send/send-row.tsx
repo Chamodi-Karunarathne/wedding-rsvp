@@ -2,6 +2,7 @@
 
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
+import { DELIVERY_STATE_LABELS, type DeliveryState } from '@/lib/domain/delivery';
 import type { DeliveryChannelName, DeliveryStatus } from '@/lib/services/types';
 import { postJson } from '../_components/api';
 
@@ -11,6 +12,7 @@ type Props = {
   phone: string | null;
   invitationUrl: string;
   whatsappUrl: string | null;
+  state: DeliveryState;
   channels: { channel: DeliveryChannelName; status: DeliveryStatus }[];
 };
 
@@ -26,6 +28,7 @@ export function SendRow({
   phone,
   invitationUrl,
   whatsappUrl,
+  state,
   channels,
 }: Props) {
   const router = useRouter();
@@ -62,6 +65,11 @@ export function SendRow({
     <tr>
       <td className="border px-2 py-1 break-words">{displayName}</td>
       <td className="border px-2 py-1">{phone ?? '-'}</td>
+      <td className="border px-2 py-1">
+        <span className={state === 'not_sent' ? 'text-gray-500' : undefined}>
+          {DELIVERY_STATE_LABELS[state]}
+        </span>
+      </td>
       <td className="border px-2 py-1">
         <button type="button" onClick={copyLink} className="underline">
           {copied ? 'copied' : 'copy link'}

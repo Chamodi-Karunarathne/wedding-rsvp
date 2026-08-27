@@ -11,6 +11,7 @@ import {
 import { generateToken } from '@/lib/domain/ids';
 import { ok, serviceError, type Result } from '@/lib/domain/result';
 import { toDeliveryChannelView, toEventView, toGuestView, toRsvpView } from './mappers';
+import { listOpens } from './opens';
 import type { DeliveryChannelView, EventView, GuestView, RsvpView, Side } from './types';
 
 /** PERMANENT. Guest reads and writes. */
@@ -269,15 +270,18 @@ export type GuestListRow = {
   rsvps: RsvpView[];
   channels: DeliveryChannelView[];
   message: string | null;
+  /** When they first loaded their invitation. Null means they never have. */
+  firstOpen: Date | null;
+  lastOpen: Date | null;
 };
 
-/** Full admin listing. 500 guests is small enough to assemble in four queries
+/** Full admin listing. 500 guests is small enough to assemble in five queries
  *  rather than one join that fans out. */
 export async function listGuests(db: DbLike = getDb()): Promise<GuestListRow[]> {
   const guestRows = await db.select().from(guests).orderBy(asc(guests.sortName));
   if (guestRows.length === 0) return [];
 
-  const [invitationRows, rsvpRows, channelRows, messageRows] = await Promise.all([
+  const [invitationRows, rsvpRows, channelRows, messageRows, opens] = await Promise.all([
     db
       .select({ guestId: invitations.guestId, slug: events.slug, sortOrder: events.sortOrder })
       .from(invitations)
@@ -288,6 +292,7 @@ export async function listGuests(db: DbLike = getDb()): Promise<GuestListRow[]> 
       .innerJoin(events, eq(rsvps.eventId, events.id)),
     db.select().from(deliveryChannels),
     db.select().from(guestMessages),
+    listOpens(db),
   ]);
 
   const slugsByGuest = new Map<string, { slug: string; sortOrder: number }[]>();
@@ -313,15 +318,21 @@ export async function listGuests(db: DbLike = getDb()): Promise<GuestListRow[]> 
 
   const messageByGuest = new Map(messageRows.map((row) => [row.guestId, row.body]));
 
-  return guestRows.map((row) => ({
-    guest: toGuestView(row),
-    eventSlugs: (slugsByGuest.get(row.id) ?? [])
-      .sort((a, b) => a.sortOrder - b.sortOrder)
-      .map((e) => e.slug),
-    rsvps: rsvpsByGuest.get(row.id) ?? [],
-    channels: channelsByGuest.get(row.id) ?? [],
-    message: messageByGuest.get(row.id) ?? null,
-  }));
+  return guestRows.map((row) => {
+    const open = opens.get(row.id);
+
+    return {
+      guest: toGuestView(row),
+      eventSlugs: (slugsByGuest.get(row.id) ?? [])
+        .sort((a, b) => a.sortOrder - b.sortOrder)
+        .map((e) => e.slug),
+      rsvps: rsvpsByGuest.get(row.id) ?? [],
+      channels: channelsByGuest.get(row.id) ?? [],
+      message: messageByGuest.get(row.id) ?? null,
+      firstOpen: open?.firstOpen ?? null,
+      lastOpen: open?.lastOpen ?? null,
+    };
+  });
 }
 
 export async function getGuestById(
