@@ -2,6 +2,10 @@
 
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { postJson } from '../_components/api';
 
 export function LoginForm({ next }: { next: string }) {
@@ -28,25 +32,28 @@ export function LoginForm({ next }: { next: string }) {
   }
 
   return (
-    <form onSubmit={onSubmit} className="max-w-sm space-y-3">
-      <div>
-        <label className="block" htmlFor="password">
-          Password
-        </label>
-        <input
+    <form onSubmit={onSubmit} className="space-y-4">
+      <div className="space-y-2">
+        <Label htmlFor="password">Password</Label>
+        <Input
           id="password"
           type="password"
           autoComplete="current-password"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
-          className="w-full border px-2 py-1"
           required
         />
       </div>
-      <button type="submit" disabled={busy} className="border px-4 py-2 disabled:opacity-50">
+
+      <Button type="submit" disabled={busy} className="w-full">
         {busy ? 'Signing in...' : 'Sign in'}
-      </button>
-      {error && <p className="text-sm text-red-700">{error}</p>}
+      </Button>
+
+      {error && (
+        <Alert variant="destructive">
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+      )}
     </form>
   );
 }

@@ -1,6 +1,9 @@
 'use client';
 
 import { useState } from 'react';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { TableCell, TableRow } from '@/components/ui/table';
 import type { GuestListRow } from '@/lib/services/guests';
 import type { EventView } from '@/lib/services/types';
 import { GuestEditor } from './guest-editor';
@@ -12,38 +15,52 @@ export function GuestRow({ row, events }: { row: GuestListRow; events: EventView
 
   return (
     <>
-      <tr>
-        <td className="border px-2 py-1 break-words">{row.guest.displayName}</td>
-        <td className="border px-2 py-1">{row.guest.side}</td>
-        <td className="border px-2 py-1">{row.guest.maxPartySize}</td>
-        <td className="border px-2 py-1">{row.eventSlugs.join(', ') || '-'}</td>
-        <td className="border px-2 py-1">
-          {row.rsvps.length === 0
-            ? '-'
-            : row.rsvps
-                .map((r) => `${r.eventSlug}: ${r.attending ? `yes (${r.partyCount})` : 'no'}`)
-                .join('; ')}
-        </td>
-        <td className="border px-2 py-1">
+      <TableRow data-state={open ? 'selected' : undefined}>
+        <TableCell className="font-medium wrap-break-word">
+          {row.guest.displayName}
+          {row.guest.displayNameFallback && (
+            <span className="block text-xs font-normal text-muted-foreground">
+              card: {row.guest.cardName}
+            </span>
+          )}
+        </TableCell>
+        <TableCell>
+          <Badge variant="outline">{row.guest.side}</Badge>
+        </TableCell>
+        <TableCell className="tabular-nums">{row.guest.maxPartySize}</TableCell>
+        <TableCell className="text-muted-foreground">
+          {row.eventSlugs.join(', ') || '-'}
+        </TableCell>
+        <TableCell>
+          {row.rsvps.length === 0 ? (
+            <span className="text-muted-foreground">-</span>
+          ) : (
+            row.rsvps
+              .map((r) => `${r.eventSlug}: ${r.attending ? `yes (${r.partyCount})` : 'no'}`)
+              .join('; ')
+          )}
+        </TableCell>
+        <TableCell className="text-muted-foreground">
           {row.channels.map((c) => `${c.channel}:${c.status}`).join(', ') || '-'}
-        </td>
-        <td className="border px-2 py-1">
-          <button type="button" onClick={() => setOpen((v) => !v)} className="underline">
-            {open ? 'close' : 'edit'}
-          </button>
-        </td>
-      </tr>
+        </TableCell>
+        <TableCell>
+          <Button type="button" variant="ghost" size="sm" onClick={() => setOpen((v) => !v)}>
+            {open ? 'Close' : 'Edit'}
+          </Button>
+        </TableCell>
+      </TableRow>
+
       {open && (
-        <tr>
-          <td colSpan={7} className="border px-2 py-2">
+        <TableRow>
+          <TableCell colSpan={7} className="bg-muted/40">
             <GuestEditor
               events={events}
               guest={row.guest}
               invitedSlugs={row.eventSlugs}
               onDone={() => setOpen(false)}
             />
-          </td>
-        </tr>
+          </TableCell>
+        </TableRow>
       )}
     </>
   );

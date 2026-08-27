@@ -1,3 +1,4 @@
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { LoginForm } from './login-form';
 
 export const dynamic = 'force-dynamic';
@@ -12,12 +13,16 @@ export default async function AdminLoginPage({ searchParams }: PageProps) {
   const target = next && next.startsWith('/') && !next.startsWith('//') ? next : '/admin';
 
   return (
-    <main>
-      <h1 className="text-xl font-semibold">Admin sign in</h1>
-      <p className="mt-1 mb-4 text-sm text-gray-600">
-        One shared password. There is no account to recover.
-      </p>
-      <LoginForm next={target} />
-    </main>
+    <div className="mx-auto max-w-sm pt-8">
+      <Card>
+        <CardHeader>
+          <CardTitle className="font-heading text-xl">Admin sign in</CardTitle>
+          <CardDescription>One shared password. There is no account to recover.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <LoginForm next={target} />
+        </CardContent>
+      </Card>
+    </div>
   );
 }

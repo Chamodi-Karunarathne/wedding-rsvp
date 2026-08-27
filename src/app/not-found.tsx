@@ -8,7 +8,9 @@ import { copyFor } from '@/lib/copy';
 export default function NotFound() {
   const copy = copyFor('en');
   return (
-    <main>
+    // Carries its own column: this page sits outside (guest), so it does not
+    // get that route group's layout.
+    <main className="mx-auto max-w-2xl p-6">
       <h1 className="text-xl font-semibold">{copy.notFound.heading}</h1>
       <p className="mt-2">{copy.notFound.body}</p>
     </main>

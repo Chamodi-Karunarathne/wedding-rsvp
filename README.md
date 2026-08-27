@@ -41,8 +41,9 @@ src/
   lib/services/  all data access & writes          permanent
   lib/api/       Zod schemas, Result -> HTTP       permanent
   app/api/       thin handlers over services       permanent
-  app/(admin)/   admin console                     semi-permanent, stays ugly
+  app/(admin)/   admin console                     semi-permanent, shadcn/ui
   app/(guest)/   guest UI                          DISPOSABLE
+  components/ui/ shadcn components, admin only     generated, edit freely
   proxy.ts       the /admin gate                   permanent
 ```
 
@@ -120,6 +121,21 @@ Every guest arrives through a link somebody sent them, which makes `guest_opens`
 - **responded** — an answer exists, however it arrived
 
 `deliveryState()` in `lib/domain/delivery.ts` is pure and tested. Each household shows the furthest point it has reached, so someone who telephoned without ever opening their link still reads as responded.
+
+## The admin console
+
+shadcn/ui, on the `b2gRh45yxF` preset (`components.json` records it). Applied with:
+
+```bash
+pnpm dlx shadcn@latest init --preset b2gRh45yxF
+pnpm dlx shadcn@latest apply --preset b2gRh45yxF
+```
+
+Components live in `src/components/ui/` and are ordinary source files - generated once, then edited like anything else. This preset is built on Base UI rather than Radix, so `Select` takes `value`/`onValueChange` on the root.
+
+Two things it touches outside `/admin`, both in `src/app/globals.css` and both from the preset's own base layer: `body` gets `bg-background text-foreground`, and `html` gets `font-serif` with Noto Serif and Public Sans loaded in the root layout. The guest UI is disposable and unstyled, so it inherits those and is otherwise untouched.
+
+The root layout no longer sets a width. Guest pages get their reading column from `(guest)/layout.tsx` and `not-found.tsx` sets its own; the console needs the full width for its tables.
 
 ## Card artwork
 

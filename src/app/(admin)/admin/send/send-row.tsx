@@ -2,6 +2,9 @@
 
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { TableCell, TableRow } from '@/components/ui/table';
 import { DELIVERY_STATE_LABELS, type DeliveryState } from '@/lib/domain/delivery';
 import type { DeliveryChannelName, DeliveryStatus } from '@/lib/services/types';
 import { postJson } from '../_components/api';
@@ -20,6 +23,14 @@ const NEXT_STATUS: Record<DeliveryStatus, DeliveryStatus> = {
   pending: 'sent',
   sent: 'delivered',
   delivered: 'pending',
+};
+
+/** How far along each state reads at a glance. Responded is the finished one. */
+const STATE_VARIANT: Record<DeliveryState, 'default' | 'secondary' | 'outline'> = {
+  not_sent: 'outline',
+  sent: 'secondary',
+  opened: 'secondary',
+  responded: 'default',
 };
 
 export function SendRow({
@@ -62,44 +73,50 @@ export function SendRow({
   }
 
   return (
-    <tr>
-      <td className="border px-2 py-1 break-words">{displayName}</td>
-      <td className="border px-2 py-1">{phone ?? '-'}</td>
-      <td className="border px-2 py-1">
-        <span className={state === 'not_sent' ? 'text-gray-500' : undefined}>
-          {DELIVERY_STATE_LABELS[state]}
-        </span>
-      </td>
-      <td className="border px-2 py-1">
-        <button type="button" onClick={copyLink} className="underline">
-          {copied ? 'copied' : 'copy link'}
-        </button>
-      </td>
-      <td className="border px-2 py-1">
+    <TableRow>
+      <TableCell className="font-medium wrap-break-word">{displayName}</TableCell>
+      <TableCell className="text-muted-foreground tabular-nums">{phone ?? '-'}</TableCell>
+      <TableCell>
+        <Badge variant={STATE_VARIANT[state]}>{DELIVERY_STATE_LABELS[state]}</Badge>
+      </TableCell>
+      <TableCell>
+        <Button type="button" variant="ghost" size="sm" onClick={copyLink}>
+          {copied ? 'Copied' : 'Copy link'}
+        </Button>
+      </TableCell>
+      <TableCell>
         {whatsappUrl ? (
-          <a href={whatsappUrl} target="_blank" rel="noreferrer noopener" className="underline">
-            open WhatsApp
+          <a
+            href={whatsappUrl}
+            target="_blank"
+            rel="noreferrer noopener"
+            className="text-primary underline-offset-4 hover:underline"
+          >
+            Open WhatsApp
           </a>
         ) : (
-          <span className="text-gray-500">no phone</span>
+          <span className="text-muted-foreground">no phone</span>
         )}
-      </td>
-      <td className="border px-2 py-1">
-        {channels.length === 0 && <span className="text-gray-500">none</span>}
-        {channels.map((c) => (
-          <button
-            key={c.channel}
-            type="button"
-            onClick={() => cycle(c.channel, c.status)}
-            disabled={busy}
-            className="mr-2 underline disabled:opacity-50"
-            title="Click to advance: pending -> sent -> delivered"
-          >
-            {c.channel}:{c.status}
-          </button>
-        ))}
-        {error && <span className="text-red-700"> {error}</span>}
-      </td>
-    </tr>
+      </TableCell>
+      <TableCell>
+        <div className="flex flex-wrap items-center gap-1">
+          {channels.length === 0 && <span className="text-muted-foreground">none</span>}
+          {channels.map((c) => (
+            <Button
+              key={c.channel}
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => cycle(c.channel, c.status)}
+              disabled={busy}
+              title="Click to advance: pending -> sent -> delivered"
+            >
+              {c.channel}: {c.status}
+            </Button>
+          ))}
+          {error && <span className="text-sm text-destructive">{error}</span>}
+        </div>
+      </TableCell>
+    </TableRow>
   );
 }

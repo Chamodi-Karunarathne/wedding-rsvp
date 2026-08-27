@@ -2,6 +2,19 @@
 
 import { useRouter } from 'next/navigation';
 import { useMemo, useState } from 'react';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import type { EventView, RsvpView } from '@/lib/services/types';
 import { postJson } from '../_components/api';
 
@@ -133,139 +146,171 @@ export function RecordResponse({ guests, events }: Props) {
   }
 
   return (
-    <section className="border-2 p-3">
-      <h2 className="font-medium">Record a response</h2>
-      <p className="text-sm text-gray-600">
-        For answers that arrive by telephone. Saved with source &ldquo;phone&rdquo; and your name,
-        so they stay distinguishable from a guest&apos;s own answer later.
-      </p>
+    <Card className="border-primary/30">
+      <CardHeader>
+        <CardTitle>Record a response</CardTitle>
+        <CardDescription>
+          For answers that arrive by telephone. Saved with source &ldquo;phone&rdquo; and your
+          name, so they stay distinguishable from a guest&apos;s own answer later.
+        </CardDescription>
+      </CardHeader>
 
-      {saved && (
-        <p className="mt-2 text-sm text-green-700">
-          Saved {saved}. Search again for the next one.
-        </p>
-      )}
+      <CardContent className="space-y-4">
+        {saved && (
+          <Alert>
+            <AlertDescription>Saved {saved}. Search again for the next one.</AlertDescription>
+          </Alert>
+        )}
 
-      {!selected && (
-        <div className="mt-3">
-          <label className="block text-sm">
-            Search by name
-            <input
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              className="w-full border px-2 py-1"
-              placeholder="Start typing a name..."
-              autoComplete="off"
-            />
-          </label>
+        {!selected && (
+          <div className="space-y-3">
+            <div className="space-y-2">
+              <Label htmlFor="guest-search">Search by name</Label>
+              <Input
+                id="guest-search"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="Start typing a name..."
+                autoComplete="off"
+              />
+            </div>
 
-          {query.trim() !== '' && matches.length === 0 && (
-            <p className="mt-2 text-sm text-gray-600">No guest matches that.</p>
-          )}
+            {query.trim() !== '' && matches.length === 0 && (
+              <p className="text-sm text-muted-foreground">No guest matches that.</p>
+            )}
 
-          <ul className="mt-2 space-y-1 text-sm">
-            {matches.map((guest) => {
-              const existing = guest.rsvps[0];
+            {matches.length > 0 && (
+              <ul className="divide-y rounded-xl border">
+                {matches.map((guest) => {
+                  const existing = guest.rsvps[0];
+                  return (
+                    <li key={guest.id}>
+                      <button
+                        type="button"
+                        onClick={() => choose(guest)}
+                        className="flex w-full flex-wrap items-center justify-between gap-2 px-3 py-2 text-left text-sm hover:bg-muted"
+                      >
+                        <span className="font-medium">{guest.displayName}</span>
+                        <span className="flex items-center gap-2 text-xs text-muted-foreground">
+                          up to {guest.maxPartySize}
+                          <Badge variant={existing ? 'secondary' : 'outline'}>
+                            {existing ? describe(existing) : 'no response yet'}
+                          </Badge>
+                        </span>
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </div>
+        )}
+
+        {selected && (
+          <form onSubmit={submit} className="space-y-4">
+            <div>
+              <p className="font-medium">{selected.displayName}</p>
+              {selected.rsvps.length > 0 && (
+                <p className="text-sm text-muted-foreground">
+                  This overwrites their current answer. The previous one is kept in the RSVP
+                  history.
+                </p>
+              )}
+            </div>
+
+            {invited.length === 0 && (
+              <Alert variant="destructive">
+                <AlertDescription>
+                  This guest holds no invitation, so there is nothing to answer for.
+                </AlertDescription>
+              </Alert>
+            )}
+
+            {invited.map((event) => {
+              const field = fields[event.slug]!;
+              const patch = (next: Partial<Field>) =>
+                setFields((prev) => ({ ...prev, [event.slug]: { ...prev[event.slug]!, ...next } }));
+
               return (
-                <li key={guest.id}>
-                  <button type="button" onClick={() => choose(guest)} className="underline">
-                    {guest.displayName}
-                  </button>{' '}
-                  <span className="text-gray-600">
-                    (up to {guest.maxPartySize}) &mdash;{' '}
-                    {existing ? describe(existing) : 'no response yet'}
-                  </span>
-                </li>
+                <div key={event.slug} className="space-y-3 rounded-xl border p-3">
+                  {events.length > 1 && <p className="font-medium">{event.name}</p>}
+
+                  <div className="flex flex-wrap items-end gap-3">
+                    <div className="space-y-2">
+                      <Label htmlFor={`answer-${event.slug}`}>Answer</Label>
+                      <Select
+                        value={field.attending ? 'yes' : 'no'}
+                        onValueChange={(value) => patch({ attending: value === 'yes' })}
+                      >
+                        <SelectTrigger id={`answer-${event.slug}`}>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="yes">attending</SelectItem>
+                          <SelectItem value="no">declined</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    {field.attending && (
+                      <div className="space-y-2">
+                        <Label htmlFor={`party-${event.slug}`}>Party count</Label>
+                        <Input
+                          id={`party-${event.slug}`}
+                          type="number"
+                          min={1}
+                          max={selected.maxPartySize}
+                          value={field.partyCount}
+                          onChange={(e) => patch({ partyCount: Number(e.target.value) })}
+                          className="w-24"
+                        />
+                      </div>
+                    )}
+                  </div>
+
+                  {field.attending && (
+                    <div className="space-y-2">
+                      <Label htmlFor={`names-${event.slug}`}>Who is coming?</Label>
+                      <Input
+                        id={`names-${event.slug}`}
+                        value={field.attendeeNames}
+                        onChange={(e) => patch({ attendeeNames: e.target.value })}
+                        placeholder="Optional"
+                      />
+                    </div>
+                  )}
+                </div>
               );
             })}
-          </ul>
-        </div>
-      )}
 
-      {selected && (
-        <form onSubmit={submit} className="mt-3 space-y-2 text-sm">
-          <p className="font-medium">{selected.displayName}</p>
+            <div className="space-y-2">
+              <Label htmlFor="recorded-by">Recorded by</Label>
+              <Input
+                id="recorded-by"
+                value={recordedBy}
+                onChange={(e) => setRecordedBy(e.target.value)}
+                placeholder="Your name - there is no per-person login"
+                required
+              />
+            </div>
 
-          {selected.rsvps.length > 0 && (
-            <p className="text-gray-600">
-              This overwrites their current answer. The previous one is kept in the RSVP history.
-            </p>
-          )}
+            <div className="flex flex-wrap gap-2">
+              <Button type="submit" disabled={busy || invited.length === 0}>
+                {busy ? 'Saving...' : 'Save response'}
+              </Button>
+              <Button type="button" variant="outline" onClick={cancel}>
+                Cancel
+              </Button>
+            </div>
 
-          {invited.length === 0 && (
-            <p className="text-red-700">
-              This guest holds no invitation, so there is nothing to answer for.
-            </p>
-          )}
-
-          {invited.map((event) => {
-            const field = fields[event.slug]!;
-            const patch = (next: Partial<Field>) =>
-              setFields((prev) => ({ ...prev, [event.slug]: { ...prev[event.slug]!, ...next } }));
-
-            return (
-              <div key={event.slug} className="border p-2">
-                {events.length > 1 && <p className="font-medium">{event.name}</p>}
-
-                <select
-                  value={field.attending ? 'yes' : 'no'}
-                  onChange={(e) => patch({ attending: e.target.value === 'yes' })}
-                  className="border px-1 py-1"
-                  aria-label="Answer"
-                >
-                  <option value="yes">attending</option>
-                  <option value="no">declined</option>
-                </select>
-
-                {field.attending && (
-                  <>
-                    <input
-                      type="number"
-                      min={1}
-                      max={selected.maxPartySize}
-                      value={field.partyCount}
-                      onChange={(e) => patch({ partyCount: Number(e.target.value) })}
-                      className="ml-2 w-16 border px-1 py-1"
-                      aria-label="Party count"
-                    />
-                    <input
-                      value={field.attendeeNames}
-                      onChange={(e) => patch({ attendeeNames: e.target.value })}
-                      className="mt-2 w-full border px-2 py-1"
-                      placeholder="Who is coming? (optional)"
-                    />
-                  </>
-                )}
-              </div>
-            );
-          })}
-
-          <label className="block">
-            Recorded by (your name &mdash; there is no per-person login)
-            <input
-              value={recordedBy}
-              onChange={(e) => setRecordedBy(e.target.value)}
-              className="w-full border px-2 py-1"
-              required
-            />
-          </label>
-
-          <div className="flex gap-2">
-            <button
-              type="submit"
-              disabled={busy || invited.length === 0}
-              className="border px-3 py-1 disabled:opacity-50"
-            >
-              {busy ? 'Saving...' : 'Save response'}
-            </button>
-            <button type="button" onClick={cancel} className="border px-3 py-1">
-              Cancel
-            </button>
-          </div>
-
-          {error && <p className="text-red-700">{error}</p>}
-        </form>
-      )}
-    </section>
+            {error && (
+              <Alert variant="destructive">
+                <AlertDescription>{error}</AlertDescription>
+              </Alert>
+            )}
+          </form>
+        )}
+      </CardContent>
+    </Card>
   );
 }

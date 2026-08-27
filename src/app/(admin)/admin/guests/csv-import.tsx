@@ -2,6 +2,19 @@
 
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
+import { Textarea } from '@/components/ui/textarea';
 import type { EventView } from '@/lib/services/types';
 import { postJson } from '../_components/api';
 
@@ -20,6 +33,20 @@ type Summary = {
   results: RowResult[];
   dryRun: boolean;
 };
+
+const COLUMNS = [
+  'display_name',
+  'side',
+  'display_name_fallback',
+  'sort_name',
+  'language',
+  'max_party_size',
+  'phone',
+  'personal_note',
+  'notes',
+  'events',
+  'channels',
+];
 
 export function CsvImport({ events }: { events: EventView[] }) {
   const router = useRouter();
@@ -58,24 +85,35 @@ export function CsvImport({ events }: { events: EventView[] }) {
   }
 
   return (
-    <div className="space-y-3 border p-3 text-sm">
-      <p>
-        Columns: <code>display_name</code> (required), <code>side</code> (bride|groom|both,
-        required), <code>display_name_fallback</code>, <code>sort_name</code>,{' '}
-        <code>language</code>, <code>max_party_size</code>, <code>phone</code>,{' '}
-        <code>personal_note</code>, <code>notes</code>, <code>events</code>,{' '}
-        <code>channels</code>. Use <code>;</code> or <code>|</code> to separate multiple events
-        or channels.
-      </p>
-      <p className="text-gray-600">
-        Matching is on sort name plus phone, both normalized. Re-importing the same file updates
-        those guests rather than duplicating them, and never regenerates a token or short code -
-        so a card already at the printer stays valid.
-      </p>
+    <div className="space-y-4">
+      <div className="space-y-2 text-sm">
+        <p className="flex flex-wrap items-center gap-1.5">
+          <span className="text-muted-foreground">Columns:</span>
+          {COLUMNS.map((column) => (
+            <code
+              key={column}
+              className="rounded bg-muted px-1.5 py-0.5 font-mono text-xs text-muted-foreground"
+            >
+              {column}
+            </code>
+          ))}
+        </p>
+        <p className="text-muted-foreground">
+          Only <code className="font-mono text-xs">display_name</code> and{' '}
+          <code className="font-mono text-xs">side</code> are required. Use{' '}
+          <code className="font-mono text-xs">;</code> or{' '}
+          <code className="font-mono text-xs">|</code> to separate multiple events or channels.
+          Matching is on sort name plus phone, both normalized, and a re-import never regenerates
+          a token &mdash; so a link already sent stays valid.
+        </p>
+      </div>
 
-      <input type="file" accept=".csv,text/csv" onChange={onFile} />
+      <div className="space-y-2">
+        <Label htmlFor="csv-file">Upload a file</Label>
+        <Input id="csv-file" type="file" accept=".csv,text/csv" onChange={onFile} />
+      </div>
 
-      <textarea
+      <Textarea
         rows={6}
         value={csv}
         onChange={(e) => {
@@ -83,77 +121,86 @@ export function CsvImport({ events }: { events: EventView[] }) {
           setSummary(null);
         }}
         placeholder="...or paste CSV here"
-        className="w-full border px-2 py-1 font-mono text-xs"
+        className="font-mono text-xs"
       />
 
-      <fieldset className="border p-2">
-        <legend>Invite imported guests to (when the row has no events column)</legend>
-        {events.map((event) => (
-          <label key={event.slug} className="mr-4">
-            <input
-              type="checkbox"
-              checked={defaultSlugs.includes(event.slug)}
-              onChange={(e) =>
-                setDefaultSlugs((prev) =>
-                  e.target.checked
-                    ? [...prev, event.slug]
-                    : prev.filter((slug) => slug !== event.slug),
-                )
-              }
-            />{' '}
-            {event.name}
-          </label>
-        ))}
+      <fieldset className="space-y-2">
+        <legend className="text-sm font-medium">
+          Invite imported guests to (when the row has no events column)
+        </legend>
+        <div className="flex flex-wrap gap-4">
+          {events.map((event) => (
+            <Label key={event.slug} className="flex items-center gap-2 font-normal">
+              <input
+                type="checkbox"
+                className="size-4 accent-primary"
+                checked={defaultSlugs.includes(event.slug)}
+                onChange={(e) =>
+                  setDefaultSlugs((prev) =>
+                    e.target.checked
+                      ? [...prev, event.slug]
+                      : prev.filter((slug) => slug !== event.slug),
+                  )
+                }
+              />
+              {event.name}
+            </Label>
+          ))}
+        </div>
       </fieldset>
 
-      <div className="flex gap-2">
-        <button
+      <div className="flex flex-wrap gap-2">
+        <Button
           type="button"
+          variant="outline"
           onClick={() => run(true)}
           disabled={busy || csv.trim() === ''}
-          className="border px-3 py-1 disabled:opacity-50"
         >
           Preview (no writes)
-        </button>
-        <button
-          type="button"
-          onClick={() => run(false)}
-          disabled={busy || csv.trim() === ''}
-          className="border px-3 py-1 font-medium disabled:opacity-50"
-        >
+        </Button>
+        <Button type="button" onClick={() => run(false)} disabled={busy || csv.trim() === ''}>
           {busy ? 'Importing...' : 'Import'}
-        </button>
+        </Button>
       </div>
 
-      {error && <p className="text-red-700">{error}</p>}
+      {error && (
+        <Alert variant="destructive">
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+      )}
 
       {summary && (
-        <div>
-          <p className="font-medium">
-            {summary.dryRun ? 'Preview: ' : 'Done: '}
-            {summary.created} created, {summary.updated} updated, {summary.errors} failed.
-          </p>
+        <div className="space-y-3">
+          <Alert variant={summary.errors > 0 ? 'destructive' : 'default'}>
+            <AlertDescription>
+              {summary.dryRun ? 'Preview: ' : 'Done: '}
+              {summary.created} created, {summary.updated} updated, {summary.errors} failed.
+            </AlertDescription>
+          </Alert>
+
           {summary.errors > 0 && (
-            <table className="mt-2 border-collapse text-xs">
-              <thead>
-                <tr>
-                  <th className="border px-2 py-1 text-left">Row</th>
-                  <th className="border px-2 py-1 text-left">Name</th>
-                  <th className="border px-2 py-1 text-left">Problem</th>
-                </tr>
-              </thead>
-              <tbody>
-                {summary.results
-                  .filter((row) => row.status === 'error')
-                  .map((row) => (
-                    <tr key={row.row}>
-                      <td className="border px-2 py-1">{row.row}</td>
-                      <td className="border px-2 py-1">{row.displayName || '(blank)'}</td>
-                      <td className="border px-2 py-1 text-red-700">{row.message}</td>
-                    </tr>
-                  ))}
-              </tbody>
-            </table>
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Row</TableHead>
+                    <TableHead>Name</TableHead>
+                    <TableHead>Problem</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {summary.results
+                    .filter((row) => row.status === 'error')
+                    .map((row) => (
+                      <TableRow key={row.row}>
+                        <TableCell className="tabular-nums">{row.row}</TableCell>
+                        <TableCell>{row.displayName || '(blank)'}</TableCell>
+                        <TableCell className="text-destructive">{row.message}</TableCell>
+                      </TableRow>
+                    ))}
+                </TableBody>
+              </Table>
+            </div>
           )}
         </div>
       )}

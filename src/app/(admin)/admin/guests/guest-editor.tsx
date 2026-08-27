@@ -2,6 +2,18 @@
 
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { Textarea } from '@/components/ui/textarea';
 import {
   DISPLAY_NAME_SOFT_LIMIT,
   displayNameLength,
@@ -112,14 +124,14 @@ export function GuestEditor({ events, guest, invitedSlugs = [], onDone }: Props)
   }
 
   return (
-    <form onSubmit={save} className="space-y-2 border p-3 text-sm">
-      <div className="grid gap-2 sm:grid-cols-2">
-        <label className="block">
-          Display name (exactly as addressed)
-          <input
+    <form onSubmit={save} className="space-y-4">
+      <div className="grid gap-4 sm:grid-cols-2">
+        <div className="space-y-2">
+          <Label htmlFor="displayName">Display name (exactly as addressed)</Label>
+          <Input
+            id="displayName"
             value={form.displayName}
             onChange={(e) => set('displayName', e.target.value)}
-            className="w-full border px-2 py-1"
             required
           />
           {/*
@@ -128,123 +140,134 @@ export function GuestEditor({ events, guest, invitedSlugs = [], onDone }: Props)
             Fernando Family" is acceptable is the family's call, not ours.
           */}
           {tooLong && (
-            <span className="text-amber-700">
+            <p className="text-sm text-destructive">
               {nameLength} characters. Over {DISPLAY_NAME_SOFT_LIMIT} is likely to break the card
-              layout - consider a shorter form below. Saving anyway is fine.
-            </span>
+              layout &mdash; consider a shorter form beside this. Saving anyway is fine.
+            </p>
           )}
-        </label>
+        </div>
 
-        <label className="block">
-          Shorter name for the card (blank = use the display name)
-          <input
+        <div className="space-y-2">
+          <Label htmlFor="displayNameFallback">Shorter name for the card</Label>
+          <Input
+            id="displayNameFallback"
             value={form.displayNameFallback}
             onChange={(e) => set('displayNameFallback', e.target.value)}
-            className="w-full border px-2 py-1"
             placeholder="e.g. The Fernando Family"
           />
-          <span className="text-gray-600">
-            The card will read: <strong>{cardName || '(nothing yet)'}</strong>
-          </span>
-        </label>
-        <label className="block">
-          Sort name (blank = display name)
-          <input
+          <p className="text-sm text-muted-foreground">
+            Blank uses the display name. The card will read:{' '}
+            <strong className="text-foreground">{cardName || '(nothing yet)'}</strong>
+          </p>
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="sortName">Sort name</Label>
+          <Input
+            id="sortName"
             value={form.sortName}
             onChange={(e) => set('sortName', e.target.value)}
-            className="w-full border px-2 py-1"
+            placeholder="Blank uses the display name"
           />
-        </label>
-        <label className="block">
-          Side
-          <select
-            value={form.side}
-            onChange={(e) => set('side', e.target.value as Side)}
-            className="w-full border px-2 py-1"
-          >
-            {SIDES.map((side) => (
-              <option key={side} value={side}>
-                {side}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="block">
-          Max party size
-          <input
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="side">Side</Label>
+          <Select value={form.side} onValueChange={(value) => set('side', value as Side)}>
+            <SelectTrigger id="side" className="w-full">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {SIDES.map((side) => (
+                <SelectItem key={side} value={side}>
+                  {side}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="maxPartySize">Max party size</Label>
+          <Input
+            id="maxPartySize"
             type="number"
             min={1}
             max={50}
             value={form.maxPartySize}
             onChange={(e) => set('maxPartySize', Number(e.target.value))}
-            className="w-full border px-2 py-1"
           />
-        </label>
-        <label className="block">
-          Phone
-          <input
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="phone">Phone</Label>
+          <Input
+            id="phone"
             value={form.phone}
             onChange={(e) => set('phone', e.target.value)}
-            className="w-full border px-2 py-1"
           />
-        </label>
-        <label className="block">
-          Notes (admin only - never shown to the guest)
-          <input
+        </div>
+
+        <div className="space-y-2 sm:col-span-2">
+          <Label htmlFor="notes">Notes</Label>
+          <Input
+            id="notes"
             value={form.notes}
             onChange={(e) => set('notes', e.target.value)}
-            className="w-full border px-2 py-1"
+            placeholder="Admin only - never shown to the guest"
           />
-        </label>
+        </div>
       </div>
 
-      <label className="block">
-        Personal note (shown only to this guest)
-        <textarea
+      <div className="space-y-2">
+        <Label htmlFor="personalNote">Personal note (shown only to this guest)</Label>
+        <Textarea
+          id="personalNote"
           rows={2}
           value={form.personalNote}
           onChange={(e) => set('personalNote', e.target.value)}
-          className="w-full border px-2 py-1"
         />
-      </label>
+      </div>
 
-      <fieldset className="border p-2">
-        <legend>Invited to</legend>
-        {events.map((event) => (
-          <label key={event.slug} className="mr-4">
-            <input
-              type="checkbox"
-              checked={slugs.includes(event.slug)}
-              onChange={(e) =>
-                setSlugs((prev) =>
-                  e.target.checked
-                    ? [...prev, event.slug]
-                    : prev.filter((slug) => slug !== event.slug),
-                )
-              }
-            />{' '}
-            {event.name}
-          </label>
-        ))}
+      <fieldset className="space-y-2">
+        <legend className="text-sm font-medium">Invited to</legend>
+        <div className="flex flex-wrap gap-4">
+          {events.map((event) => (
+            <Label key={event.slug} className="flex items-center gap-2 font-normal">
+              <input
+                type="checkbox"
+                className="size-4 accent-primary"
+                checked={slugs.includes(event.slug)}
+                onChange={(e) =>
+                  setSlugs((prev) =>
+                    e.target.checked
+                      ? [...prev, event.slug]
+                      : prev.filter((slug) => slug !== event.slug),
+                  )
+                }
+              />
+              {event.name}
+            </Label>
+          ))}
+        </div>
       </fieldset>
 
-      <div className="flex gap-2">
-        <button type="submit" disabled={busy} className="border px-3 py-1 disabled:opacity-50">
+      <div className="flex flex-wrap gap-2">
+        <Button type="submit" disabled={busy}>
           {busy ? 'Saving...' : editing ? 'Save changes' : 'Create guest'}
-        </button>
+        </Button>
         {editing && (
-          <button
-            type="button"
-            onClick={remove}
-            disabled={busy}
-            className="border px-3 py-1 text-red-700 disabled:opacity-50"
-          >
+          <Button type="button" variant="destructive" onClick={remove} disabled={busy}>
             Delete
-          </button>
+          </Button>
         )}
       </div>
 
-      {error && <p className="text-red-700">{error}</p>}
+      {error && (
+        <Alert variant="destructive">
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+      )}
     </form>
   );
 }

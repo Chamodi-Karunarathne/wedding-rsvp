@@ -1,3 +1,4 @@
+import { Card, CardContent } from '@/components/ui/card';
 import type { EventCounts } from '@/lib/services/dashboard';
 
 /**
@@ -9,25 +10,34 @@ import type { EventCounts } from '@/lib/services/dashboard';
  * with its name back to tell them apart.
  */
 export function CountsBlock({ counts, named }: { counts: EventCounts; named: boolean }) {
-  const figures: [string, number][] = [
-    ['Invited', counts.invited],
-    ['Attending', counts.attending],
-    ['Declined', counts.declined],
-    ['No response', counts.noResponse],
-    ['Headcount', counts.headcount],
+  const figures: { label: string; value: number; hint?: string }[] = [
+    { label: 'Invited', value: counts.invited },
+    { label: 'Attending', value: counts.attending },
+    { label: 'Declined', value: counts.declined },
+    { label: 'No response', value: counts.noResponse },
+    { label: 'Headcount', value: counts.headcount, hint: 'the catering number' },
   ];
 
   return (
-    <div>
-      {named && <h3 className="font-medium">{counts.event.name}</h3>}
-      <dl className="mt-1 flex flex-wrap gap-x-8 gap-y-2">
-        {figures.map(([label, value]) => (
-          <div key={label}>
-            <dt className="text-sm text-gray-600">{label}</dt>
-            <dd className="text-xl font-semibold">{value}</dd>
-          </div>
+    <div className="space-y-2">
+      {named && <h3 className="font-heading font-medium">{counts.event.name}</h3>}
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+        {figures.map((figure) => (
+          <Card key={figure.label}>
+            <CardContent className="p-4">
+              <dl>
+                <dt className="text-sm text-muted-foreground">{figure.label}</dt>
+                <dd className="font-heading mt-1 text-3xl font-semibold tabular-nums">
+                  {figure.value}
+                </dd>
+                {figure.hint && (
+                  <dd className="mt-1 text-xs text-muted-foreground">{figure.hint}</dd>
+                )}
+              </dl>
+            </CardContent>
+          </Card>
         ))}
-      </dl>
+      </div>
     </div>
   );
 }
