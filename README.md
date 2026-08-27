@@ -122,7 +122,7 @@ Every guest arrives through a link somebody sent them, which makes `guest_opens`
 
 ## Card artwork
 
-Illustrator exports land in `public/card/` as SVG. `public/card/manifest.json` lists what the design expects, and `pnpm build` fails before `next build` runs if a listed file is missing or any SVG exceeds 150 KB — the alternative is an empty frame that a guest notices first. `pnpm assets:optimize` rewrites the exports through SVGO at 2dp coordinate precision, which alone cuts these files substantially, and stamps the manifest with a content hash.
+Illustrator exports land in `public/card/` as SVG. `public/card/manifest.json` lists what the design expects, and `pnpm build` fails before `next build` runs if a listed file is missing or any SVG exceeds 150 KB — the alternative is an empty frame that a guest notices first. `pnpm assets:optimize` rewrites the exports through SVGO at 2dp coordinate precision, adds anything new to the manifest, and stamps it with a content hash. It also prefixes every id with the filename (`card-base__card-base-root`), because Illustrator writes `id="Layer_2"` on every root and 325 glyph ids of the form `font_2_37` into card-text.svg alone - inline two of those in one document and the second silently wins. Entries are never removed from the manifest by the script: a file that vanishes should fail the build, not quietly stop being expected.
 
 Assets are served `immutable` for a year. That is only safe because `cardAsset()` appends that hash: artwork arrives iteratively under the same filenames, and a bare `/card/frame.svg` would pin the first export in every cache that ever saw it. The same trap as the WhatsApp preview cache, in a different costume.
 

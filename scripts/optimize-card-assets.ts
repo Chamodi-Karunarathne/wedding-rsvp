@@ -1,22 +1,37 @@
 import { createHash } from 'node:crypto';
 import { existsSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { basename, join } from 'node:path';
 import { optimize } from 'svgo';
 
 /**
  * Rewrites every SVG in public/card/ through SVGO, in place.
  *
- * Coordinate precision is the setting that matters here: Illustrator writes
- * paths at six or more decimal places, and on artwork of this kind rounding
- * to two removes a large fraction of the bytes while staying far below what
- * anyone can see at print or screen size.
+ * Three things it is doing, in rough order of how much they matter:
  *
- * It also stamps manifest.json with a hash of the optimized contents. Card
- * assets are served with immutable cache headers, so that version is what a
- * re-export under the same filename has to change in order to reach anyone
- * who already loaded the old one.
+ * 1. Coordinate precision. Illustrator writes paths at six or more decimal
+ *    places; rounding to two removes a large fraction of the bytes while
+ *    staying far below what anyone can see at print or screen size.
  *
- * Safe to re-run: SVGO is idempotent on its own output.
+ * 2. Per-file id prefixing, which makes id collisions impossible by
+ *    construction rather than by luck. Every export currently arrives with
+ *    `id="Layer_2"` on the root, and card-text.svg alone carries 325 glyph
+ *    ids of the form `font_2_37`. The moment two of these are inlined into
+ *    one document those ids are in the same namespace, and the second one
+ *    silently wins. Prefixing with the filename means they never can be.
+ *
+ * 3. Manifest maintenance. Anything new in the directory is added to
+ *    manifest.json, and the manifest is stamped with a hash of the optimized
+ *    contents. Card assets are served with immutable cache headers, so that
+ *    version is what a re-export under the same filename has to change in
+ *    order to reach anyone who already loaded the old one.
+ *
+ * Entries are never REMOVED from the manifest here. A file that vanishes
+ * should fail the build, which is what scripts/check-card-assets.ts is for;
+ * quietly dropping it from the list would be the one behaviour that defeats
+ * the check entirely.
+ *
+ * Safe to re-run: SVGO is idempotent on its own output, and prefixing an
+ * already-prefixed id is a no-op.
  */
 
 const CARD_DIR = join('public', 'card');
@@ -24,6 +39,15 @@ const MANIFEST_PATH = join(CARD_DIR, 'manifest.json');
 
 /** Two decimal places, as agreed. Absolute, not relative to the viewBox. */
 const FLOAT_PRECISION = 2;
+
+/**
+ * The filename, reduced to characters that are legal in an id and in a CSS
+ * selector. Illustrator will happily export "Artboard 1.svg", and a prefix
+ * with a space in it produces ids nothing can reference.
+ */
+function idPrefix(file: string): string {
+  return basename(file, '.svg').replace(/[^A-Za-z0-9_-]+/g, '-').replace(/^-+|-+$/g, '');
+}
 
 function kb(bytes: number): string {
   return `${(bytes / 1024).toFixed(1)} KB`;
@@ -49,12 +73,45 @@ const hash = createHash('sha256');
 for (const name of files) {
   const path = join(CARD_DIR, name);
   const original = readFileSync(path, 'utf8');
+  const prefix = idPrefix(name);
 
   const result = optimize(original, {
     path,
     multipass: true,
     floatPrecision: FLOAT_PRECISION,
-    plugins: [{ name: 'preset-default' }],
+    plugins: [
+      {
+        name: 'preset-default',
+        params: {
+          overrides: {
+            // prefixIds does this instead, and does it without collisions.
+            cleanupIds: false,
+          },
+          // NOTE: no removeViewBox override. SVGO 4 dropped removeViewBox
+          // from preset-default, so the viewBox these files need for scaling
+          // is already kept; overriding it here only produces a warning on
+          // every pass. Verified in the output - all five keep their viewBox.
+        },
+      },
+      // Sizing comes from the viewBox and whatever the page asks for.
+      { name: 'removeDimensions' },
+      // Strips the root id and the data-name breadcrumbs Illustrator leaves
+      // on every group. Runs BEFORE prefixIds, so `Layer_2` disappears
+      // rather than becoming `card-base__Layer_2`.
+      { name: 'removeAttrs', params: { attrs: ['svg:id', '.*:data-name'] } },
+      {
+        name: 'prefixIds',
+        params: {
+          delim: '__',
+          prefix,
+          // These exports use presentation attributes and carry no classes at
+          // all, so there is nothing to prefix. If a future export arrives
+          // with Illustrator's `.cls-1` style block, turn this on: `.cls-1`
+          // is the same name in every file it writes.
+          prefixClassNames: false,
+        },
+      },
+    ],
   });
 
   writeFileSync(path, result.data, 'utf8');
@@ -76,7 +133,7 @@ if (files.length > 0) {
   console.log(`\n${files.length} file(s): ${kb(before)} -> ${kb(after)} (-${saved.toFixed(0)}%)`);
 }
 
-/* --- stamp the manifest ---------------------------------------------- */
+/* --- manifest -------------------------------------------------------- */
 
 if (!existsSync(MANIFEST_PATH)) {
   console.error(`\n${MANIFEST_PATH} is missing, so there is nothing to stamp.`);
@@ -88,22 +145,28 @@ const manifest = JSON.parse(readFileSync(MANIFEST_PATH, 'utf8')) as {
   assets?: string[];
 };
 
+const listed = manifest.assets ?? [];
+const added = files.filter((name) => !listed.includes(name));
 const version = files.length === 0 ? 'empty' : hash.digest('hex').slice(0, 12);
 
-if (manifest.version !== version) {
+if (added.length > 0 || manifest.version !== version) {
+  manifest.assets = [...listed, ...added].sort();
   manifest.version = version;
   writeFileSync(MANIFEST_PATH, `${JSON.stringify(manifest, null, 2)}\n`, 'utf8');
+
+  if (added.length > 0) {
+    console.log(`\nAdded to manifest.json: ${added.join(', ')}`);
+  }
   console.log(`Stamped manifest.json with version ${version}.`);
 } else {
-  console.log(`manifest.json already at version ${version}.`);
+  console.log(`\nmanifest.json already lists all ${files.length} file(s) at version ${version}.`);
 }
 
-const listed = manifest.assets ?? [];
-const unlisted = files.filter((name) => !listed.includes(name));
-
-if (unlisted.length > 0) {
+const missing = (manifest.assets ?? []).filter((name) => !files.includes(name));
+if (missing.length > 0) {
   console.log(
-    `\n${unlisted.length} file(s) are not listed in manifest.json: ${unlisted.join(', ')}.\n` +
-      'Add them to the "assets" array so the build fails if one ever goes missing.',
+    `\n${missing.length} file(s) are listed in manifest.json but not on disk: ` +
+      `${missing.join(', ')}.\nLeft in place deliberately - \`pnpm build\` will fail on them ` +
+      'until they arrive, or until you remove the entry by hand.',
   );
 }
