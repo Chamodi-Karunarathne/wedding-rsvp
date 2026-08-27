@@ -44,6 +44,8 @@ export async function loadInvitation(
     rsvps,
     message,
     phase,
+    rsvpDeadline: config.phase.rsvpDeadline,
+    rsvpDeadlinePassed: now > config.phase.rsvpDeadline,
     sections: sectionOrder(phase),
     site: config.site,
   });

@@ -39,6 +39,8 @@ export type CopyBundle = {
     attendeeNamesHelp: string;
     messageLabel: string;
     messageHelp: string;
+    deadline: (date: string) => string;
+    deadlinePassed: string;
     submit: string;
     submitting: string;
     saved: string;
@@ -92,6 +94,10 @@ const en: CopyBundle = {
     attendeeNamesHelp: 'Optional. Helps us with place settings.',
     messageLabel: 'A message for us',
     messageHelp: 'Optional.',
+    deadline: (date) => `Please let us know by ${date}.`,
+    deadlinePassed:
+      'Our reply date has passed, but please do still tell us - we would far rather hear ' +
+      'from you late than not hear from you at all.',
     submit: 'Send response',
     submitting: 'Sending...',
     saved: 'Thank you - your response has been saved.',

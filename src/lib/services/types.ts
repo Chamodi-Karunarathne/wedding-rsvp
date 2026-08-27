@@ -86,6 +86,15 @@ export type InvitationView = {
   rsvps: Record<string, RsvpView>;
   message: string | null;
   phase: Phase;
+  /**
+   * The reply date, for display only. The form stays open after it: a late
+   * answer is worth more than a locked form, and submitted_at already says
+   * who was late.
+   */
+  rsvpDeadline: Date;
+  /** Resolved server-side, so a guest with a wrong device clock still agrees
+   *  with the couple about whether they are late. */
+  rsvpDeadlinePassed: boolean;
   /** Section order for the current phase. Never omits a section. */
   sections: readonly SectionId[];
   site: SiteSettings;

@@ -4,6 +4,7 @@ import type {
   GuestRow,
   RsvpRow,
 } from '@/db/schema';
+import { resolveCardName } from '@/lib/domain/names';
 import type { DeliveryChannelView, EventView, GuestView, RsvpView } from './types';
 
 /** PERMANENT. Drizzle rows in, boundary view models out. The only place that
@@ -16,7 +17,7 @@ export function toGuestView(row: GuestRow): GuestView {
     displayName: row.displayName,
     displayNameFallback: row.displayNameFallback,
     // The one place the fallback rule is applied.
-    cardName: row.displayNameFallback ?? row.displayName,
+    cardName: resolveCardName(row.displayName, row.displayNameFallback),
     sortName: row.sortName,
     side: row.side,
     language: row.language,

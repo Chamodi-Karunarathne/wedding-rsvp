@@ -20,6 +20,7 @@ import {
   DEFAULT_MESSAGING_CONFIG,
   DEFAULT_PHASE_CONFIG,
   DEFAULT_TIMEZONE,
+  EVENT_DATE,
 } from '../lib/domain/config.ts';
 
 /**
@@ -35,8 +36,9 @@ loadEnv();
 /* fixtures                                                                   */
 /* -------------------------------------------------------------------------- */
 
-// Asia/Colombo is UTC+05:30. Thursday 3 December 2026, 09:15 local.
-const CEREMONY_AT = new Date('2026-12-03T03:45:00.000Z');
+// Thursday 3 December 2026, 09:15 Asia/Colombo. Overridable with
+// WEDDING_EVENT_DATE so this can be re-pointed without a code change.
+const CEREMONY_AT = EVENT_DATE;
 
 /**
  * ONE event, deliberately seeded through the same tables a dozen would use.

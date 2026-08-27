@@ -75,6 +75,7 @@ export const deliveryChannelSchema = z.object({
 
 export const phaseConfigInputSchema = z.object({
   detailsOpenAt: z.string().min(1),
+  rsvpDeadline: z.string().min(1),
   dayOfStartAt: z.string().min(1),
   thankYouAt: z.string().min(1),
   phaseOverride: z.enum(PHASES).nullable(),

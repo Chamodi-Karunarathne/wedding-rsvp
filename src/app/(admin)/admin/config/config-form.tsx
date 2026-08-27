@@ -8,6 +8,7 @@ import { postJson } from '../_components/api';
 type Props = {
   phase: {
     detailsOpenAt: string;
+    rsvpDeadline: string;
     dayOfStartAt: string;
     thankYouAt: string;
     phaseOverride: Phase | null;
@@ -48,18 +49,26 @@ export function ConfigForm({ phase, site, messaging, derivedPhase }: Props) {
           }}
           className="mt-2 space-y-2 border p-3"
         >
-          {(['detailsOpenAt', 'dayOfStartAt', 'thankYouAt'] as const).map((field) => (
-            <label key={field} className="block">
-              {field}
-              <input
-                type="datetime-local"
-                value={phaseForm[field]}
-                onChange={(e) => setPhaseForm((prev) => ({ ...prev, [field]: e.target.value }))}
-                className="ml-2 border px-2 py-1"
-                required
-              />
-            </label>
-          ))}
+          {(['detailsOpenAt', 'rsvpDeadline', 'dayOfStartAt', 'thankYouAt'] as const).map(
+            (field) => (
+              <label key={field} className="block">
+                {field}
+                <input
+                  type="datetime-local"
+                  value={phaseForm[field]}
+                  onChange={(e) => setPhaseForm((prev) => ({ ...prev, [field]: e.target.value }))}
+                  className="ml-2 border px-2 py-1"
+                  required
+                />
+              </label>
+            ),
+          )}
+
+          <p className="text-gray-600">
+            The reply date is shown to guests and never enforced. A late answer is still accepted
+            and saved; the form shows a gentle note rather than an error, and submitted_at already
+            records who was late.
+          </p>
 
           <label className="block">
             Override
@@ -144,7 +153,9 @@ export function ConfigForm({ phase, site, messaging, derivedPhase }: Props) {
           />
           <p className="text-gray-600">
             Placeholders: <code>{'{{name}}'}</code>, <code>{'{{url}}'}</code>,{' '}
-            <code>{'{{code}}'}</code>.
+            <code>{'{{brideName}}'}</code>, <code>{'{{groomName}}'}</code>,{' '}
+            <code>{'{{date}}'}</code>, <code>{'{{rsvpBy}}'}</code>. The name used is the card
+            name, so a household with a shorter fallback set is addressed by it here too.
           </p>
           <button type="submit" className="border px-3 py-1">
             Save template

@@ -2,7 +2,7 @@ import { headers } from 'next/headers';
 import { notFound } from 'next/navigation';
 import type { Metadata } from 'next';
 import { copyFor } from '@/lib/copy';
-import { formatEventDateTime } from '@/lib/format';
+import { formatDate, formatEventDateTime } from '@/lib/format';
 import { loadInvitation } from '@/lib/services/invitation';
 import { recordOpen } from '@/lib/services/opens';
 import type { InvitationView, SectionId } from '@/lib/services/types';
@@ -151,6 +151,16 @@ function Section({
         <section className="mb-8 border-b pb-6">
           <h2 className="text-xl font-semibold">{copy.rsvp.heading}</h2>
           <p className="mt-1">{copy.rsvp.intro}</p>
+
+          {/*
+            The reply date is shown, never enforced. After it passes this
+            softens rather than closing the form - a late answer still saves.
+          */}
+          <p className="mt-1 text-sm text-gray-600">
+            {invitation.rsvpDeadlinePassed
+              ? copy.rsvp.deadlinePassed
+              : copy.rsvp.deadline(formatDate(invitation.rsvpDeadline, site.timezone))}
+          </p>
 
           <ul className="mt-2 text-sm text-gray-600">
             {events.map((event) => {

@@ -1,14 +1,29 @@
 import { renderTemplate } from '@/lib/domain/config';
 import { DELIVERY_STATES, DELIVERY_STATE_LABELS, deliveryState } from '@/lib/domain/delivery';
 import { invitationUrl, whatsappSendUrl } from '@/lib/domain/urls';
+import { formatDate, formatEventDateTime } from '@/lib/format';
 import { getConfig } from '@/lib/services/config';
+import { getPrimaryEvent } from '@/lib/services/events';
 import { listGuests } from '@/lib/services/guests';
 import { SendRow } from './send-row';
 
 export const dynamic = 'force-dynamic';
 
 export default async function AdminSendPage() {
-  const [guests, config] = await Promise.all([listGuests(), getConfig()]);
+  const [guests, config, event] = await Promise.all([
+    listGuests(),
+    getConfig(),
+    getPrimaryEvent(),
+  ]);
+
+  const zone = config.site.timezone;
+  // Filled once for every message rather than per row: the same wedding.
+  const sharedVars = {
+    brideName: config.site.brideName,
+    groomName: config.site.groomName,
+    date: event ? formatEventDateTime(event.startsAt, zone) : '',
+    rsvpBy: formatDate(config.phase.rsvpDeadline, zone),
+  };
 
   const rows = guests.map((row) => ({
     row,
@@ -84,6 +99,7 @@ export default async function AdminSendPage() {
           {rows.map(({ row, state }) => {
             const url = invitationUrl(row.guest.token);
             const message = renderTemplate(config.messaging.whatsappTemplate, {
+              ...sharedVars,
               name: row.guest.cardName,
               url,
             });

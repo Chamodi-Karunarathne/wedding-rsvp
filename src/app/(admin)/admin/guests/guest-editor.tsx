@@ -2,6 +2,12 @@
 
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
+import {
+  DISPLAY_NAME_SOFT_LIMIT,
+  displayNameLength,
+  isDisplayNameLong,
+  resolveCardName,
+} from '@/lib/domain/names';
 import type { EventView, GuestView, Side } from '@/lib/services/types';
 import { postJson } from '../_components/api';
 
@@ -21,6 +27,7 @@ export function GuestEditor({ events, guest, invitedSlugs = [], onDone }: Props)
 
   const [form, setForm] = useState({
     displayName: guest?.displayName ?? '',
+    displayNameFallback: guest?.displayNameFallback ?? '',
     sortName: guest?.sortName ?? '',
     side: guest?.side ?? ('bride' as Side),
     maxPartySize: guest?.maxPartySize ?? 2,
@@ -35,6 +42,10 @@ export function GuestEditor({ events, guest, invitedSlugs = [], onDone }: Props)
   const set = <K extends keyof typeof form>(key: K, value: (typeof form)[K]) =>
     setForm((prev) => ({ ...prev, [key]: value }));
 
+  const nameLength = displayNameLength(form.displayName);
+  const tooLong = isDisplayNameLong(form.displayName);
+  const cardName = resolveCardName(form.displayName, form.displayNameFallback);
+
   async function save(event: React.FormEvent) {
     event.preventDefault();
     setBusy(true);
@@ -42,6 +53,7 @@ export function GuestEditor({ events, guest, invitedSlugs = [], onDone }: Props)
 
     const payload = {
       displayName: form.displayName.trim(),
+      displayNameFallback: form.displayNameFallback.trim() || null,
       // Falls back to the display name so the field can be left blank.
       sortName: form.sortName.trim() || form.displayName.trim(),
       side: form.side,
@@ -65,6 +77,7 @@ export function GuestEditor({ events, guest, invitedSlugs = [], onDone }: Props)
     if (!editing) {
       setForm({
         displayName: '',
+        displayNameFallback: '',
         sortName: '',
         side: 'bride',
         maxPartySize: 2,
@@ -109,6 +122,30 @@ export function GuestEditor({ events, guest, invitedSlugs = [], onDone }: Props)
             className="w-full border px-2 py-1"
             required
           />
+          {/*
+            A warning, never a block. The card is a fixed width in a display
+            serif, so a long name breaks the layout - but whether "The
+            Fernando Family" is acceptable is the family's call, not ours.
+          */}
+          {tooLong && (
+            <span className="text-amber-700">
+              {nameLength} characters. Over {DISPLAY_NAME_SOFT_LIMIT} is likely to break the card
+              layout - consider a shorter form below. Saving anyway is fine.
+            </span>
+          )}
+        </label>
+
+        <label className="block">
+          Shorter name for the card (blank = use the display name)
+          <input
+            value={form.displayNameFallback}
+            onChange={(e) => set('displayNameFallback', e.target.value)}
+            className="w-full border px-2 py-1"
+            placeholder="e.g. The Fernando Family"
+          />
+          <span className="text-gray-600">
+            The card will read: <strong>{cardName || '(nothing yet)'}</strong>
+          </span>
         </label>
         <label className="block">
           Sort name (blank = display name)
