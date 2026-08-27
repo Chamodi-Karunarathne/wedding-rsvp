@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { buildRsvpExportCsv, buildSendListCsv } from '@/lib/services/exports';
 import type { DashboardFilters, } from '@/lib/services/dashboard';
-import type { DeliveryChannelName, Side } from '@/lib/services/types';
+import type { DeliveryChannelName, RsvpSource, Side } from '@/lib/services/types';
 
 /**
  * PERMANENT. CSV downloads.
@@ -37,6 +37,7 @@ export async function GET(
   const filters: DashboardFilters = {
     side: (params.get('side') as Side | 'all' | null) ?? 'all',
     channel: (params.get('channel') as DeliveryChannelName | 'all' | null) ?? 'all',
+    source: (params.get('source') as RsvpSource | 'all' | null) ?? 'all',
   };
 
   const csv = kind === 'send' ? await buildSendListCsv() : await buildRsvpExportCsv(filters);

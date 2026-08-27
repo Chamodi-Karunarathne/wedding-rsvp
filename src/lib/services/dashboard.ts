@@ -3,13 +3,20 @@ import { getDb, type DbLike } from '@/db/client';
 import { events } from '@/db/schema';
 import { toEventView } from './mappers';
 import { listGuests, type GuestListRow } from './guests';
-import type { DeliveryChannelName, EventView, Side } from './types';
+import type { DeliveryChannelName, EventView, RsvpSource, Side } from './types';
 
 /** PERMANENT. Read models for /admin/rsvps. */
 
 export type DashboardFilters = {
   side?: Side | 'all';
   channel?: DeliveryChannelName | 'all';
+  /**
+   * How the response arrived. Filters the guest LIST and the CSV only - never
+   * the counts. "Invited" has no source, so a source-filtered count table
+   * would read "invited 500, attending 12" and look like a catastrophe rather
+   * than a filter. getDashboardSummary drops this deliberately.
+   */
+  source?: RsvpSource | 'all';
 };
 
 export type EventCounts = {
@@ -25,6 +32,7 @@ export type EventCounts = {
 
 export type DashboardSummary = {
   filters: Required<DashboardFilters>;
+  /** Households matching side and channel. Never narrowed by source. */
   totalGuests: number;
   respondedGuests: number;
   perEvent: EventCounts[];
@@ -33,10 +41,15 @@ export type DashboardSummary = {
 export function applyFilters(rows: GuestListRow[], filters: DashboardFilters): GuestListRow[] {
   const side = filters.side ?? 'all';
   const channel = filters.channel ?? 'all';
+  const source = filters.source ?? 'all';
 
   return rows.filter((row) => {
     if (side !== 'all' && row.guest.side !== side) return false;
     if (channel !== 'all' && !row.channels.some((c) => c.channel === channel)) return false;
+    // A household with no response at all has no source, so it drops out of
+    // any source filter - which is the intended reading of "show me the ones
+    // that came in by phone".
+    if (source !== 'all' && !row.rsvps.some((r) => r.source === source)) return false;
     return true;
   });
 }
@@ -57,7 +70,9 @@ export async function getDashboardSummary(
     db.select().from(events).orderBy(asc(events.sortOrder), asc(events.startsAt)),
   ]);
 
-  const rows = applyFilters(allRows, filters);
+  // Source is deliberately not passed on: the counts answer "where do we
+  // stand", which a source filter would silently corrupt. See DashboardFilters.
+  const rows = applyFilters(allRows, { side: filters.side, channel: filters.channel });
 
   const perEvent: EventCounts[] = eventRows.map((eventRow) => {
     const event = toEventView(eventRow);
@@ -92,7 +107,11 @@ export async function getDashboardSummary(
   });
 
   return {
-    filters: { side: filters.side ?? 'all', channel: filters.channel ?? 'all' },
+    filters: {
+      side: filters.side ?? 'all',
+      channel: filters.channel ?? 'all',
+      source: filters.source ?? 'all',
+    },
     totalGuests: rows.length,
     respondedGuests: rows.filter((row) => row.rsvps.length > 0).length,
     perEvent,

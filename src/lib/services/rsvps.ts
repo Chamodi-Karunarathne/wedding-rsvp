@@ -1,6 +1,6 @@
-import { eq } from 'drizzle-orm';
+import { and, eq, inArray } from 'drizzle-orm';
 import { getDb } from '@/db/client';
-import { events, guestMessages, invitations, rsvps } from '@/db/schema';
+import { events, guestMessages, invitations, rsvpHistory, rsvps } from '@/db/schema';
 import { ok, serviceError, type Result } from '@/lib/domain/result';
 import {
   messageAction,
@@ -89,6 +89,39 @@ async function saveResponses(
   // Invariant 4: upsert. Never a duplicate row, never a hard delete.
   const saved = await db.transaction(async (tx) => {
     const results: RsvpView[] = [];
+
+    /*
+     * Read the current answers before overwriting them, and keep whatever is
+     * about to be replaced.
+     *
+     * rsvps holds only the latest answer, so without this a guest submitting
+     * over a response someone transcribed from a phone call would erase it
+     * silently. Every replacement is recorded, including one that changes
+     * nothing: "changed" would need a definition, and a rule with an
+     * exception is the one that loses the row that mattered.
+     */
+    const eventIds = normalized.map((entry) => entry.eventId);
+    const superseded = eventIds.length
+      ? await tx
+          .select()
+          .from(rsvps)
+          .where(and(eq(rsvps.guestId, guest.id), inArray(rsvps.eventId, eventIds)))
+      : [];
+
+    if (superseded.length) {
+      await tx.insert(rsvpHistory).values(
+        superseded.map((row) => ({
+          guestId: row.guestId,
+          eventId: row.eventId,
+          attending: row.attending,
+          partyCount: row.partyCount,
+          attendeeNames: row.attendeeNames,
+          source: row.source,
+          recordedBy: row.recordedBy,
+          supersededAt: now,
+        })),
+      );
+    }
 
     for (const entry of normalized) {
       const [row] = await tx

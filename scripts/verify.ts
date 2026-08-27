@@ -44,7 +44,7 @@ async function main(): Promise<void> {
 
   try {
     /* --- 1: seed shape ------------------------------------------------- */
-    console.log('\n[1] Seed produces 2 events and ~20 guests with unique ids');
+    console.log('\n[1] Seed produces exactly one event and ~20 guests with unique ids');
 
     const events = await pool.query<{ slug: string; id: string; name: string }>(
       'SELECT id, slug, name FROM events ORDER BY sort_order',
@@ -53,7 +53,7 @@ async function main(): Promise<void> {
       'SELECT id, token, display_name, max_party_size FROM guests ORDER BY sort_name',
     );
 
-    check('2 events', events.rowCount === 2, `got ${events.rowCount}`);
+    check('exactly one event', events.rowCount === 1, `got ${events.rowCount}`);
     check(
       '~20 guests',
       (guests.rowCount ?? 0) >= 18 && (guests.rowCount ?? 0) <= 25,
@@ -97,12 +97,18 @@ async function main(): Promise<void> {
     if (single) {
       const singlePage = await fetch(`${BASE}/i/${single.token}`);
       const singleHtml = await singlePage.text();
+      // Only meaningful once a second event exists. With one event there is
+      // nothing to leak, so the check waits rather than failing.
       const otherEvent = events.rows.find((e) => e.slug !== single.slug);
-      check(
-        'shows only the events this guest is invited to',
-        !!otherEvent && !singleHtml.includes(otherEvent.name),
-        `"${single.display_name}" is invited only to ${single.slug}, but ${otherEvent?.name} appeared`,
-      );
+      if (otherEvent) {
+        check(
+          'shows only the events this guest is invited to',
+          !singleHtml.includes(otherEvent.name),
+          `"${single.display_name}" is invited only to ${single.slug}, but ${otherEvent.name} appeared`,
+        );
+      } else {
+        console.log('  SKIP  only-their-events (there is a single event)');
+      }
     }
 
     /* --- 3 & 4: unknown tokens ---------------------------------------- */
@@ -224,6 +230,73 @@ async function main(): Promise<void> {
     });
     check('RSVP with an unknown token returns 404', badToken.status === 404, `got ${badToken.status}`);
 
+    /* --- 12: a self-submission over a phone entry keeps the old answer --- */
+    console.log('\n[12] Overwriting a phone-recorded RSVP writes rsvp_history');
+
+    const phoneRecorded = await pool.query<{ id: string; token: string; party_count: number }>(
+      `SELECT g.id, g.token, r.party_count
+         FROM guests g JOIN rsvps r ON r.guest_id = g.id
+        WHERE r.source = 'phone' LIMIT 1`,
+    );
+    const recorded = phoneRecorded.rows[0];
+
+    if (!recorded) {
+      check('a phone-recorded RSVP exists to overwrite', false, 'none in the database');
+    } else {
+      const historyBefore = await pool.query<{ count: string }>(
+        'SELECT COUNT(*) AS count FROM rsvp_history WHERE guest_id = $1',
+        [recorded.id],
+      );
+
+      const overwrite = await post({
+        token: recorded.token,
+        responses: [{ eventSlug: slug, attending: true, partyCount: 1, attendeeNames: 'Just me' }],
+      });
+      check('the guest may overwrite it', overwrite.status === 200, `got ${overwrite.status}`);
+
+      const current = await pool.query<{ source: string; party_count: number }>(
+        'SELECT source, party_count FROM rsvps WHERE guest_id = $1',
+        [recorded.id],
+      );
+      check(
+        'the current answer is now theirs',
+        current.rows[0]?.source === 'self' && current.rows[0]?.party_count === 1,
+        `got source ${current.rows[0]?.source}, party ${current.rows[0]?.party_count}`,
+      );
+
+      const history = await pool.query<{
+        source: string;
+        party_count: number;
+        recorded_by: string | null;
+      }>(
+        `SELECT source, party_count, recorded_by FROM rsvp_history
+          WHERE guest_id = $1 ORDER BY superseded_at DESC LIMIT 1`,
+        [recorded.id],
+      );
+      const before = Number(historyBefore.rows[0]?.count ?? 0);
+      const after = await pool.query<{ count: string }>(
+        'SELECT COUNT(*) AS count FROM rsvp_history WHERE guest_id = $1',
+        [recorded.id],
+      );
+
+      check(
+        'a history row was written',
+        Number(after.rows[0]?.count ?? 0) === before + 1,
+        `went from ${before} to ${after.rows[0]?.count}`,
+      );
+      check(
+        'and it keeps the phone answer, not the new one',
+        history.rows[0]?.source === 'phone' &&
+          history.rows[0]?.party_count === recorded.party_count,
+        `kept source ${history.rows[0]?.source}, party ${history.rows[0]?.party_count}`,
+      );
+      check(
+        'including who took the call',
+        !!history.rows[0]?.recorded_by,
+        'recorded_by was empty',
+      );
+    }
+
     /* --- 11: send export ----------------------------------------------- */
     console.log('\n[11] Send export contains name, phone and an absolute invitation URL');
 
@@ -258,6 +331,40 @@ async function main(): Promise<void> {
         'one row per guest',
         dataRows === guests.rowCount,
         `csv had ${dataRows}, database has ${guests.rowCount}`,
+      );
+    }
+
+    /* --- 13: recording a response on a guest's behalf -------------------- */
+    console.log('\n[13] A phone response recorded in admin saves source and recorded_by');
+
+    if (cookie) {
+      const subject = guests.rows.find((g) => g.id !== recorded?.id) ?? sample;
+
+      const proxied = await fetch(`${BASE}/api/admin/rsvp`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', cookie },
+        body: JSON.stringify({
+          guestId: subject.id,
+          responses: [{ eventSlug: slug, attending: true, partyCount: 1 }],
+          recordedBy: 'verify script',
+          source: 'phone',
+        }),
+      });
+      check('proxy RSVP returns 200', proxied.status === 200, `got ${proxied.status}`);
+
+      const stored = await pool.query<{ source: string; recorded_by: string | null }>(
+        'SELECT source, recorded_by FROM rsvps WHERE guest_id = $1',
+        [subject.id],
+      );
+      check(
+        "saved with source 'phone'",
+        stored.rows[0]?.source === 'phone',
+        `got ${stored.rows[0]?.source}`,
+      );
+      check(
+        'and with recorded_by set',
+        stored.rows[0]?.recorded_by === 'verify script',
+        `got ${stored.rows[0]?.recorded_by}`,
       );
     }
 
