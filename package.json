@@ -6,7 +6,7 @@
   "packageManager": "pnpm@11.24.0",
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "node scripts/check-card-assets.ts && next build",
     "start": "next start",
     "typecheck": "tsc --noEmit",
     "test": "node --test \"src/**/*.test.ts\"",
@@ -16,7 +16,8 @@
     "db:studio": "drizzle-kit studio",
     "db:seed": "node --env-file-if-exists=.env src/db/seed.ts",
     "verify": "node --env-file-if-exists=.env scripts/verify.ts",
-    "make-test-csv": "node --env-file-if-exists=.env scripts/make-test-csv.ts"
+    "make-test-csv": "node --env-file-if-exists=.env scripts/make-test-csv.ts",
+    "assets:optimize": "node scripts/optimize-card-assets.ts"
   },
   "dependencies": {
     "@neondatabase/serverless": "^1.1.0",
@@ -33,6 +34,7 @@
     "@types/react": "19.2.18",
     "@types/react-dom": "19.2.5",
     "drizzle-kit": "^0.31.10",
+    "svgo": "^4.1.0",
     "tailwindcss": "^4.3.3",
     "typescript": "^7.0.2"
   }

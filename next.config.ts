@@ -16,6 +16,15 @@ const nextConfig: NextConfig = {
           { key: 'X-Content-Type-Options', value: 'nosniff' },
         ],
       },
+      {
+        // Card artwork. Immutable is safe here ONLY because every reference
+        // carries the content hash that assets:optimize stamps into
+        // public/card/manifest.json - a re-export under the same filename
+        // changes the version, and therefore the URL. Referencing a bare
+        // /card/thing.svg would pin that file in caches for a year.
+        source: '/card/:path*',
+        headers: [{ key: 'Cache-Control', value: 'public, max-age=31536000, immutable' }],
+      },
     ];
   },
 };

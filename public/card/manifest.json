@@ -1,0 +1,16 @@
+{
+  "$comment": [
+    "Card artwork. Illustrator exports land in this directory as SVG.",
+    "List every file the design needs HERE, ahead of the file itself arriving:",
+    "`pnpm build` fails loudly on a listed file that is missing, rather than",
+    "rendering nothing and being noticed by a guest.",
+    "After dropping files in, run `pnpm assets:optimize`. It rewrites them",
+    "through SVGO at 2dp coordinate precision and stamps `version` below with a",
+    "hash of their contents.",
+    "Reference an asset as /card/<file>?v=<version>, never as a bare path: these",
+    "are served with immutable cache headers, so a re-export under the same",
+    "filename would otherwise never reach anyone who had already loaded it."
+  ],
+  "version": "empty",
+  "assets": []
+}
