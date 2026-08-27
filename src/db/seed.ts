@@ -35,30 +35,28 @@ loadEnv();
 /* fixtures                                                                   */
 /* -------------------------------------------------------------------------- */
 
-// Asia/Colombo is UTC+05:30. PLACEHOLDER date: Saturday 12 December 2026.
-const CEREMONY_AT = new Date('2026-12-12T04:00:00.000Z'); // 09:30 local
-const RECEPTION_AT = new Date('2026-12-12T13:00:00.000Z'); // 18:30 local
+// Asia/Colombo is UTC+05:30. Thursday 3 December 2026, 09:15 local.
+const CEREMONY_AT = new Date('2026-12-03T03:45:00.000Z');
 
+/**
+ * ONE event, deliberately seeded through the same tables a dozen would use.
+ *
+ * The events and invitations tables are not collapsed: if a homecoming or a
+ * reception is added later, that must be a row someone inserts, not a
+ * migration three weeks before a printed deadline.
+ */
 const EVENT_FIXTURES = [
   {
     slug: 'ceremony',
     name: 'Poruwa Ceremony',
     startsAt: CEREMONY_AT,
-    venueName: 'Hotel Elysian, Grand Ballroom',
-    venueAddress: '18 Galle Face Terrace, Colombo 03',
-    mapUrl: 'https://maps.google.com/?q=Galle+Face+Terrace+Colombo',
-    dressCode: 'Traditional / formal',
+    venueName: 'Lumina Ballroom, Cinnamon Life',
+    // CONFIRM the exact street address with the venue before anything is sent.
+    venueAddress: 'Cinnamon Life, Colombo',
+    mapUrl: 'https://maps.google.com/?q=Cinnamon+Life+Colombo',
+    // Null on purpose: set it from /admin/config once the couple decide.
+    dressCode: null,
     sortOrder: 1,
-  },
-  {
-    slug: 'reception',
-    name: 'Wedding Reception',
-    startsAt: RECEPTION_AT,
-    venueName: 'Hotel Elysian, Garden Terrace',
-    venueAddress: '18 Galle Face Terrace, Colombo 03',
-    mapUrl: 'https://maps.google.com/?q=Galle+Face+Terrace+Colombo',
-    dressCode: 'Lounge suit / saree',
-    sortOrder: 2,
   },
 ] as const;
 
@@ -89,7 +87,7 @@ type SeedGuest = {
   covers?: string;
 };
 
-const BOTH: EventSlug[] = ['ceremony', 'reception'];
+const INVITED: EventSlug[] = ['ceremony'];
 
 const GUEST_FIXTURES: SeedGuest[] = [
   {
@@ -99,27 +97,27 @@ const GUEST_FIXTURES: SeedGuest[] = [
     side: 'groom',
     maxPartySize: 1,
     phone: '077 123 4567',
-    events: BOTH,
+    events: INVITED,
     channels: [{ channel: 'whatsapp', status: 'pending' }],
   },
   {
-    covers: 'party of 6',
+    covers: 'party of 6 - the largest household',
     displayName: 'Mr. & Mrs. Sunil Jayawardena & Family',
     sortName: 'Jayawardena, Sunil',
     side: 'bride',
     maxPartySize: 6,
     phone: '0712345678',
-    events: BOTH,
+    events: INVITED,
     channels: [{ channel: 'whatsapp', status: 'sent' }],
   },
   {
-    covers: 'invited to only ONE of the two events',
+    covers: 'no phone number on file - can only be reached by email',
     displayName: 'Dr. Nimal Bandara',
     sortName: 'Bandara, Nimal',
     side: 'groom',
     maxPartySize: 2,
     phone: '0763219876',
-    events: ['reception'],
+    events: INVITED,
     channels: [{ channel: 'whatsapp', status: 'pending' }],
   },
   {
@@ -131,7 +129,7 @@ const GUEST_FIXTURES: SeedGuest[] = [
     phone: '0771112223',
     personalNote:
       'Kamala aunty - you taught me to cook, and I still burn the rice. It would not be a wedding without you there.',
-    events: BOTH,
+    events: INVITED,
     channels: [{ channel: 'in_person', status: 'delivered' }],
   },
   {
@@ -141,12 +139,9 @@ const GUEST_FIXTURES: SeedGuest[] = [
     side: 'groom',
     maxPartySize: 2,
     phone: '0759998887',
-    events: BOTH,
+    events: INVITED,
     channels: [{ channel: 'whatsapp', status: 'delivered' }],
-    rsvps: [
-      { slug: 'ceremony', attending: false, partyCount: 0 },
-      { slug: 'reception', attending: false, partyCount: 0 },
-    ],
+    rsvps: [{ slug: 'ceremony', attending: false, partyCount: 0 }],
     message: 'So sorry we cannot make it - we will be abroad. Wishing you every happiness!',
   },
   {
@@ -156,26 +151,24 @@ const GUEST_FIXTURES: SeedGuest[] = [
     side: 'bride',
     maxPartySize: 2,
     phone: '0701234567',
-    events: BOTH,
+    events: INVITED,
     channels: [{ channel: 'whatsapp', status: 'delivered' }],
     rsvps: [
       { slug: 'ceremony', attending: true, partyCount: 2, attendeeNames: 'Rohan, Dilini' },
-      { slug: 'reception', attending: true, partyCount: 2, attendeeNames: 'Rohan, Dilini' },
     ],
     message: 'Congratulations! We would not miss it.',
   },
   {
-    covers: 'attends reception, skips ceremony - invariant 2, per-event RSVP',
+    covers: 'attending with a partial party - 2 of a possible 4',
     displayName: 'Mr. Pradeep Abeysekara',
     sortName: 'Abeysekara, Pradeep',
     side: 'groom',
-    maxPartySize: 2,
+    maxPartySize: 4,
     phone: '0778887776',
-    events: BOTH,
+    events: INVITED,
     channels: [{ channel: 'whatsapp', status: 'sent' }],
     rsvps: [
-      { slug: 'ceremony', attending: false, partyCount: 0 },
-      { slug: 'reception', attending: true, partyCount: 2, attendeeNames: 'Pradeep, Shanika' },
+      { slug: 'ceremony', attending: true, partyCount: 2, attendeeNames: 'Pradeep, Shanika' },
     ],
   },
   {
@@ -185,7 +178,7 @@ const GUEST_FIXTURES: SeedGuest[] = [
     side: 'bride',
     maxPartySize: 2,
     notes: 'Card posted to 42 Temple Road, Kandy. Reachable on the landline only.',
-    events: BOTH,
+    events: INVITED,
     channels: [{ channel: 'print', status: 'pending' }],
   },
   {
@@ -196,7 +189,7 @@ const GUEST_FIXTURES: SeedGuest[] = [
     maxPartySize: 4,
     phone: '0714445556',
     notes: 'Card hand-delivered as well as the link.',
-    events: BOTH,
+    events: INVITED,
     channels: [
       { channel: 'print', status: 'sent' },
       { channel: 'whatsapp', status: 'delivered' },
@@ -211,7 +204,7 @@ const GUEST_FIXTURES: SeedGuest[] = [
     maxPartySize: 2,
     phone: '0776665554',
     notes: 'Prefers Sinhala. Card posted too.',
-    events: BOTH,
+    events: INVITED,
     channels: [
       { channel: 'print', status: 'pending' },
       { channel: 'whatsapp', status: 'pending' },
@@ -227,7 +220,7 @@ const GUEST_FIXTURES: SeedGuest[] = [
     phone: '0372234567',
     displayNameFallback: 'The Bandaranaike Family',
     notes: 'Full name is far too long for the card - fallback set.',
-    events: BOTH,
+    events: INVITED,
     channels: [{ channel: 'print', status: 'pending' }],
   },
   {
@@ -237,19 +230,11 @@ const GUEST_FIXTURES: SeedGuest[] = [
     side: 'bride',
     maxPartySize: 3,
     phone: '0812223334',
-    events: BOTH,
+    events: INVITED,
     channels: [{ channel: 'in_person', status: 'delivered' }],
     rsvps: [
       {
         slug: 'ceremony',
-        attending: true,
-        partyCount: 3,
-        attendeeNames: 'Padmini, Sarath, Ishara',
-        source: 'phone',
-        recordedBy: 'amma',
-      },
-      {
-        slug: 'reception',
         attending: true,
         partyCount: 3,
         attendeeNames: 'Padmini, Sarath, Ishara',
@@ -265,7 +250,7 @@ const GUEST_FIXTURES: SeedGuest[] = [
     side: 'groom',
     maxPartySize: 2,
     phone: '0723334445',
-    events: BOTH,
+    events: INVITED,
     channels: [{ channel: 'whatsapp', status: 'pending' }],
   },
   {
@@ -274,7 +259,7 @@ const GUEST_FIXTURES: SeedGuest[] = [
     side: 'bride',
     maxPartySize: 2,
     phone: '0745556667',
-    events: BOTH,
+    events: INVITED,
     channels: [{ channel: 'whatsapp', status: 'pending' }],
   },
   {
@@ -283,7 +268,7 @@ const GUEST_FIXTURES: SeedGuest[] = [
     side: 'groom',
     maxPartySize: 1,
     phone: '0767778889',
-    events: ['reception'],
+    events: INVITED,
     channels: [{ channel: 'whatsapp', status: 'pending' }],
   },
   {
@@ -293,7 +278,7 @@ const GUEST_FIXTURES: SeedGuest[] = [
     maxPartySize: 4,
     phone: '0789990001',
     notes: 'Card posted.',
-    events: BOTH,
+    events: INVITED,
     channels: [{ channel: 'print', status: 'pending' }],
   },
   {
@@ -302,7 +287,7 @@ const GUEST_FIXTURES: SeedGuest[] = [
     side: 'both',
     maxPartySize: 2,
     phone: '0112345678',
-    events: BOTH,
+    events: INVITED,
     channels: [{ channel: 'in_person', status: 'pending' }],
   },
   {
@@ -311,9 +296,9 @@ const GUEST_FIXTURES: SeedGuest[] = [
     side: 'bride',
     maxPartySize: 2,
     phone: '0721113334',
-    events: BOTH,
+    events: INVITED,
     channels: [{ channel: 'whatsapp', status: 'sent' }],
-    rsvps: [{ slug: 'reception', attending: true, partyCount: 1, attendeeNames: 'Sachini' }],
+    rsvps: [{ slug: 'ceremony', attending: true, partyCount: 1, attendeeNames: 'Sachini' }],
   },
   {
     displayName: 'Mr. & Mrs. Buddhika Karunaratne',
@@ -321,7 +306,7 @@ const GUEST_FIXTURES: SeedGuest[] = [
     side: 'groom',
     maxPartySize: 2,
     notes: 'Card posted. No phone on file.',
-    events: BOTH,
+    events: INVITED,
     channels: [{ channel: 'print', status: 'pending' }],
   },
   {
@@ -330,7 +315,7 @@ const GUEST_FIXTURES: SeedGuest[] = [
     side: 'bride',
     maxPartySize: 2,
     phone: '0754446667',
-    events: BOTH,
+    events: INVITED,
     channels: [{ channel: 'whatsapp', status: 'pending' }],
     rsvps: [{ slug: 'ceremony', attending: false, partyCount: 0 }],
   },
@@ -340,7 +325,7 @@ const GUEST_FIXTURES: SeedGuest[] = [
     side: 'groom',
     maxPartySize: 2,
     phone: '0703332221',
-    events: BOTH,
+    events: INVITED,
     channels: [{ channel: 'whatsapp', status: 'pending' }],
   },
 ];
@@ -468,7 +453,7 @@ async function main(): Promise<void> {
       '',
     );
 
-    console.log(`\nSeeded ${eventRows.length} events and ${allGuests.length} guests.\n`);
+    console.log(`\nSeeded ${eventRows.length} event and ${allGuests.length} guests.\n`);
     console.log('Sample links:');
     for (const fixture of GUEST_FIXTURES.filter((f) => f.covers).slice(0, 6)) {
       const row = allGuests.find((g) => g.sortName === fixture.sortName);

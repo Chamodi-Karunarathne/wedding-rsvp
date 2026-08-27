@@ -93,17 +93,23 @@ function Section({
         </section>
       );
 
-    case 'events':
+    case 'events': {
+      // There is one event, so no list chrome and no name heading - the page
+      // is already about it. The map stays rather than picking events[0], so
+      // that adding a second event stays a data change: it comes back as a
+      // heading, purely to tell the two apart.
+      const named = events.length > 1;
+
       return (
         <section className="mb-8 border-b pb-6">
           <h2 className="text-xl font-semibold">{copy.events.heading}</h2>
           {events.length === 0 ? (
             <p className="mt-2">{copy.events.noneHeading}</p>
           ) : (
-            <ul className="mt-2 space-y-4">
+            <div className="mt-2 space-y-4">
               {events.map((event) => (
-                <li key={event.slug}>
-                  <h3 className="font-medium">{event.name}</h3>
+                <div key={event.slug}>
+                  {named && <h3 className="font-medium">{event.name}</h3>}
                   <dl className="text-sm">
                     <dt className="font-medium">{copy.events.when}</dt>
                     <dd>{formatEventDateTime(event.startsAt, site.timezone)}</dd>
@@ -132,12 +138,13 @@ function Section({
                       </a>
                     </p>
                   )}
-                </li>
+                </div>
               ))}
-            </ul>
+            </div>
           )}
         </section>
       );
+    }
 
     case 'rsvp':
       return (
@@ -148,14 +155,15 @@ function Section({
           <ul className="mt-2 text-sm text-gray-600">
             {events.map((event) => {
               const existing = rsvps[event.slug];
+              const status = !existing
+                ? copy.rsvp.noResponseYet
+                : existing.attending
+                  ? copy.rsvp.currentlyAttending(existing.partyCount)
+                  : copy.rsvp.currentlyDeclined;
+
               return (
                 <li key={event.slug}>
-                  {event.name}:{' '}
-                  {!existing
-                    ? copy.rsvp.noResponseYet
-                    : existing.attending
-                      ? copy.rsvp.currentlyAttending(existing.partyCount)
-                      : copy.rsvp.currentlyDeclined}
+                  {events.length > 1 ? `${event.name}: ${status}` : status}
                 </li>
               );
             })}

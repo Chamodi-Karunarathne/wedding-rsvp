@@ -28,7 +28,9 @@ export type CopyBundle = {
   rsvp: {
     heading: string;
     intro: string;
+    /** Used only if a second event is ever added, to tell them apart. */
     attendingQuestion: (eventName: string) => string;
+    attendingQuestionSingle: string;
     yes: string;
     no: string;
     partyCountLabel: string;
@@ -78,8 +80,9 @@ const en: CopyBundle = {
   },
   rsvp: {
     heading: 'Will you join us?',
-    intro: 'Please let us know for each part of the day.',
+    intro: 'Please let us know whether you can join us.',
     attendingQuestion: (eventName) => `Will you attend the ${eventName}?`,
+    attendingQuestionSingle: 'Will you be joining us?',
     yes: 'Joyfully accepts',
     no: 'Regretfully declines',
     partyCountLabel: 'How many of you?',

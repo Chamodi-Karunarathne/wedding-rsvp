@@ -4,6 +4,7 @@ import { applyFilters, getDashboardSummary } from '@/lib/services/dashboard';
 import { listEvents } from '@/lib/services/events';
 import { listGuests } from '@/lib/services/guests';
 import type { DeliveryChannelName, Side } from '@/lib/services/types';
+import { CountsBlock } from '../_components/counts';
 import { ProxyRsvp } from './proxy-rsvp';
 
 export const dynamic = 'force-dynamic';
@@ -82,31 +83,11 @@ export default async function AdminRsvpsPage({ searchParams }: PageProps) {
 
       <section className="mt-5">
         <h2 className="font-medium">Counts ({summary.totalGuests} invitations in filter)</h2>
-        <table className="mt-2 border-collapse text-sm">
-          <thead>
-            <tr>
-              {['Event', 'Invited', 'Attending', 'Declined', 'No response', 'Headcount'].map(
-                (h) => (
-                  <th key={h} className="border px-2 py-1 text-left">
-                    {h}
-                  </th>
-                ),
-              )}
-            </tr>
-          </thead>
-          <tbody>
-            {summary.perEvent.map((row) => (
-              <tr key={row.event.slug}>
-                <td className="border px-2 py-1">{row.event.name}</td>
-                <td className="border px-2 py-1">{row.invited}</td>
-                <td className="border px-2 py-1">{row.attending}</td>
-                <td className="border px-2 py-1">{row.declined}</td>
-                <td className="border px-2 py-1">{row.noResponse}</td>
-                <td className="border px-2 py-1">{row.headcount}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+        <div className="mt-2 space-y-4">
+          {summary.perEvent.map((row) => (
+            <CountsBlock key={row.event.slug} counts={row} named={summary.perEvent.length > 1} />
+          ))}
+        </div>
       </section>
 
       <section className="mt-6">

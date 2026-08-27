@@ -3,6 +3,7 @@ import { getConfig } from '@/lib/services/config';
 import { getDashboardSummary } from '@/lib/services/dashboard';
 import { currentPhase } from '@/lib/domain/phase';
 import { formatDateTimeShort } from '@/lib/format';
+import { CountsBlock } from './_components/counts';
 
 export const dynamic = 'force-dynamic';
 
@@ -40,29 +41,11 @@ export default async function AdminDashboard() {
 
       <section className="mt-6">
         <h2 className="font-medium">Responses</h2>
-        <table className="mt-2 border-collapse text-sm">
-          <thead>
-            <tr>
-              {['Event', 'Invited', 'Attending', 'Declined', 'No response', 'Headcount'].map((h) => (
-                <th key={h} className="border px-2 py-1 text-left">
-                  {h}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {summary.perEvent.map((row) => (
-              <tr key={row.event.slug}>
-                <td className="border px-2 py-1">{row.event.name}</td>
-                <td className="border px-2 py-1">{row.invited}</td>
-                <td className="border px-2 py-1">{row.attending}</td>
-                <td className="border px-2 py-1">{row.declined}</td>
-                <td className="border px-2 py-1">{row.noResponse}</td>
-                <td className="border px-2 py-1">{row.headcount}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+        <div className="mt-2 space-y-4">
+          {summary.perEvent.map((row) => (
+            <CountsBlock key={row.event.slug} counts={row} named={summary.perEvent.length > 1} />
+          ))}
+        </div>
         <p className="mt-1 text-sm text-gray-600">
           Invited, attending and declined count invitations. Headcount sums party sizes - that is
           the catering number.

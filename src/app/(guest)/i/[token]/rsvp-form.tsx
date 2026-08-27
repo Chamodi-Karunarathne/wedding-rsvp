@@ -102,7 +102,16 @@ export function RsvpForm({ token, events, rsvps, message, maxPartySize, copy }: 
 
         return (
           <fieldset key={event.slug} className="border p-3">
-            <legend className="font-medium">{copy.rsvp.attendingQuestion(event.name)}</legend>
+            {/*
+              Named only when there is more than one event to tell apart. The
+              payload is unchanged either way: responses is always an array,
+              and today it always carries exactly one entry.
+            */}
+            <legend className="font-medium">
+              {events.length > 1
+                ? copy.rsvp.attendingQuestion(event.name)
+                : copy.rsvp.attendingQuestionSingle}
+            </legend>
 
             <div className="mt-2 space-y-1">
               <label className="block">
