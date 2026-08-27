@@ -2,6 +2,8 @@
 
 Per-guest invitations, RSVPs, and an admin console for ~500 households.
 
+One event: a Poruwa ceremony, 09:15 on Thursday 3 December 2026, at the Lumina Ballroom, Cinnamon Life, Colombo. Every invitation is delivered digitally, as a link sent personally over WhatsApp or email. A small number of households also receive a printed card, but the card does not reference this site: nobody types a code and nobody scans anything.
+
 ## Setup
 
 ```bash
@@ -12,7 +14,7 @@ pnpm db:seed
 pnpm dev
 ```
 
-`pnpm db:seed` prints sample invitation links and short codes to open.
+`pnpm db:seed` prints sample invitation links to open.
 
 ## Scripts
 
@@ -26,6 +28,7 @@ pnpm dev
 | `pnpm db:seed` | Wipe and reseed. Refuses to run against `NODE_ENV=production` without `--force`. |
 | `pnpm verify` | Runs the database-backed acceptance checks. Needs `pnpm dev` running. |
 | `pnpm make-test-csv` | Writes a 50-row import fixture for the CSV import check. |
+| `pnpm assets:optimize` | Rewrites `public/card/*.svg` through SVGO at 2dp precision. |
 
 ## Architecture
 
@@ -38,9 +41,9 @@ src/
   lib/services/  all data access & writes          permanent
   lib/api/       Zod schemas, Result -> HTTP       permanent
   app/api/       thin handlers over services       permanent
-  app/c/         short-code redirect               permanent (PRINTED ON PAPER)
   app/(admin)/   admin console                     semi-permanent, stays ugly
   app/(guest)/   guest UI                          DISPOSABLE
+  proxy.ts       the /admin gate                   permanent
 ```
 
 `app/(guest)` imports nothing but `lib/services`, `lib/copy` and `lib/format`. Both invariants are checkable:
@@ -52,17 +55,17 @@ rm -rf "src/app/(guest)" && pnpm typecheck        # still passes
 
 The boundary is `lib/services/types.ts`, which exports plain view models rather than ORM row types. That is the whole reason the guest UI can be deleted without a ripple.
 
-### Two things that are deliberately *not* in `app/(guest)`
+### One event, deliberately not collapsed
 
-`/c/[code]` and `/api/qr/[code]` are printed on paper. They live outside the disposable route group, because a physical card must not point at code someone has been invited to delete.
+The `events` and `invitations` tables are untouched by the move to a single event, and every service still takes an `eventId`. Only the UI collapses: no event selector, no per-event headings, one set of counts. `POST /api/rsvp` still takes a `responses` array, and the client still sends exactly one entry.
 
-## Things that are set in ink once cards are printed
+That is on purpose. If a homecoming or a reception appears, it should be a row somebody inserts plus admin UI for choosing who is invited to what — not a migration three weeks before a printed deadline. Nothing above the data layer hardcodes a slug; `getPrimaryEvent()` is how the single event is found.
 
-Cards go to the printer in October. After that these cannot change:
+## Set in ink from the first message
 
-1. **`NEXT_PUBLIC_SITE_URL`** — baked into every QR code. It must be the final production domain, registered and held, before printing. This is the hardest external dependency in the project.
-2. **The short code alphabet** (`src/lib/domain/ids.ts`) — 24 characters, no vowels so a code can never spell a word, and one of each confusable pair removed (`0/O`, `1/I/L`, `2/Z`, `5/S`, `6/G`, `8/B`).
-3. **The QR payload shape** — `{origin}/c/{SHORT_CODE}`, matching the code printed as text beside it.
+1. **`NEXT_PUBLIC_SITE_URL`** — baked into every invitation link sent over WhatsApp. A delivered message cannot be reissued, so this must be the final production domain, registered and held, before the first send. This is the hardest external dependency in the project.
+2. **The invitation token** — regenerating one breaks a link somebody already holds. CSV re-imports never touch it.
+3. **The OG image** — see below. WhatsApp caches previews near-permanently.
 
 ## Before anyone receives a link
 
@@ -73,10 +76,13 @@ Cards go to the printer in October. After that these cannot change:
 All in `lib/domain`, none in the UI:
 
 - One `guests` row per **invitation** — never per person, never per delivery channel.
-- RSVP is per `(guest, event)`; someone can attend the reception and skip the ceremony.
+- RSVP is per `(guest, event)`, even with a single event.
 - `party_count <= max_party_size`, validated server-side from the guest's own record. Also pinned by a database CHECK constraint.
 - Declining always normalizes to a party of zero with attendee names cleared, whatever the client sent.
 - RSVPs are upserts. `submitted_at` records the first answer; `updated_at` moves on every change. Nothing is ever hard-deleted or duplicated.
+- Every overwrite copies the previous answer into `rsvp_history` first, carrying `source`, `recorded_by` and `attendee_names`. A guest submitting over a response transcribed from a phone call must not erase it silently — when the counts look wrong in November, this is the audit trail.
+- The reply date is **displayed and never enforced**. A late answer saves normally and the copy softens rather than closing the form; `submitted_at` already says who was late.
+- A `display_name` over 28 characters warns in admin and saves anyway. `display_name_fallback` holds the shorter card form; `cardName` resolves the two while `displayName` stays truthful, so admin can still see the real name it is warning about.
 - A guest may only RSVP to events they hold an `invitations` row for — otherwise 403.
 - Phase controls section **order**, never visibility. The RSVP form is reachable in every phase.
 
@@ -88,7 +94,7 @@ Phase dates and the override are edited at `/admin/config`. Times there are ente
 
 ## CSV import
 
-Matches existing guests on `(sort_name, phone)`, both normalized — `077 123 4567` and `+94771234567` are the same household, and a missing phone collapses to `''` rather than `NULL` so two print-only guests are still comparable. Re-running an import updates rather than duplicates, and **never regenerates a token or short code**, so a card already at the printer stays valid.
+Matches existing guests on `(sort_name, phone)`, both normalized — `077 123 4567` and `+94771234567` are the same household, and a missing phone collapses to `''` rather than `NULL` so two households with no number are still comparable. Re-running an import updates rather than duplicates, and **never regenerates a token**, so a link already sent stays valid.
 
 Errors are reported per row; one bad row does not stop the other 499.
 
@@ -97,6 +103,36 @@ Exports are written with a UTF-8 BOM, because Excel will not read UTF-8 without 
 ## Admin auth
 
 One shared password, no user system. A signed httpOnly cookie carrying only an expiry, verified in `src/proxy.ts` (Next 16 renamed middleware to proxy; it always runs on Node). `lib/auth.ts` uses Web Crypto rather than `node:crypto` so the same code runs in the proxy and in the login handler. The password comparison hashes both sides before comparing, so the real password's length does not leak.
+
+## Responses that arrive by telephone
+
+The printed cards carry a reply date of 3 November 2026 and two phone numbers, so a real fraction of the answers arrive as calls that somebody has to key in. `/admin/rsvps` leads with a search-first **Record a response** flow: find the household, key in the answer, saved with `source = 'phone'` and `recorded_by`. It goes through the same endpoint, and therefore the same invariants, as a guest's own submission.
+
+The dashboard filters by source, so it stays visible which numbers came from guests and which were transcribed. That filter narrows the **list and the CSV only, never the counts** — an invitation with no answer has no source, so a source-filtered count table would understate every column and read as a catastrophe rather than a filter.
+
+## Sent, opened, responded
+
+Every guest arrives through a link somebody sent them, which makes `guest_opens` the only signal separating "has not seen it" from "seen it and not replied" — the difference between resending a link and picking up the phone. `/admin/send` shows all three as distinct states:
+
+- **sent** — a delivery channel is marked `sent` or `delivered`
+- **opened** — somebody actually loaded the invitation; link-preview crawlers are excluded, so WhatsApp fetching the URL to build its preview does not count
+- **responded** — an answer exists, however it arrived
+
+`deliveryState()` in `lib/domain/delivery.ts` is pure and tested. Each household shows the furthest point it has reached, so someone who telephoned without ever opening their link still reads as responded.
+
+## Card artwork
+
+Illustrator exports land in `public/card/` as SVG. `public/card/manifest.json` lists what the design expects, and `pnpm build` fails before `next build` runs if a listed file is missing or any SVG exceeds 150 KB — the alternative is an empty frame that a guest notices first. `pnpm assets:optimize` rewrites the exports through SVGO at 2dp coordinate precision, which alone cuts these files substantially, and stamps the manifest with a content hash.
+
+Assets are served `immutable` for a year. That is only safe because `cardAsset()` appends that hash: artwork arrives iteratively under the same filenames, and a bare `/card/frame.svg` would pin the first export in every cache that ever saw it. The same trap as the WhatsApp preview cache, in a different costume.
+
+## Configuration and dates
+
+Phase dates, the reply date, the couple's names and the WhatsApp message template all live in `site_config` and are edited at `/admin/config`. The wording of that message will change repeatedly and never at a convenient moment, so it must not need a deploy. The defaults ship as the real dates and can be re-pointed from the environment — `WEDDING_EVENT_DATE`, `WEDDING_RSVP_DEADLINE` and the phase dates, see `.env.example`. A malformed override throws at startup rather than quietly reverting.
+
+`events.starts_at` is the single source of truth for when the wedding is. The event date is deliberately **not** duplicated into `site_config`: two copies drift, and the one the guest page reads would not be the one somebody edited. `/admin/config` shows it read-only.
+
+Details open on **1 October**, a month before the reply date. They previously opened after it, which was defensible while the printed card carried the venue and time. It no longer does, so that ordering would have asked five hundred people to commit before being told where they were going.
 
 ## Not in scope
 
