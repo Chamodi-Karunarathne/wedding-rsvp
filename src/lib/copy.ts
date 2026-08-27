@@ -54,10 +54,6 @@ export type CopyBundle = {
     heading: string;
     body: string;
   };
-  shortCode: {
-    heading: string;
-    help: string;
-  };
   notFound: {
     heading: string;
     body: string;
@@ -110,15 +106,11 @@ const en: CopyBundle = {
     heading: 'Thank you',
     body: 'Thank you for celebrating with us. It meant everything to have you there.',
   },
-  shortCode: {
-    heading: 'Your code',
-    help: 'The code printed on your invitation card.',
-  },
   notFound: {
     heading: 'We could not find that invitation',
     body:
-      'Please check the link or the code printed on your card. If it still does not work, ' +
-      'do get in touch with us directly.',
+      'Please check the link you were sent. If it still does not work, do get in touch ' +
+      'with us directly and we will send it again.',
   },
 };
 

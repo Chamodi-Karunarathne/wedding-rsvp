@@ -8,7 +8,6 @@ import { postJson } from '../_components/api';
 type Props = {
   guestId: string;
   displayName: string;
-  shortCode: string;
   phone: string | null;
   invitationUrl: string;
   whatsappUrl: string | null;
@@ -24,7 +23,6 @@ const NEXT_STATUS: Record<DeliveryStatus, DeliveryStatus> = {
 export function SendRow({
   guestId,
   displayName,
-  shortCode,
   phone,
   invitationUrl,
   whatsappUrl,
@@ -64,7 +62,6 @@ export function SendRow({
     <tr>
       <td className="border px-2 py-1 break-words">{displayName}</td>
       <td className="border px-2 py-1">{phone ?? '-'}</td>
-      <td className="border px-2 py-1 font-mono">{shortCode}</td>
       <td className="border px-2 py-1">
         <button type="button" onClick={copyLink} className="underline">
           {copied ? 'copied' : 'copy link'}

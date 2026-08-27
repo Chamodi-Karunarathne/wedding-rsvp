@@ -10,7 +10,6 @@ type RowResult = {
   status: 'created' | 'updated' | 'skipped' | 'error';
   displayName: string;
   message?: string;
-  shortCode?: string;
 };
 
 type Summary = {
@@ -62,10 +61,11 @@ export function CsvImport({ events }: { events: EventView[] }) {
     <div className="space-y-3 border p-3 text-sm">
       <p>
         Columns: <code>display_name</code> (required), <code>side</code> (bride|groom|both,
-        required), <code>sort_name</code>, <code>language</code>, <code>max_party_size</code>,{' '}
-        <code>phone</code>, <code>postal_address</code>, <code>personal_note</code>,{' '}
-        <code>events</code>, <code>channels</code>. Use <code>;</code> or <code>|</code> to
-        separate multiple events or channels.
+        required), <code>display_name_fallback</code>, <code>sort_name</code>,{' '}
+        <code>language</code>, <code>max_party_size</code>, <code>phone</code>,{' '}
+        <code>personal_note</code>, <code>notes</code>, <code>events</code>,{' '}
+        <code>channels</code>. Use <code>;</code> or <code>|</code> to separate multiple events
+        or channels.
       </p>
       <p className="text-gray-600">
         Matching is on sort name plus phone, both normalized. Re-importing the same file updates

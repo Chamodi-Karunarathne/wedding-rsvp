@@ -36,7 +36,7 @@ export default async function AdminGuestsPage() {
         <table className="mt-2 w-full border-collapse text-sm">
           <thead>
             <tr>
-              {['Name', 'Side', 'Party', 'Code', 'Events', 'Responses', 'Channels', ''].map((h) => (
+              {['Name', 'Side', 'Party', 'Events', 'Responses', 'Channels', ''].map((h) => (
                 <th key={h} className="border px-2 py-1 text-left">
                   {h}
                 </th>

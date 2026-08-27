@@ -1,24 +1,20 @@
 import { NextResponse, type NextRequest } from 'next/server';
-import {
-  buildPrintExportCsv,
-  buildRsvpExportCsv,
-  buildSendListCsv,
-} from '@/lib/services/exports';
+import { buildRsvpExportCsv, buildSendListCsv } from '@/lib/services/exports';
 import type { DashboardFilters, } from '@/lib/services/dashboard';
 import type { DeliveryChannelName, Side } from '@/lib/services/types';
 
 /**
  * PERMANENT. CSV downloads.
  *
- *   /api/admin/export/print  - mail merge for the card designer
- *   /api/admin/export/rsvps  - full RSVP state, honours ?side= and ?channel=
+ *   /api/admin/export/rsvps  - full RSVP state, honours ?side=, ?channel=
+ *                              and ?source=
  *   /api/admin/export/send   - the send list
  */
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-const KINDS = ['print', 'rsvps', 'send'] as const;
+const KINDS = ['rsvps', 'send'] as const;
 type Kind = (typeof KINDS)[number];
 
 function isKind(value: string): value is Kind {
@@ -43,12 +39,7 @@ export async function GET(
     channel: (params.get('channel') as DeliveryChannelName | 'all' | null) ?? 'all',
   };
 
-  const csv =
-    kind === 'print'
-      ? await buildPrintExportCsv()
-      : kind === 'send'
-        ? await buildSendListCsv()
-        : await buildRsvpExportCsv(filters);
+  const csv = kind === 'send' ? await buildSendListCsv() : await buildRsvpExportCsv(filters);
 
   const stamp = new Date().toISOString().slice(0, 10);
 

@@ -81,9 +81,6 @@ function Section({
               ? copy.invitation.partyOfOne
               : copy.invitation.partyOf(guest.maxPartySize)}
           </p>
-          <p className="mt-3 text-sm text-gray-600">
-            {copy.shortCode.heading}: <code>{guest.shortCode}</code>
-          </p>
         </section>
       );
 

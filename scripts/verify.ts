@@ -1,6 +1,6 @@
 import { Pool, neonConfig } from '@neondatabase/serverless';
 import { loadEnv, requireEnv } from '../src/db/load-env.ts';
-import { generateShortCode, generateToken } from '../src/lib/domain/ids.ts';
+import { generateToken } from '../src/lib/domain/ids.ts';
 
 /**
  * Checks the acceptance criteria that need a live database and a running
@@ -31,7 +31,6 @@ function check(name: string, condition: boolean, detail = ''): void {
 type GuestRecord = {
   id: string;
   token: string;
-  short_code: string;
   display_name: string;
   max_party_size: number;
 };
@@ -51,7 +50,7 @@ async function main(): Promise<void> {
       'SELECT id, slug, name FROM events ORDER BY sort_order',
     );
     const guests = await pool.query<GuestRecord>(
-      'SELECT id, token, short_code, display_name, max_party_size FROM guests ORDER BY sort_name',
+      'SELECT id, token, display_name, max_party_size FROM guests ORDER BY sort_name',
     );
 
     check('2 events', events.rowCount === 2, `got ${events.rowCount}`);
@@ -64,10 +63,6 @@ async function main(): Promise<void> {
       'all tokens unique',
       new Set(guests.rows.map((g) => g.token)).size === guests.rowCount,
     );
-    check(
-      'all short codes unique',
-      new Set(guests.rows.map((g) => g.short_code)).size === guests.rowCount,
-    );
 
     const sample = guests.rows[0];
     if (!sample) throw new Error('No guests seeded - run pnpm db:seed first.');
@@ -77,7 +72,7 @@ async function main(): Promise<void> {
 
     // A guest invited to exactly one event, to prove filtering.
     const partial = await pool.query<GuestRecord & { slug: string }>(
-      `SELECT g.id, g.token, g.short_code, g.display_name, g.max_party_size, e.slug
+      `SELECT g.id, g.token, g.display_name, g.max_party_size, e.slug
          FROM guests g
          JOIN invitations i ON i.guest_id = g.id
          JOIN events e ON e.id = i.event_id
@@ -110,34 +105,14 @@ async function main(): Promise<void> {
       );
     }
 
-    /* --- 3 & 4: short code redirect and unknowns ----------------------- */
-    console.log('\n[3,4] /c/<code> redirects; unknown token and code both 404');
-
-    const redirect = await fetch(`${BASE}/c/${sample.short_code}`, { redirect: 'manual' });
-    check('302 status', redirect.status === 302, `got ${redirect.status}`);
-    check(
-      'redirects to the matching /i/<token>',
-      (redirect.headers.get('location') ?? '').endsWith(`/i/${sample.token}`),
-      `location was ${redirect.headers.get('location')}`,
-    );
-
-    const lower = await fetch(`${BASE}/c/${sample.short_code.toLowerCase()}`, {
-      redirect: 'manual',
-    });
-    check(
-      'a lowercase hand-typed code still resolves',
-      (lower.headers.get('location') ?? '').endsWith(`/i/${sample.token}`),
-    );
+    /* --- 3 & 4: unknown tokens ---------------------------------------- */
+    console.log('\n[3,4] an unknown token 404s');
 
     let unknownToken = generateToken();
     while (guests.rows.some((g) => g.token === unknownToken)) unknownToken = generateToken();
-    let unknownCode = generateShortCode();
-    while (guests.rows.some((g) => g.short_code === unknownCode)) unknownCode = generateShortCode();
 
     const missingToken = await fetch(`${BASE}/i/${unknownToken}`);
-    const missingCode = await fetch(`${BASE}/c/${unknownCode}`, { redirect: 'manual' });
     check('unknown token 404s', missingToken.status === 404, `got ${missingToken.status}`);
-    check('unknown code 404s', missingCode.status === 404, `got ${missingCode.status}`);
 
     /* --- 5, 6, 7, 8: the RSVP endpoint --------------------------------- */
     console.log('\n[5,6,7,8] RSVP persists, upserts, and rejects correctly');
@@ -249,8 +224,8 @@ async function main(): Promise<void> {
     });
     check('RSVP with an unknown token returns 404', badToken.status === 404, `got ${badToken.status}`);
 
-    /* --- 11: print export ---------------------------------------------- */
-    console.log('\n[11] Print export contains name, address, code and absolute QR URL');
+    /* --- 11: send export ----------------------------------------------- */
+    console.log('\n[11] Send export contains name, phone and an absolute invitation URL');
 
     const login = await fetch(`${BASE}/api/admin/login`, {
       method: 'POST',
@@ -261,7 +236,7 @@ async function main(): Promise<void> {
     check('admin login succeeds', login.status === 200, `got ${login.status}`);
 
     if (cookie) {
-      const csvResponse = await fetch(`${BASE}/api/admin/export/print`, {
+      const csvResponse = await fetch(`${BASE}/api/admin/export/send`, {
         headers: { cookie },
       });
       const csv = await csvResponse.text();
@@ -269,23 +244,20 @@ async function main(): Promise<void> {
 
       check('export returns 200', csvResponse.status === 200, `got ${csvResponse.status}`);
       check('starts with a UTF-8 BOM so Excel reads it correctly', csv.charCodeAt(0) === 0xfeff);
-      for (const column of ['display_name', 'postal_address', 'short_code', 'qr_url']) {
+      for (const column of ['display_name', 'phone', 'invitation_url', 'channels']) {
         check(`has a ${column} column`, header.includes(column));
       }
       check(
-        'QR URLs are absolute',
-        csv.includes(`${BASE}/api/qr/`),
-        `expected URLs starting ${BASE}/api/qr/`,
+        'invitation URLs are absolute',
+        csv.includes(`${BASE}/i/`),
+        `expected URLs starting ${BASE}/i/`,
       );
 
-      const printCount = await pool.query<{ count: string }>(
-        `SELECT COUNT(DISTINCT guest_id) AS count FROM delivery_channels WHERE channel = 'print'`,
-      );
       const dataRows = csv.trim().split('\r\n').length - 1;
       check(
-        'one row per print-channel guest',
-        String(dataRows) === printCount.rows[0]?.count,
-        `csv had ${dataRows}, database has ${printCount.rows[0]?.count}`,
+        'one row per guest',
+        dataRows === guests.rowCount,
+        `csv had ${dataRows}, database has ${guests.rowCount}`,
       );
     }
 

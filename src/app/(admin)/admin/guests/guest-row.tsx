@@ -16,7 +16,6 @@ export function GuestRow({ row, events }: { row: GuestListRow; events: EventView
         <td className="border px-2 py-1 break-words">{row.guest.displayName}</td>
         <td className="border px-2 py-1">{row.guest.side}</td>
         <td className="border px-2 py-1">{row.guest.maxPartySize}</td>
-        <td className="border px-2 py-1 font-mono">{row.guest.shortCode}</td>
         <td className="border px-2 py-1">{row.eventSlugs.join(', ') || '-'}</td>
         <td className="border px-2 py-1">
           {row.rsvps.length === 0
@@ -36,7 +35,7 @@ export function GuestRow({ row, events }: { row: GuestListRow; events: EventView
       </tr>
       {open && (
         <tr>
-          <td colSpan={8} className="border px-2 py-2">
+          <td colSpan={7} className="border px-2 py-2">
             <GuestEditor
               events={events}
               guest={row.guest}

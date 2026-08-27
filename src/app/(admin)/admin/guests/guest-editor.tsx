@@ -25,8 +25,8 @@ export function GuestEditor({ events, guest, invitedSlugs = [], onDone }: Props)
     side: guest?.side ?? ('bride' as Side),
     maxPartySize: guest?.maxPartySize ?? 2,
     phone: guest?.phone ?? '',
-    postalAddress: guest?.postalAddress ?? '',
     personalNote: guest?.personalNote ?? '',
+    notes: guest?.notes ?? '',
   });
   const [slugs, setSlugs] = useState<string[]>(invitedSlugs);
   const [error, setError] = useState<string | null>(null);
@@ -47,8 +47,8 @@ export function GuestEditor({ events, guest, invitedSlugs = [], onDone }: Props)
       side: form.side,
       maxPartySize: Number(form.maxPartySize),
       phone: form.phone.trim() || null,
-      postalAddress: form.postalAddress.trim() || null,
       personalNote: form.personalNote.trim() || null,
+      notes: form.notes.trim() || null,
       eventSlugs: slugs,
     };
 
@@ -69,8 +69,8 @@ export function GuestEditor({ events, guest, invitedSlugs = [], onDone }: Props)
         side: 'bride',
         maxPartySize: 2,
         phone: '',
-        postalAddress: '',
         personalNote: '',
+        notes: '',
       });
       setSlugs([]);
     }
@@ -82,8 +82,8 @@ export function GuestEditor({ events, guest, invitedSlugs = [], onDone }: Props)
     if (!guest) return;
     const confirmed = window.confirm(
       `Delete "${guest.displayName}"?\n\n` +
-        `This also deletes their responses and delivery records. If a card has already been ` +
-        `printed with code ${guest.shortCode}, that card will stop working.`,
+        `This also deletes their responses and delivery records. If their invitation link ` +
+        `has already been sent, that link will stop working.`,
     );
     if (!confirmed) return;
 
@@ -152,10 +152,10 @@ export function GuestEditor({ events, guest, invitedSlugs = [], onDone }: Props)
           />
         </label>
         <label className="block">
-          Postal address
+          Notes (admin only - never shown to the guest)
           <input
-            value={form.postalAddress}
-            onChange={(e) => set('postalAddress', e.target.value)}
+            value={form.notes}
+            onChange={(e) => set('notes', e.target.value)}
             className="w-full border px-2 py-1"
           />
         </label>

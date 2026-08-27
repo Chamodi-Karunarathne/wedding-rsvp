@@ -3,56 +3,34 @@ import { describe, it } from 'node:test';
 import {
   invitationPath,
   invitationUrl,
-  qrPath,
-  qrUrl,
-  shortCodePath,
-  shortCodeUrl,
   whatsappSendUrl,
 } from './urls.ts';
 
 const ORIGIN = 'https://example.com';
 
-describe('printed URL shapes', () => {
-  it('builds the short-code URL the QR encodes', () => {
-    assert.equal(shortCodeUrl('K7M3XB', ORIGIN), 'https://example.com/c/K7M3XB');
-  });
-
-  it('keeps the printed URL short - it has to scan from a small card', () => {
-    // A 6-char code on a typical domain stays well inside QR version 3.
-    assert.ok(shortCodeUrl('K7M3XB', ORIGIN).length < 40);
-  });
-
-  it('builds the absolute QR image URL for the mail merge', () => {
-    assert.equal(qrUrl('K7M3XB', ORIGIN), 'https://example.com/api/qr/K7M3XB.svg');
+describe('invitation URL', () => {
+  it('is the URL that goes into the WhatsApp message', () => {
+    assert.equal(invitationUrl('abc123XYZ0', ORIGIN), 'https://example.com/i/abc123XYZ0');
   });
 
   it('strips a trailing slash from the origin so URLs never double up', () => {
-    assert.equal(shortCodeUrl('K7M3XB', 'https://example.com/'), 'https://example.com/c/K7M3XB');
-    assert.equal(shortCodeUrl('K7M3XB', 'https://example.com///'), 'https://example.com/c/K7M3XB');
+    assert.equal(invitationUrl('abc123XYZ0', 'https://example.com/'), `${ORIGIN}/i/abc123XYZ0`);
+    assert.equal(invitationUrl('abc123XYZ0', 'https://example.com///'), `${ORIGIN}/i/abc123XYZ0`);
   });
 
-  it('agrees with the path helpers, so the QR and the redirect cannot drift', () => {
-    assert.equal(shortCodeUrl('K7M3XB', ORIGIN), `${ORIGIN}${shortCodePath('K7M3XB')}`);
-    assert.equal(qrUrl('K7M3XB', ORIGIN), `${ORIGIN}${qrPath('K7M3XB')}`);
-  });
-});
-
-describe('invitation URL', () => {
-  it('is the canonical destination of the short-code redirect', () => {
-    assert.equal(invitationPath('k7mq3xrb9d'), '/i/k7mq3xrb9d');
-    assert.equal(invitationUrl('k7mq3xrb9d', ORIGIN), 'https://example.com/i/k7mq3xrb9d');
+  it('agrees with the path helper, so the link and the route cannot drift', () => {
+    assert.equal(invitationUrl('abc123XYZ0', ORIGIN), `${ORIGIN}${invitationPath('abc123XYZ0')}`);
   });
 });
 
 describe('whatsappSendUrl', () => {
   it('strips formatting from the number and encodes the message', () => {
-    const url = whatsappSendUrl('+94 77 123 4567', 'Hello there & welcome');
-    assert.ok(url.startsWith('https://wa.me/94771234567?text='));
-    assert.ok(url.includes('%26')); // & encoded, not treated as a param separator
+    const url = whatsappSendUrl('+94 77 123 4567', 'Hello & welcome');
+    assert.equal(url, 'https://wa.me/94771234567?text=Hello%20%26%20welcome');
   });
 
   it('encodes a URL inside the message without breaking it', () => {
-    const url = whatsappSendUrl('+94771234567', `See ${shortCodeUrl('K7M3XB', ORIGIN)}`);
-    assert.ok(url.includes(encodeURIComponent('https://example.com/c/K7M3XB')));
+    const url = whatsappSendUrl('+94771234567', `See ${invitationUrl('abc123XYZ0', ORIGIN)}`);
+    assert.ok(url.includes(encodeURIComponent(`${ORIGIN}/i/abc123XYZ0`)));
   });
 });

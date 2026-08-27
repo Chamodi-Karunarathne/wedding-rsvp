@@ -97,9 +97,9 @@ describe('toCsv', () => {
 
   it('survives a round trip through the parser', () => {
     const rows = [
-      ['display_name', 'postal_address'],
-      ['Mr. & Mrs. Perera', '12 Main St, Colombo 07'],
-      ['නිමල් පෙරේරා', 'no address'],
+      ['display_name', 'notes'],
+      ['Mr. & Mrs. Perera', 'Card posted to 12 Main St, Colombo 07'],
+      ['නිමල් පෙරේරා', 'no note'],
     ];
     assert.deepEqual(parseCsv(toCsv(rows)), rows);
   });

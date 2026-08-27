@@ -3,7 +3,7 @@ import { toCsv } from '../src/lib/domain/csv.ts';
 
 /**
  * Generates the 50-row CSV for acceptance criterion 10, including the cases
- * that actually break importers: a comma inside a quoted address, Sinhala
+ * that actually break importers: a comma inside a quoted note, Sinhala
  * script, an apostrophe, a very long name, and a household with no phone.
  */
 
@@ -16,7 +16,7 @@ const rows: (string | number)[][] = [
     'side',
     'max_party_size',
     'phone',
-    'postal_address',
+    'notes',
     'personal_note',
     'events',
     'channels',
@@ -36,10 +36,10 @@ for (let i = 1; i <= 50; i += 1) {
     `Household ${String(i).padStart(2, '0')}`,
     side,
     (i % 4) + 1,
-    // Every fifth row is print-only with no phone, which is exactly the case
-    // that breaks a naive (sort_name, phone) dedupe key.
+    // Every fifth row also gets a printed card and has no phone number, which
+    // is exactly the case that breaks a naive (sort_name, phone) dedupe key.
     isPrint ? '' : `07${String(10000000 + i).slice(0, 8)}`,
-    isPrint ? `No. ${i}, Temple Road, Kandy 20000` : '',
+    isPrint ? `Card posted to No. ${i}, Temple Road, Kandy 20000` : '',
     i === 3 ? 'We are so glad you can make it.' : '',
     i % 7 === 0 ? 'reception' : 'ceremony|reception',
     isPrint ? 'print' : 'whatsapp',

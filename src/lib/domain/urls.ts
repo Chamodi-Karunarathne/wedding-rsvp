@@ -1,16 +1,16 @@
 /**
  * PERMANENT, and partly set in ink.
  *
- * The short-code URL built here is what the QR code on the printed invitation
- * encodes. Once cards are printed, this path shape and the origin behind it
- * can never change. Keep both the QR generator and the /c redirect reading
- * from this file so they cannot drift apart.
+ * Nothing is printed any more - the cards do not reference the site - but the
+ * origin is still permanent in practice: it is baked into every link already
+ * sent over WhatsApp, and a message that has been delivered cannot be
+ * reissued. Treat NEXT_PUBLIC_SITE_URL as unchangeable from the first send.
  */
 
 /**
- * Strips trailing slashes. Applied to EVERY origin, not just the one read from
- * the environment: callers such as the print export pass an origin in, and a
- * trailing slash there would put "example.com//c/CODE" onto a printed card.
+ * Strips trailing slashes. Applied to EVERY origin, not just the one read
+ * from the environment: callers such as the send list pass an origin in, and
+ * a trailing slash there would put "example.com//i/TOKEN" into a message.
  */
 function normalizeOrigin(origin: string): string {
   return origin.replace(/\/+$/, '');
@@ -21,8 +21,9 @@ export function siteOrigin(): string {
   const raw = process.env.NEXT_PUBLIC_SITE_URL;
   if (!raw) {
     throw new Error(
-      'NEXT_PUBLIC_SITE_URL is not set. It is baked into every printed QR code, ' +
-        'so it must be the final production origin before cards go to print.',
+      'NEXT_PUBLIC_SITE_URL is not set. It is baked into every invitation link ' +
+        'sent over WhatsApp, so it must be the final production origin before ' +
+        'the first message goes out.',
     );
   }
   return normalizeOrigin(raw);
@@ -32,30 +33,9 @@ export function invitationPath(token: string): string {
   return `/i/${token}`;
 }
 
-export function shortCodePath(code: string): string {
-  return `/c/${code}`;
-}
-
-export function qrPath(code: string): string {
-  return `/api/qr/${code}.svg`;
-}
-
+/** THE SENT URL. This exact string is what reaches a guest's phone. */
 export function invitationUrl(token: string, origin = siteOrigin()): string {
   return `${normalizeOrigin(origin)}${invitationPath(token)}`;
-}
-
-/**
- * THE PRINTED URL. This exact string is what a guest's QR code resolves to,
- * and it deliberately uses the short code rather than the token so that
- * scanning and typing lead to the same place.
- */
-export function shortCodeUrl(code: string, origin = siteOrigin()): string {
-  return `${normalizeOrigin(origin)}${shortCodePath(code)}`;
-}
-
-/** Absolute URL of the QR image itself, for the print export's mail merge. */
-export function qrUrl(code: string, origin = siteOrigin()): string {
-  return `${normalizeOrigin(origin)}${qrPath(code)}`;
 }
 
 /** wa.me deep link with the invitation message pre-filled. */

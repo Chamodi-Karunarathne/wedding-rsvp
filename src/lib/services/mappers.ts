@@ -13,15 +13,17 @@ export function toGuestView(row: GuestRow): GuestView {
   return {
     id: row.id,
     token: row.token,
-    shortCode: row.shortCode,
     displayName: row.displayName,
+    displayNameFallback: row.displayNameFallback,
+    // The one place the fallback rule is applied.
+    cardName: row.displayNameFallback ?? row.displayName,
     sortName: row.sortName,
     side: row.side,
     language: row.language,
     maxPartySize: row.maxPartySize,
     phone: row.phone,
-    postalAddress: row.postalAddress,
     personalNote: row.personalNote,
+    notes: row.notes,
   };
 }
 

@@ -15,8 +15,8 @@ import { createGuest, setDeliveryChannel, updateGuest } from './guests';
  *     updates rather than duplicating, so a half-finished import can simply be
  *     run again.
  *   - Per-row errors. One bad row reports itself and the other 499 still land.
- *   - Generates token and short_code for new rows only, so re-importing never
- *     invalidates a code already printed on a card.
+ *   - Generates a token for new rows only, so re-importing never invalidates
+ *     a link that has already been sent to somebody.
  */
 
 export type ImportRowResult = {
@@ -26,7 +26,6 @@ export type ImportRowResult = {
   displayName: string;
   message?: string;
   token?: string;
-  shortCode?: string;
 };
 
 export type ImportSummary = {
@@ -40,8 +39,8 @@ export type ImportSummary = {
 
 const HEADER_HELP =
   'Expected columns: display_name (required), side (bride|groom|both, required), ' +
-  'sort_name, language, max_party_size, phone, postal_address, personal_note, ' +
-  'events, channels.';
+  'display_name_fallback, sort_name, language, max_party_size, phone, ' +
+  'personal_note, notes, events, channels.';
 
 /** Accepts "display_name", "display name" and "displayname". */
 function pick(record: Record<string, string>, name: string): string {
@@ -173,8 +172,9 @@ export async function importGuestsCsv(
       language,
       maxPartySize,
       phone: normalizePhone(phone),
-      postalAddress: pick(record, 'postal_address') || null,
+      displayNameFallback: pick(record, 'display_name_fallback') || null,
       personalNote: pick(record, 'personal_note') || null,
+      notes: pick(record, 'notes') || null,
       ...(eventSlugs.length ? { eventSlugs } : {}),
     };
 
@@ -183,14 +183,14 @@ export async function importGuestsCsv(
         row: rowNumber,
         status: existing ? 'updated' : 'created',
         displayName,
-        ...(existing ? { token: existing.token, shortCode: existing.shortCode } : {}),
+        ...(existing ? { token: existing.token } : {}),
       });
       continue;
     }
 
     if (existing) {
-      // Note: token and short_code are NOT regenerated. A printed card stays
-      // valid no matter how many times the list is re-imported.
+      // Note: the token is NOT regenerated. A link already sent over WhatsApp
+      // stays valid no matter how many times the list is re-imported.
       const updated = await updateGuest(existing.id, payload, db);
       if (!updated.ok) {
         fail(updated.error.message);
@@ -204,7 +204,6 @@ export async function importGuestsCsv(
         status: 'updated',
         displayName,
         token: existing.token,
-        shortCode: existing.shortCode,
       });
       continue;
     }
@@ -224,7 +223,6 @@ export async function importGuestsCsv(
       status: 'created',
       displayName,
       token: created.data.token,
-      shortCode: created.data.shortCode,
     });
   }
 

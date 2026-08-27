@@ -15,7 +15,7 @@ import {
   type Locale,
   type Side,
 } from './schema.ts';
-import { generateShortCode, generateToken } from '../lib/domain/ids.ts';
+import { generateToken } from '../lib/domain/ids.ts';
 import {
   DEFAULT_MESSAGING_CONFIG,
   DEFAULT_PHASE_CONFIG,
@@ -71,8 +71,9 @@ type SeedGuest = {
   language?: Locale;
   maxPartySize: number;
   phone?: string;
-  postalAddress?: string;
   personalNote?: string;
+  notes?: string;
+  displayNameFallback?: string;
   events: EventSlug[];
   channels?: { channel: DeliveryChannelName; status: DeliveryStatus }[];
   rsvps?: {
@@ -178,12 +179,12 @@ const GUEST_FIXTURES: SeedGuest[] = [
     ],
   },
   {
-    covers: 'PRINT list: postal address, NO phone',
+    covers: 'printed card as well as a link, and NO phone number',
     displayName: 'Mr. & Mrs. Lakshman Dias',
     sortName: 'Dias, Lakshman',
     side: 'bride',
     maxPartySize: 2,
-    postalAddress: '42 Temple Road, Kandy 20000',
+    notes: 'Card posted to 42 Temple Road, Kandy. Reachable on the landline only.',
     events: BOTH,
     channels: [{ channel: 'print', status: 'pending' }],
   },
@@ -194,7 +195,7 @@ const GUEST_FIXTURES: SeedGuest[] = [
     side: 'groom',
     maxPartySize: 4,
     phone: '0714445556',
-    postalAddress: '7A Lake Drive, Nugegoda 10250',
+    notes: 'Card hand-delivered as well as the link.',
     events: BOTH,
     channels: [
       { channel: 'print', status: 'sent' },
@@ -209,7 +210,7 @@ const GUEST_FIXTURES: SeedGuest[] = [
     language: 'si',
     maxPartySize: 2,
     phone: '0776665554',
-    postalAddress: 'නො. 15, මාවත, කොළඹ 05',
+    notes: 'Prefers Sinhala. Card posted too.',
     events: BOTH,
     channels: [
       { channel: 'print', status: 'pending' },
@@ -224,8 +225,8 @@ const GUEST_FIXTURES: SeedGuest[] = [
     side: 'bride',
     maxPartySize: 2,
     phone: '0372234567',
-    postalAddress:
-      'Walawwa, Bandaranaike Mawatha, Off Kandy Road, Kurunegala 60000, North Western Province',
+    displayNameFallback: 'The Bandaranaike Family',
+    notes: 'Full name is far too long for the card - fallback set.',
     events: BOTH,
     channels: [{ channel: 'print', status: 'pending' }],
   },
@@ -291,7 +292,7 @@ const GUEST_FIXTURES: SeedGuest[] = [
     side: 'both',
     maxPartySize: 4,
     phone: '0789990001',
-    postalAddress: '3 Flower Road, Colombo 07',
+    notes: 'Card posted.',
     events: BOTH,
     channels: [{ channel: 'print', status: 'pending' }],
   },
@@ -319,7 +320,7 @@ const GUEST_FIXTURES: SeedGuest[] = [
     sortName: 'Karunaratne, Buddhika',
     side: 'groom',
     maxPartySize: 2,
-    postalAddress: '88 Beach Road, Negombo 11500',
+    notes: 'Card posted. No phone on file.',
     events: BOTH,
     channels: [{ channel: 'print', status: 'pending' }],
   },
@@ -394,18 +395,11 @@ async function main(): Promise<void> {
 
     console.log('Inserting guests...');
     const usedTokens = new Set<string>();
-    const usedCodes = new Set<string>();
 
     const uniqueToken = (): string => {
       for (;;) {
         const value = generateToken();
         if (!usedTokens.has(value)) return usedTokens.add(value), value;
-      }
-    };
-    const uniqueCode = (): string => {
-      for (;;) {
-        const value = generateShortCode();
-        if (!usedCodes.has(value)) return usedCodes.add(value), value;
       }
     };
 
@@ -414,15 +408,15 @@ async function main(): Promise<void> {
         .insert(guests)
         .values({
           token: uniqueToken(),
-          shortCode: uniqueCode(),
           displayName: fixture.displayName,
+          displayNameFallback: fixture.displayNameFallback ?? null,
           sortName: fixture.sortName,
           side: fixture.side,
           language: fixture.language ?? 'en',
           maxPartySize: fixture.maxPartySize,
           phone: fixture.phone ?? null,
-          postalAddress: fixture.postalAddress ?? null,
           personalNote: fixture.personalNote ?? null,
+          notes: fixture.notes ?? null,
         })
         .returning();
 
@@ -480,13 +474,10 @@ async function main(): Promise<void> {
       const row = allGuests.find((g) => g.sortName === fixture.sortName);
       if (!row) continue;
       console.log(`  ${fixture.covers}`);
-      console.log(`    ${origin}/i/${row.token}   code ${row.shortCode}`);
+      console.log(`    ${origin}/i/${row.token}`);
     }
     console.log(
       `\nUnique tokens: ${new Set(allGuests.map((g) => g.token)).size}/${allGuests.length}`,
-    );
-    console.log(
-      `Unique codes:  ${new Set(allGuests.map((g) => g.shortCode)).size}/${allGuests.length}`,
     );
   } finally {
     await pool.end();

@@ -1,5 +1,5 @@
 import { renderTemplate } from '@/lib/domain/config';
-import { shortCodeUrl, whatsappSendUrl } from '@/lib/domain/urls';
+import { invitationUrl, whatsappSendUrl } from '@/lib/domain/urls';
 import { getConfig } from '@/lib/services/config';
 import { listGuests } from '@/lib/services/guests';
 import { SendRow } from './send-row';
@@ -13,8 +13,9 @@ export default async function AdminSendPage() {
     <main>
       <h1 className="text-xl font-semibold">Send</h1>
       <p className="text-sm text-gray-600">
-        The link shown is the short-code URL - the same one printed on the cards. Clicking a
-        channel advances it: pending &rarr; sent &rarr; delivered.
+        Every guest is sent their own invitation link personally, including the few who also
+        receive a printed card. Clicking a channel advances it: pending &rarr; sent &rarr;
+        delivered.
       </p>
       <p className="mt-1 text-sm">
         <a href="/api/admin/export/send" className="underline">
@@ -30,7 +31,7 @@ export default async function AdminSendPage() {
       <table className="mt-4 w-full border-collapse text-sm">
         <thead>
           <tr>
-            {['Name', 'Phone', 'Code', 'Link', 'WhatsApp', 'Channels'].map((h) => (
+            {['Name', 'Phone', 'Link', 'WhatsApp', 'Channels'].map((h) => (
               <th key={h} className="border px-2 py-1 text-left">
                 {h}
               </th>
@@ -39,11 +40,10 @@ export default async function AdminSendPage() {
         </thead>
         <tbody>
           {guests.map((row) => {
-            const url = shortCodeUrl(row.guest.shortCode);
+            const url = invitationUrl(row.guest.token);
             const message = renderTemplate(config.messaging.whatsappTemplate, {
-              name: row.guest.displayName,
+              name: row.guest.cardName,
               url,
-              code: row.guest.shortCode,
             });
 
             return (
@@ -51,7 +51,6 @@ export default async function AdminSendPage() {
                 key={row.guest.id}
                 guestId={row.guest.id}
                 displayName={row.guest.displayName}
-                shortCode={row.guest.shortCode}
                 phone={row.guest.phone}
                 invitationUrl={url}
                 whatsappUrl={row.guest.phone ? whatsappSendUrl(row.guest.phone, message) : null}

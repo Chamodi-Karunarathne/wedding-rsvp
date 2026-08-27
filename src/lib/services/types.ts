@@ -23,15 +23,26 @@ export type { SiteSettings };
 export type GuestView = {
   id: string;
   token: string;
-  shortCode: string;
+  /** The household exactly as addressed. Always the truthful full form. */
   displayName: string;
+  /** Shorter form for the card, or null when the display name itself fits. */
+  displayNameFallback: string | null;
+  /**
+   * What the card renders: the fallback when set, otherwise displayName.
+   *
+   * Resolved here rather than at each call site so the guest UI never has to
+   * know the rule - and kept alongside displayName rather than replacing it,
+   * so admin can still see and warn about the real name.
+   */
+  cardName: string;
   sortName: string;
   side: Side;
   language: Locale;
   maxPartySize: number;
   phone: string | null;
-  postalAddress: string | null;
   personalNote: string | null;
+  /** Free-text, admin-only. Never rendered to the guest. */
+  notes: string | null;
 };
 
 export type EventView = {

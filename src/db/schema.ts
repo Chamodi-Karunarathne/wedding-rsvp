@@ -70,16 +70,19 @@ export const guests = pgTable(
     id: uuid('id').primaryKey().defaultRandom(),
     // nanoid(10), used in links, never typed by a human.
     token: text('token').notNull().unique(),
-    // 6 chars from an unambiguous, vowel-free alphabet. PRINTED ON PAPER.
-    shortCode: text('short_code').notNull().unique(),
     displayName: text('display_name').notNull(),
+    // Shorter form for the fixed-width card design, where a long display
+    // name breaks the layout. Null means the display name itself fits.
+    displayNameFallback: text('display_name_fallback'),
     sortName: text('sort_name').notNull(),
     side: text('side', { enum: SIDES }).notNull(),
     language: text('language', { enum: LOCALES }).notNull().default('en'),
     maxPartySize: integer('max_party_size').notNull().default(2),
     phone: text('phone'),
-    postalAddress: text('postal_address'),
     personalNote: text('personal_note'),
+    // Free-text, admin-only. Anything ad hoc the family wants recorded
+    // against a household - dietary needs, "calls the landline", anything.
+    notes: text('notes'),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },
@@ -145,6 +148,45 @@ export const rsvps = pgTable(
       'rsvps_party_count_matches_attending',
       sql`(${t.attending} AND ${t.partyCount} >= 1) OR (NOT ${t.attending} AND ${t.partyCount} = 0)`,
     ),
+  ],
+);
+
+/* -------------------------------------------------------------------------- */
+/* rsvp_history                                                               */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * The previous value of an RSVP, written every time one is overwritten.
+ *
+ * `rsvps` holds only the current answer, so without this a guest submitting
+ * over a response someone transcribed from a phone call would erase it with
+ * no trace. When the counts look wrong in November, this is the audit trail:
+ * `recorded_by` and `attendee_names` are carried too, because "a phone entry
+ * was overwritten" is not much use without knowing who took the call.
+ *
+ * Append-only. Nothing reads it in the normal flow.
+ */
+export const rsvpHistory = pgTable(
+  'rsvp_history',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    guestId: uuid('guest_id')
+      .notNull()
+      .references(() => guests.id, { onDelete: 'cascade' }),
+    eventId: uuid('event_id')
+      .notNull()
+      .references(() => events.id, { onDelete: 'restrict' }),
+    attending: boolean('attending').notNull(),
+    partyCount: integer('party_count').notNull(),
+    attendeeNames: text('attendee_names'),
+    source: text('source', { enum: RSVP_SOURCES }).notNull(),
+    recordedBy: text('recorded_by'),
+    /** When this value stopped being the current answer. */
+    supersededAt: timestamp('superseded_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index('rsvp_history_guest_event_idx').on(t.guestId, t.eventId),
+    check('rsvp_history_source_valid', inList('source', RSVP_SOURCES)),
   ],
 );
 
@@ -229,6 +271,7 @@ export type NewGuestRow = typeof guests.$inferInsert;
 export type InvitationRow = typeof invitations.$inferSelect;
 export type RsvpRow = typeof rsvps.$inferSelect;
 export type NewRsvpRow = typeof rsvps.$inferInsert;
+export type RsvpHistoryRow = typeof rsvpHistory.$inferSelect;
 export type GuestMessageRow = typeof guestMessages.$inferSelect;
 export type DeliveryChannelRow = typeof deliveryChannels.$inferSelect;
 export type GuestOpenRow = typeof guestOpens.$inferSelect;

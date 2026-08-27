@@ -33,13 +33,19 @@ export type RsvpResponseInput = z.infer<typeof rsvpResponseSchema>;
 
 export const guestInputSchema = z.object({
   displayName: z.string().min(1).max(300),
+  /**
+   * Long names break the fixed-width card. Admin warns above
+   * DISPLAY_NAME_SOFT_LIMIT and offers this shorter form, but nothing is
+   * blocked here - a warning the family can overrule is the point.
+   */
+  displayNameFallback: z.string().max(300).nullable().optional(),
   sortName: z.string().min(1).max(300),
   side: z.enum(SIDES),
   language: z.enum(LOCALES).optional(),
   maxPartySize: z.number().int().min(1).max(50),
   phone: z.string().max(40).nullable().optional(),
-  postalAddress: z.string().max(500).nullable().optional(),
   personalNote: z.string().max(2000).nullable().optional(),
+  notes: z.string().max(4000).nullable().optional(),
   eventSlugs: z.array(z.string().min(1)).max(20).optional(),
 });
 

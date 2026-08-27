@@ -1,4 +1,4 @@
-import { and, asc, eq, inArray, sql } from 'drizzle-orm';
+import { and, asc, eq, inArray } from 'drizzle-orm';
 import { getDb, type DbLike } from '@/db/client';
 import {
   deliveryChannels,
@@ -8,12 +8,7 @@ import {
   invitations,
   rsvps,
 } from '@/db/schema';
-import {
-  generateShortCode,
-  generateToken,
-  isValidShortCode,
-  normalizeShortCode,
-} from '@/lib/domain/ids';
+import { generateToken } from '@/lib/domain/ids';
 import { ok, serviceError, type Result } from '@/lib/domain/result';
 import { toDeliveryChannelView, toEventView, toGuestView, toRsvpView } from './mappers';
 import type { DeliveryChannelView, EventView, GuestView, RsvpView, Side } from './types';
@@ -29,22 +24,6 @@ export async function findGuestByToken(
   db: DbLike = getDb(),
 ): Promise<GuestView | null> {
   const [row] = await db.select().from(guests).where(eq(guests.token, token)).limit(1);
-  return row ? toGuestView(row) : null;
-}
-
-/**
- * Resolves a hand-typed short code. Normalizes first, so " bcd-fgh ",
- * "bcdfgh" and "BCDFGH" all find the same guest, and an unambiguous
- * lookalike (5 for S, 8 for B) is corrected rather than 404ing.
- */
-export async function findGuestByShortCode(
-  rawCode: string,
-  db: DbLike = getDb(),
-): Promise<GuestView | null> {
-  const code = normalizeShortCode(rawCode);
-  if (!isValidShortCode(code)) return null;
-
-  const [row] = await db.select().from(guests).where(eq(guests.shortCode, code)).limit(1);
   return row ? toGuestView(row) : null;
 }
 
@@ -108,32 +87,31 @@ export async function listDeliveryChannels(
 /* -------------------------------------------------------------------------- */
 
 /**
- * Reserves a token and short code that are not already taken.
+ * Reserves a token that is not already taken.
  *
  * The odds of a collision at 500 guests are negligible, but "negligible" is
- * not "impossible" and a duplicate short code would send two households to
- * one invitation. Checked rather than assumed.
+ * not "impossible" and a duplicate token would send two households to one
+ * invitation. Checked rather than assumed.
  */
-export async function allocateIdentifiers(
+export async function allocateToken(
   db: DbLike = getDb(),
   attempts = 20,
-): Promise<Result<{ token: string; shortCode: string }>> {
+): Promise<Result<{ token: string }>> {
   for (let i = 0; i < attempts; i += 1) {
     const token = generateToken();
-    const shortCode = generateShortCode();
 
     const clash = await db
       .select({ id: guests.id })
       .from(guests)
-      .where(sql`${guests.token} = ${token} OR ${guests.shortCode} = ${shortCode}`)
+      .where(eq(guests.token, token))
       .limit(1);
 
-    if (clash.length === 0) return ok({ token, shortCode });
+    if (clash.length === 0) return ok({ token });
   }
 
   return serviceError(
     'internal',
-    `Could not allocate a unique token and short code after ${attempts} attempts.`,
+    `Could not allocate a unique token after ${attempts} attempts.`,
   );
 }
 
@@ -143,13 +121,14 @@ export async function allocateIdentifiers(
 
 export type GuestInput = {
   displayName: string;
+  displayNameFallback?: string | null;
   sortName: string;
   side: Side;
   language?: 'en' | 'si';
   maxPartySize?: number;
   phone?: string | null;
-  postalAddress?: string | null;
   personalNote?: string | null;
+  notes?: string | null;
   /** Event slugs this guest is invited to. Replaces the existing set. */
   eventSlugs?: string[];
 };
@@ -158,22 +137,22 @@ export async function createGuest(
   input: GuestInput,
   db: DbLike = getDb(),
 ): Promise<Result<GuestView>> {
-  const ids = await allocateIdentifiers(db);
+  const ids = await allocateToken(db);
   if (!ids.ok) return ids;
 
   const [row] = await db
     .insert(guests)
     .values({
       token: ids.data.token,
-      shortCode: ids.data.shortCode,
       displayName: input.displayName,
+      displayNameFallback: input.displayNameFallback ?? null,
       sortName: input.sortName,
       side: input.side,
       language: input.language ?? 'en',
       maxPartySize: input.maxPartySize ?? 2,
       phone: input.phone ?? null,
-      postalAddress: input.postalAddress ?? null,
       personalNote: input.personalNote ?? null,
+      notes: input.notes ?? null,
     })
     .returning();
 
@@ -196,13 +175,16 @@ export async function updateGuest(
     .update(guests)
     .set({
       ...(input.displayName !== undefined && { displayName: input.displayName }),
+      ...(input.displayNameFallback !== undefined && {
+        displayNameFallback: input.displayNameFallback,
+      }),
       ...(input.sortName !== undefined && { sortName: input.sortName }),
       ...(input.side !== undefined && { side: input.side }),
       ...(input.language !== undefined && { language: input.language }),
       ...(input.maxPartySize !== undefined && { maxPartySize: input.maxPartySize }),
       ...(input.phone !== undefined && { phone: input.phone }),
-      ...(input.postalAddress !== undefined && { postalAddress: input.postalAddress }),
       ...(input.personalNote !== undefined && { personalNote: input.personalNote }),
+      ...(input.notes !== undefined && { notes: input.notes }),
       updatedAt: new Date(),
     })
     .where(eq(guests.id, guestId))

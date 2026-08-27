@@ -19,7 +19,6 @@ const LINKS = [
   ['/admin/guests', 'Guests'],
   ['/admin/send', 'Send'],
   ['/admin/rsvps', 'RSVPs'],
-  ['/admin/print', 'Print'],
   ['/admin/config', 'Config'],
 ] as const;
 
