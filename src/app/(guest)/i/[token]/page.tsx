@@ -165,30 +165,26 @@ function Section({
                 })}
           </p>
 
-          <ul className="mt-2 text-sm text-gray-600">
-            {events.map((event) => {
-              const existing = rsvps[event.slug];
-              const status = !existing
-                ? copy.rsvp.noResponseYet
-                : existing.attending
-                  ? renderTemplate(copy.rsvp.currentlyAttending, { n: existing.partyCount })
-                  : copy.rsvp.currentlyDeclined;
+          {/*
+            No JavaScript means the form below cannot send anything, so it is
+            hidden rather than left there to be filled in and swallowed. The
+            saved answer above still renders - it is server-rendered - and
+            phone responses are a first-class path now, so this is a real
+            route to replying rather than a dead end.
+          */}
+          <noscript>
+            <style>{`.rsvp-live{display:none}`}</style>
+            <p className="mt-3 text-sm text-gray-600">{copy.rsvp.noScript}</p>
+          </noscript>
 
-              return (
-                <li key={event.slug}>
-                  {events.length > 1 ? `${event.name}: ${status}` : status}
-                </li>
-              );
-            })}
-          </ul>
-
-          <div className="mt-4">
+          <div className="rsvp-live mt-4">
             <RsvpForm
               token={guest.token}
               events={events}
               rsvps={rsvps}
               message={message}
               maxPartySize={guest.maxPartySize}
+              timezone={site.timezone}
               copy={copy}
             />
           </div>

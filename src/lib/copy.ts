@@ -66,6 +66,18 @@ export type CopyBundle = {
     /** {{n}} - the party count on the current answer. */
     currentlyAttending: string;
     currentlyDeclined: string;
+
+    /* The saved-response panel a returning guest lands on. */
+    savedHeading: string;
+    /** {{n}} - how many are coming. */
+    savedAttending: string;
+    savedAttendingOne: string;
+    savedDeclined: string;
+    change: string;
+    cancelChange: string;
+    saveChanges: string;
+    /** Shown only when the form cannot work, i.e. no JavaScript. */
+    noScript: string;
   };
   note: {
     heading: string;
@@ -123,6 +135,17 @@ const en: CopyBundle = {
     noResponseYet: 'No response recorded yet.',
     currentlyAttending: 'Currently attending, party of {{n}}.',
     currentlyDeclined: 'Currently declined.',
+
+    savedHeading: 'Your response',
+    savedAttending: 'You have told us that {{n}} of you will be joining us.',
+    savedAttendingOne: 'You have told us that you will be joining us.',
+    savedDeclined: 'You have told us that you will not be able to join us.',
+    change: 'Change your response',
+    cancelChange: 'Leave it as it is',
+    saveChanges: 'Save changes',
+    noScript:
+      'This form needs JavaScript to send your reply. If you would rather not turn it on, ' +
+      'do get in touch with us directly and we will record your answer for you.',
   },
   note: {
     heading: 'A note for you',

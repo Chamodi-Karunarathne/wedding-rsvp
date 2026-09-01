@@ -47,7 +47,7 @@ src/
   proxy.ts       the /admin gate                   permanent
 ```
 
-`app/(guest)` imports nothing but `lib/services`, `lib/copy` and `lib/format`. Both invariants are checkable:
+`app/(guest)` imports nothing but `lib/services`, `lib/copy`, `lib/format`, `lib/svg` and the pure modules under `lib/domain`. Both invariants are checkable:
 
 ```bash
 grep -rn "drizzle-orm\|@/db" "src/app/(guest)"   # returns nothing
@@ -136,6 +136,18 @@ Components live in `src/components/ui/` and are ordinary source files - generate
 Two things it touches outside `/admin`, both in `src/app/globals.css` and both from the preset's own base layer: `body` gets `bg-background text-foreground`, and `html` gets `font-serif` with Noto Serif and Public Sans loaded in the root layout. The guest UI is disposable and unstyled, so it inherits those and is otherwise untouched.
 
 The root layout no longer sets a width. Guest pages get their reading column from `(guest)/layout.tsx` and `not-found.tsx` sets its own; the console needs the full width for its tables.
+
+## Inlining the card artwork
+
+`lib/svg.ts` reads `public/card/*.svg` on the server, caches each parse in module scope, and exposes `<InlineSvg name="monogram" />`. No SVGR and no bundler configuration.
+
+They are inlined rather than referenced with `<img>` because the intro sequence animates elements *inside* them — the seal halves, the floral clusters, the text lines — and nothing reaches into an `<img>`. Names are checked against `manifest.json`, so a typo fails with the list of what exists rather than rendering an empty box on somebody's invitation.
+
+The cache is deliberately bypassed outside production: the artwork is being re-exported from Illustrator, and a cache that outlives the file would mean restarting the dev server to see a new export.
+
+## Names that are not Latin
+
+The envelope is set in Linux Libertine, which has no Sinhala coverage: a Sinhala name in it renders as tofu. `lib/domain/script.ts` decides the stack by **codepoint, never by the `language` column** — those are different questions, and only one of them is about the string actually being rendered. `scriptOf()` returns `latin`, `sinhala`, or `other`; `other` is Tamil and anything else a Sinhala face will not cover either, which is why the fallback stack ends in a generic serif.
 
 ## Card artwork
 
