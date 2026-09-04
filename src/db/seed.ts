@@ -372,8 +372,11 @@ async function main(): Promise<void> {
       {
         key: 'site',
         value: {
-          brideName: 'Ranjani',
-          groomName: 'Sunil',
+          // The names the card artwork is set in. card-text.svg has them
+          // as outlines, so these two must agree with it or the page and the
+          // card contradict each other.
+          brideName: 'Madushani',
+          groomName: 'Charith',
           timezone: DEFAULT_TIMEZONE,
         },
       },

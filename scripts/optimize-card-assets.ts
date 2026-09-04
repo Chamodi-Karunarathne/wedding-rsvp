@@ -49,6 +49,24 @@ function idPrefix(file: string): string {
   return basename(file, '.svg').replace(/[^A-Za-z0-9_-]+/g, '-').replace(/^-+|-+$/g, '');
 }
 
+/**
+ * Strips ids that nothing can possibly reference.
+ *
+ * card-text.svg arrives with 311 ids of the form `font_2_37`, one per glyph
+ * outline, and the sequence only ever animates the twelve `line-*` groups.
+ * They cost about 8 KB of markup and 311 attributes on a mid-range phone.
+ *
+ * ONLY runs when the file contains no internal references at all - no
+ * `url(#...)`, no `href="#..."`, no `<use>`. A gradient, clip path or mask
+ * would make this unsafe, so the check is the guard rather than a promise.
+ */
+function dropUnreferencedGlyphIds(svg: string): string {
+  const references = /url\(#|href="#|<use/.test(svg);
+  if (references) return svg;
+
+  return svg.replace(/\s+id="[^"]*__font_[^"]*"/g, '');
+}
+
 function kb(bytes: number): string {
   return `${(bytes / 1024).toFixed(1)} KB`;
 }
@@ -114,15 +132,19 @@ for (const name of files) {
     ],
   });
 
-  writeFileSync(path, result.data, 'utf8');
+  const cleaned = dropUnreferencedGlyphIds(result.data);
+  writeFileSync(path, cleaned, 'utf8');
 
   const originalBytes = Buffer.byteLength(original, 'utf8');
-  const optimizedBytes = Buffer.byteLength(result.data, 'utf8');
+  const optimizedBytes = Buffer.byteLength(cleaned, 'utf8');
   before += originalBytes;
   after += optimizedBytes;
 
+  // Hash what was WRITTEN, not what SVGO returned: the glyph-id pass runs
+  // after it, and a version that does not move when the bytes do is exactly
+  // the stale-forever case the immutable cache headers make unrecoverable.
   hash.update(name);
-  hash.update(result.data);
+  hash.update(cleaned);
 
   const saved = originalBytes === 0 ? 0 : (1 - optimizedBytes / originalBytes) * 100;
   console.log(`  ${name}: ${kb(originalBytes)} -> ${kb(optimizedBytes)} (-${saved.toFixed(0)}%)`);

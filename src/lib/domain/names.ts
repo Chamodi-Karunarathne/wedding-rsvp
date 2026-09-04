@@ -34,3 +34,25 @@ export function resolveCardName(displayName: string, fallback: string | null): s
   const trimmed = fallback?.trim();
   return trimmed ? trimmed : displayName;
 }
+
+/**
+ * How much to shrink the envelope name so a long one fits its line.
+ *
+ * clamp() alone cannot do this: it scales with the container and knows
+ * nothing about how many characters it has been asked to fit, so a
+ * forty-character household overflows at exactly the size a short one looks
+ * right at. This is the length half of the answer; the CSS multiplies it by a
+ * clamp() that handles the viewport half.
+ *
+ * Floored at 0.55 - past that the name is too small to read on a phone, and
+ * the honest fix is a shorter display_name_fallback, which admin already
+ * warns about above DISPLAY_NAME_SOFT_LIMIT.
+ */
+export const ENVELOPE_COMFORTABLE_LENGTH = 18;
+export const ENVELOPE_MIN_SCALE = 0.55;
+
+export function envelopeNameScale(name: string): number {
+  const length = displayNameLength(name);
+  if (length <= ENVELOPE_COMFORTABLE_LENGTH) return 1;
+  return Math.max(ENVELOPE_MIN_SCALE, ENVELOPE_COMFORTABLE_LENGTH / length);
+}

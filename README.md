@@ -29,6 +29,7 @@ pnpm dev
 | `pnpm verify` | Runs the database-backed acceptance checks. Needs `pnpm dev` running. |
 | `pnpm make-test-csv` | Writes a 50-row import fixture for the CSV import check. |
 | `pnpm assets:optimize` | Rewrites `public/card/*.svg` through SVGO at 2dp precision. |
+| `pnpm card:preview` | Renders the composed card to a PNG, for checking layer offsets. |
 
 ## Architecture
 
@@ -136,6 +137,45 @@ Components live in `src/components/ui/` and are ordinary source files - generate
 Two things it touches outside `/admin`, both in `src/app/globals.css` and both from the preset's own base layer: `body` gets `bg-background text-foreground`, and `html` gets `font-serif` with Noto Serif and Public Sans loaded in the root layout. The guest UI is disposable and unstyled, so it inherits those and is otherwise untouched.
 
 The root layout no longer sets a width. Guest pages get their reading column from `(guest)/layout.tsx` and `not-found.tsx` sets its own; the console needs the full width for its tables.
+
+## The card, and why there are offsets
+
+The three card layers were exported from three different artboards, each trimmed to its own content, so they do **not** share a viewBox:
+
+| layer | viewBox | ratio |
+| --- | --- | --- |
+| card-base | `0 0 426.2 553.76` | 0.770 |
+| card-florals | `0 0 423.59 533.43` | 0.794 |
+| card-text | `0 0 302.51 304.04` | 0.995 |
+
+Stacked at `inset: 0` the text block would be stretched by about 29% against the base. So the card is **one** `<svg>` in card-base's coordinate system with each layer nested as a `<g>` carrying a single translate/scale, and those numbers live in `src/lib/card/layers.ts`. They were arrived at by rendering the composite and looking at it — `pnpm card:preview --guides` is that tool, and it imports the same module the page does so the two cannot drift.
+
+If the layers are ever re-exported onto a shared artboard, every entry becomes `{ x: 0, y: 0, scale: 1 }` and nothing else changes.
+
+`RSVP_REGION` in the same file is **not** measured from the artwork: card-base.svg is a single stroked rectangle with no gold rules to measure. It is chosen to sit below the blessing and clear of the bottom-left floral, and `RSVP_SLOT` derives the CSS percentages from it so the two cannot disagree.
+
+The region is under a fifth of the card's height, which is nowhere near enough for a form with radios, a party count and a message box. So the slot holds a short prompt and a link, and the form itself lives in the readable section below where it can actually be typed into.
+
+### The figure is aria-hidden; the RSVP is not inside it
+
+`.rsvp-slot` is a **sibling** of the `<figure>`, not a child. A form inside an `aria-hidden` subtree is unreachable by a screen reader and by the keyboard, so the two sit next to each other and only the artwork is hidden. What a screen reader gets instead of `card-text.svg` is the readable section, which carries the same words as real HTML.
+
+## The opening sequence
+
+Eleven beats over 23 seconds, defined as data in `src/lib/animation/beats.ts` — id, start, duration, target selector, easing. Timing changes are number edits in one file, never a hunt through CSS.
+
+**It is progressive enhancement, and the overlay proves it.** The intro is `hidden` in the server-rendered HTML and is only ever revealed by script deciding to play. No JavaScript, a script that failed to load, an old browser, a thrown error, `?noanim=1` — in every one of those the overlay stays hidden and the invitation underneath is already complete, readable and submittable. Nothing is hidden by CSS waiting to be un-hidden.
+
+`shouldPlayIntro()` in `lib/animation/playback.ts` is pure and tested. It declines to play for, in order: `?noanim=1`, `prefers-reduced-motion: reduce`, a device reporting 4 cores or 2 GB or less, and a second visit. `?noanim=1` outranks everything including a replay press, because that is the link we send someone who reports trouble. Absent `hardwareConcurrency`/`deviceMemory` is **not** treated as low-end — Safari reports neither, and assuming the worst would switch the sequence off for every iPhone.
+
+GSAP **core only**, no plugins, so nothing here needs a licence review beyond the standard "no charge" licence in `gsap/package.json`. It is loaded with a dynamic `import()`, so a guest who never sees the sequence never downloads it.
+
+Only `transform` and `opacity` are animated. Two details that are easy to get wrong:
+
+- the seal halves need `transform-box: fill-box` and an explicit `transform-origin`, or SVG rotates them about the viewport corner and they swing off the screen instead of opening
+- the text lines are staggered by **rendered vertical position**, not document order: `line-07-names` is last in the exported file but seventh down the card, so source order would reveal the couple's names after the blessing
+
+Beat 10 is one `<canvas>`, capped at 120 particles, on `requestAnimationFrame`, torn down when the beat ends. A hundred and twenty DOM nodes entering and leaving mid-sequence is the shape of jank.
 
 ## Inlining the card artwork
 

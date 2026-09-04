@@ -17,7 +17,8 @@
     "db:seed": "node --env-file-if-exists=.env src/db/seed.ts",
     "verify": "node --env-file-if-exists=.env scripts/verify.ts",
     "make-test-csv": "node --env-file-if-exists=.env scripts/make-test-csv.ts",
-    "assets:optimize": "node scripts/optimize-card-assets.ts"
+    "assets:optimize": "node scripts/optimize-card-assets.ts",
+    "card:preview": "node scripts/preview-card.ts"
   },
   "dependencies": {
     "@base-ui/react": "^1.7.0",
@@ -26,6 +27,7 @@
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "drizzle-orm": "^0.45.2",
+    "gsap": "^3.15.0",
     "nanoid": "^6.0.1",
     "next": "16.3.3",
     "react": "19.2.8",
@@ -41,6 +43,7 @@
     "@types/react": "19.2.18",
     "@types/react-dom": "19.2.5",
     "drizzle-kit": "^0.31.10",
+    "sharp": "^0.35.4",
     "svgo": "^4.1.0",
     "tailwindcss": "^4.3.3",
     "typescript": "^7.0.2"

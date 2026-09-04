@@ -1,0 +1,276 @@
+/*
+ * DISPOSABLE. Everything the guest invitation needs, and nothing the admin
+ * console does. Imported by (guest)/layout.tsx, so deleting the route group
+ * takes this with it.
+ */
+
+/* -------------------------------------------------------------------------- */
+/* type                                                                       */
+/* -------------------------------------------------------------------------- */
+
+:root {
+  /*
+   * Linux Libertine first, so dropping the webfont in later needs no code
+   * change. Noto Serif is already loaded by the root layout and is the face
+   * that actually renders today.
+   */
+  --font-card: 'Linux Libertine', 'Libertinus Serif', var(--font-serif), Georgia, serif;
+
+  /*
+   * For names Linux Libertine cannot set. Noto Serif Sinhala is loaded by the
+   * guest layout; the system faces after it are what Android and Windows ship
+   * for Sinhala, and the generic serif catches Tamil and everything else -
+   * see lib/domain/script.ts, which reports those as 'other' rather than
+   * pretending a Sinhala face would cover them.
+   */
+  --font-card-unicode: var(--font-sinhala), 'Noto Serif Sinhala', 'Iskoola Pota', 'Nirmala UI',
+    serif;
+
+  --gold: #b18906;
+  --ink: #6d6e71;
+  --card-bg: #fffdf8;
+}
+
+/* -------------------------------------------------------------------------- */
+/* the card                                                                   */
+/* -------------------------------------------------------------------------- */
+
+.card-stage {
+  position: relative;
+  width: 100%;
+  max-width: 34rem;
+  margin-inline: auto;
+}
+
+.card {
+  position: relative;
+  width: 100%;
+  margin: 0;
+  background: var(--card-bg);
+  /* aspect-ratio comes from the base viewBox, inline, so the card reserves
+     its space before the SVG paints and nothing shifts. */
+}
+
+.card-art {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+/*
+ * The RSVP region, locked to the printed card at every screen size.
+ *
+ * It holds a short status and a link to the form, NOT the form itself: the
+ * region is 104 of 553.76 units, under a fifth of the card's height, and a
+ * form with radios, a party count and a message box does not fit in that at
+ * any size a phone can render. The form lives in the readable section below,
+ * which is also where it can be typed into comfortably.
+ */
+.rsvp-slot {
+  position: absolute;
+  left: var(--slot-left);
+  top: var(--slot-top);
+  width: var(--slot-width);
+  height: var(--slot-height);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35em;
+  text-align: center;
+  font-family: var(--font-card);
+  font-size: clamp(0.6rem, 2.6cqw, 0.95rem);
+  line-height: 1.35;
+  color: var(--ink);
+}
+
+.card-stage {
+  container-type: inline-size;
+}
+
+.rsvp-slot a {
+  color: var(--gold);
+  text-decoration: underline;
+  text-underline-offset: 0.2em;
+  /* 44px minimum target, without changing the slot's layout box. */
+  padding: 0.6em 0.9em;
+  margin: -0.6em -0.9em;
+}
+
+/* -------------------------------------------------------------------------- */
+/* the envelope                                                               */
+/* -------------------------------------------------------------------------- */
+
+.envelope-stage {
+  position: relative;
+  container-type: inline-size;
+  width: 100%;
+  max-width: 30rem;
+  margin-inline: auto;
+}
+
+.envelope-art {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+/*
+ * The name, centred on the face below the flap.
+ *
+ * cqw rather than vw: the name scales with the envelope it sits on, not with
+ * the window. --name-scale shrinks long names, and is computed from the
+ * name's length rather than guessed at, because clamp() cannot know how many
+ * characters it is being asked to fit.
+ */
+.envelope-name {
+  position: absolute;
+  left: 50%;
+  top: 74%;
+  transform: translate(-50%, -50%);
+  width: min(78%, 34ch);
+  margin: 0;
+  text-align: center;
+  text-wrap: balance;
+  overflow-wrap: break-word;
+  font-family: var(--font-card);
+  font-size: calc(clamp(0.95rem, 5.4cqw, 2.1rem) * var(--name-scale, 1));
+  line-height: 1.15;
+  color: var(--ink);
+}
+
+.envelope-name[data-script='sinhala'],
+.envelope-name[data-script='other'] {
+  font-family: var(--font-card-unicode);
+  /* Sinhala has taller ascenders and descenders than Latin at the same size. */
+  line-height: 1.35;
+}
+
+/* -------------------------------------------------------------------------- */
+/* the readable section                                                       */
+/* -------------------------------------------------------------------------- */
+
+/*
+ * The same information as the card, at sizes people can actually read.
+ * Copperplate at true card scale lands near 6px on a phone, which is
+ * unreadable for exactly the guests most likely to need it.
+ */
+.legible {
+  font-family: var(--font-card);
+  color: var(--ink);
+}
+
+.legible h2 {
+  font-size: 1.05rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--gold);
+}
+
+.legible .names {
+  font-size: clamp(1.6rem, 7vw, 2.4rem);
+  line-height: 1.1;
+  color: var(--gold);
+}
+
+/* -------------------------------------------------------------------------- */
+/* the intro overlay                                                          */
+/* -------------------------------------------------------------------------- */
+
+/*
+ * Hidden in the server-rendered HTML and only ever revealed by script. That
+ * is what makes the sequence progressive enhancement rather than a
+ * prerequisite: with no JavaScript, a failed script, or ?noanim=1, this
+ * element is never shown and the invitation underneath is already complete.
+ */
+.intro {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: grid;
+  place-items: center;
+  background: var(--card-bg);
+  overflow: hidden;
+}
+
+.intro[hidden] {
+  display: none;
+}
+
+.intro-piece {
+  position: absolute;
+  width: min(72vw, 26rem);
+  opacity: 0;
+  will-change: transform, opacity;
+}
+
+.intro-piece svg {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.intro-seal {
+  width: min(22vw, 7rem);
+}
+
+.intro-canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+/* Fixed, never moves, and comfortably over the 44px minimum. */
+.intro-skip {
+  position: fixed;
+  right: max(1rem, env(safe-area-inset-right));
+  bottom: max(1rem, env(safe-area-inset-bottom));
+  z-index: 60;
+  min-width: 44px;
+  min-height: 44px;
+  padding: 0.6rem 1.1rem;
+  border: 1px solid color-mix(in oklch, var(--gold), transparent 60%);
+  border-radius: 999px;
+  background: color-mix(in oklch, var(--card-bg), transparent 8%);
+  color: var(--ink);
+  font-family: var(--font-card);
+  font-size: 0.9rem;
+  opacity: 0;
+  transition: opacity 200ms ease;
+}
+
+.intro-skip[data-visible='true'] {
+  opacity: 1;
+}
+
+.intro-skip:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 2px;
+  opacity: 1;
+}
+
+/* The quiet control that replays it on a later visit. */
+.replay {
+  color: var(--ink);
+  opacity: 0.7;
+  font-size: 0.85rem;
+  text-decoration: underline;
+  text-underline-offset: 0.2em;
+  padding: 0.6rem;
+}
+
+/*
+ * Belt and braces. The sequence is skipped in JS when this matches, so this
+ * only catches anything that slipped through - and costs nothing when it
+ * does not.
+ */
+@media (prefers-reduced-motion: reduce) {
+  .intro,
+  .intro-piece,
+  .intro-canvas {
+    animation: none !important;
+    transition: none !important;
+  }
+}
