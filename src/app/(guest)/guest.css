@@ -5,7 +5,7 @@
  */
 
 /* -------------------------------------------------------------------------- */
-/* type                                                                       */
+/* tokens                                                                     */
 /* -------------------------------------------------------------------------- */
 
 :root {
@@ -27,8 +27,34 @@
     serif;
 
   --gold: #b18906;
+  --gold-light: #e3c356;
   --ink: #6d6e71;
   --card-bg: #fffdf8;
+  --blush: #fef3f8;
+  --paper-warm: #f7ead9;
+}
+
+/* -------------------------------------------------------------------------- */
+/* the page                                                                   */
+/* -------------------------------------------------------------------------- */
+
+/*
+ * The envelope and the card, stacked on a phone and side by side once there
+ * is room. This is the resting state - what a guest sees with no JavaScript,
+ * after the sequence, or on any later visit.
+ */
+.invitation-hero {
+  display: grid;
+  gap: clamp(1.5rem, 5vw, 3rem);
+  justify-items: center;
+  margin-bottom: clamp(2rem, 6vw, 3.5rem);
+}
+
+@media (min-width: 60rem) {
+  .invitation-hero {
+    grid-template-columns: minmax(0, 5fr) minmax(0, 6fr);
+    align-items: center;
+  }
 }
 
 /* -------------------------------------------------------------------------- */
@@ -37,8 +63,9 @@
 
 .card-stage {
   position: relative;
+  container-type: inline-size;
   width: 100%;
-  max-width: 34rem;
+  max-width: 30rem;
   margin-inline: auto;
 }
 
@@ -47,6 +74,7 @@
   width: 100%;
   margin: 0;
   background: var(--card-bg);
+  box-shadow: 0 18px 45px -22px rgba(120, 90, 30, 0.45);
   /* aspect-ratio comes from the base viewBox, inline, so the card reserves
      its space before the SVG paints and nothing shifts. */
 }
@@ -60,11 +88,11 @@
 /*
  * The RSVP region, locked to the printed card at every screen size.
  *
- * It holds a short status and a link to the form, NOT the form itself: the
- * region is 104 of 553.76 units, under a fifth of the card's height, and a
- * form with radios, a party count and a message box does not fit in that at
- * any size a phone can render. The form lives in the readable section below,
- * which is also where it can be typed into comfortably.
+ * It carries the reply date and the two numbers to call - which is what the
+ * printed card carries, and what the storyboard's beat 8 shows. The form
+ * itself is in the readable section below: this region is 104 of 553.76
+ * units, under a fifth of the card's height, and a form with radios, a party
+ * count and a message box does not fit in that at any size a phone can render.
  */
 .rsvp-slot {
   position: absolute;
@@ -76,25 +104,48 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 0.35em;
+  gap: 0.15em;
   text-align: center;
   font-family: var(--font-card);
-  font-size: clamp(0.6rem, 2.6cqw, 0.95rem);
+  /*
+   * Sized so five lines - RSVP, the date, two numbers and the link - clear
+   * the region at every width the card is ever drawn at. Checked from 360px
+   * up; the binding case is the phone, where the region is only 74px tall.
+   */
+  font-size: clamp(0.4rem, 2.2cqw, 0.72rem);
   line-height: 1.35;
+  letter-spacing: 0.06em;
   color: var(--ink);
 }
 
-.card-stage {
-  container-type: inline-size;
+.rsvp-slot .slot-heading {
+  letter-spacing: 0.28em;
+  color: var(--gold);
 }
 
 .rsvp-slot a {
   color: var(--gold);
   text-decoration: underline;
   text-underline-offset: 0.2em;
-  /* 44px minimum target, without changing the slot's layout box. */
-  padding: 0.6em 0.9em;
-  margin: -0.6em -0.9em;
+}
+
+/* Beat 9's gradient. Inert until the timeline moves it; opacity 0 by default,
+   so a page with no JavaScript never shows it at all. */
+.card-sweep {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  pointer-events: none;
+  background: linear-gradient(
+    105deg,
+    transparent 40%,
+    rgba(255, 245, 214, 0.15) 46%,
+    var(--gold-light) 50%,
+    rgba(255, 245, 214, 0.15) 54%,
+    transparent 60%
+  );
+  mix-blend-mode: screen;
+  will-change: transform, opacity;
 }
 
 /* -------------------------------------------------------------------------- */
@@ -105,8 +156,9 @@
   position: relative;
   container-type: inline-size;
   width: 100%;
-  max-width: 30rem;
+  max-width: 26rem;
   margin-inline: auto;
+  filter: drop-shadow(0 16px 30px rgba(120, 90, 30, 0.28));
 }
 
 .envelope-art {
@@ -125,16 +177,15 @@
  */
 .envelope-name {
   position: absolute;
-  left: 50%;
-  top: 74%;
-  transform: translate(-50%, -50%);
-  width: min(78%, 34ch);
+  left: 11%;
+  top: 66%;
+  width: 78%;
   margin: 0;
   text-align: center;
   text-wrap: balance;
   overflow-wrap: break-word;
   font-family: var(--font-card);
-  font-size: calc(clamp(0.95rem, 5.4cqw, 2.1rem) * var(--name-scale, 1));
+  font-size: calc(clamp(0.8rem, 5.4cqw, 1.9rem) * var(--name-scale, 1));
   line-height: 1.15;
   color: var(--ink);
 }
@@ -144,6 +195,27 @@
   font-family: var(--font-card-unicode);
   /* Sinhala has taller ascenders and descenders than Latin at the same size. */
   line-height: 1.35;
+}
+
+/*
+ * The seal, at the point of the flap.
+ *
+ * Positioned with left/top and no transform, because GSAP owns transform on
+ * this element during beat 3 and a centring translate would be overwritten
+ * the moment the halves start turning. envelope.svg puts the flap point at
+ * 50% across and 62.3% down, and the seal is 20% of the envelope's width.
+ */
+.envelope-seal {
+  position: absolute;
+  left: 40%;
+  top: 49.1%;
+  width: 20%;
+}
+
+.envelope-seal svg {
+  display: block;
+  width: 100%;
+  height: auto;
 }
 
 /* -------------------------------------------------------------------------- */
@@ -173,6 +245,11 @@
   color: var(--gold);
 }
 
+.legible .contact-list {
+  list-style: none;
+  padding: 0;
+}
+
 /* -------------------------------------------------------------------------- */
 /* the intro overlay                                                          */
 /* -------------------------------------------------------------------------- */
@@ -189,7 +266,6 @@
   z-index: 50;
   display: grid;
   place-items: center;
-  background: var(--card-bg);
   overflow: hidden;
 }
 
@@ -197,9 +273,67 @@
   display: none;
 }
 
+/*
+ * The warm, out-of-focus ground the storyboard sits everything on. Layered
+ * radial gradients rather than a photograph: it costs no bytes, scales to
+ * any viewport, and cannot be the thing that blocks LCP.
+ */
+.intro-veil {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(38% 30% at 18% 16%, rgba(255, 240, 219, 0.95), transparent 70%),
+    radial-gradient(32% 26% at 82% 22%, rgba(254, 235, 242, 0.9), transparent 70%),
+    radial-gradient(46% 34% at 74% 82%, rgba(247, 231, 208, 0.9), transparent 72%),
+    radial-gradient(40% 30% at 22% 86%, rgba(255, 244, 232, 0.85), transparent 70%),
+    linear-gradient(160deg, #fffdf8 0%, var(--paper-warm) 55%, #fdf3e6 100%);
+}
+
+/* Bokeh. Static, decorative, and cheap - no blur filter, just soft stops. */
+.intro-veil::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image:
+    radial-gradient(circle at 12% 30%, rgba(255, 255, 255, 0.85), transparent 42%),
+    radial-gradient(circle at 88% 62%, rgba(255, 250, 235, 0.8), transparent 38%),
+    radial-gradient(circle at 32% 78%, rgba(255, 246, 228, 0.7), transparent 34%),
+    radial-gradient(circle at 68% 12%, rgba(255, 255, 255, 0.6), transparent 30%);
+  background-size:
+    26% 26%,
+    18% 18%,
+    14% 14%,
+    10% 10%;
+  background-repeat: no-repeat;
+  opacity: 0.85;
+}
+
+/*
+ * The stage every piece is measured against.
+ *
+ * One container, so the monogram, envelope and seal scale together and hold
+ * their relationship at 360px and at 1440px alike. Sizes below are cqw of
+ * this box, never vw, which is what keeps the composition identical on a
+ * phone and on a desktop instead of merely fitting on both.
+ */
+.intro-stage {
+  position: relative;
+  container-type: inline-size;
+  width: min(92vw, 34rem);
+  aspect-ratio: 4 / 5;
+  max-height: 82svh;
+}
+
+/*
+ * Centred with inset + margin rather than a translate, because GSAP owns
+ * transform on these elements and a centring translate would be the first
+ * thing it overwrote.
+ */
 .intro-piece {
   position: absolute;
-  width: min(72vw, 26rem);
+  inset: 0;
+  margin: auto;
+  height: fit-content;
   opacity: 0;
   will-change: transform, opacity;
 }
@@ -210,8 +344,36 @@
   height: auto;
 }
 
-.intro-seal {
-  width: min(22vw, 7rem);
+.intro-monogram {
+  width: clamp(7rem, 46cqw, 15rem);
+  text-align: center;
+}
+
+.intro-envelope {
+  width: min(96cqw, 30rem);
+  filter: drop-shadow(0 20px 38px rgba(120, 90, 30, 0.3));
+}
+
+/* The closing line, revealed with the monogram in beat 11. */
+.intro-farewell {
+  margin: 1.4rem 0 0;
+  font-family: var(--font-card);
+  font-size: clamp(0.72rem, 3.4cqw, 1rem);
+  letter-spacing: 0.22em;
+  line-height: 1.8;
+  text-transform: uppercase;
+  color: var(--gold);
+  opacity: 0;
+}
+
+.intro-rule {
+  display: block;
+  width: 42%;
+  margin: 0.9rem auto 0;
+  height: 1px;
+  border: 0;
+  background: linear-gradient(90deg, transparent, var(--gold-light), transparent);
+  opacity: 0;
 }
 
 .intro-canvas {
@@ -222,6 +384,29 @@
   pointer-events: none;
 }
 
+/*
+ * The card, lifted out of the page and centred for beats 4 to 9.
+ *
+ * Centred with inset + margin for the same reason as the pieces above. The
+ * width caps against 60svh as well as the viewport width, because the card is
+ * 1.3 times as tall as it is wide and a short landscape window would
+ * otherwise push its foot off the screen.
+ */
+.card-stage.is-staged {
+  position: fixed;
+  inset: 0;
+  margin: auto;
+  z-index: 55;
+  width: min(84vw, 26rem, 62svh);
+  height: fit-content;
+  max-width: none;
+}
+
+/* Nothing scrolls while the sequence is playing. */
+.intro-locked {
+  overflow: hidden;
+}
+
 /* Fixed, never moves, and comfortably over the 44px minimum. */
 .intro-skip {
   position: fixed;
@@ -230,13 +415,14 @@
   z-index: 60;
   min-width: 44px;
   min-height: 44px;
-  padding: 0.6rem 1.1rem;
-  border: 1px solid color-mix(in oklch, var(--gold), transparent 60%);
+  padding: 0.65rem 1.2rem;
+  border: 1px solid rgba(177, 137, 6, 0.4);
   border-radius: 999px;
-  background: color-mix(in oklch, var(--card-bg), transparent 8%);
+  background: rgba(255, 253, 248, 0.92);
   color: var(--ink);
   font-family: var(--font-card);
   font-size: 0.9rem;
+  letter-spacing: 0.08em;
   opacity: 0;
   transition: opacity 200ms ease;
 }
@@ -269,7 +455,8 @@
 @media (prefers-reduced-motion: reduce) {
   .intro,
   .intro-piece,
-  .intro-canvas {
+  .intro-canvas,
+  .card-sweep {
     animation: none !important;
     transition: none !important;
   }

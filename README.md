@@ -164,6 +164,12 @@ The region is under a fifth of the card's height, which is nowhere near enough f
 
 Eleven beats over 23 seconds, defined as data in `src/lib/animation/beats.ts` — id, start, duration, target selector, easing. Timing changes are number edits in one file, never a hunt through CSS.
 
+It follows the bride's storyboard: monogram on a warm bokeh ground, a sealed envelope, the wax cracking along a jagged split, the card rising out of it, florals, text, the RSVP block, a gold sweep, petals, and the monogram again under a closing line.
+
+**Mobile and desktop are the same composition, not two layouts.** Every piece is sized in `cqw` against one `.intro-stage` container rather than in `vw`, so the monogram, envelope and seal hold their relationship to each other at 360px and at 1440px alike. The card is lifted out of the page for beats 4 to 9 by a class — applied once, removed once, never animated — and capped against `60svh` as well as viewport width, because the card is 1.3 times as tall as it is wide and a short landscape window would otherwise push its foot off the screen.
+
+Centring is done with `inset: 0; margin: auto`, never a translate: GSAP owns `transform` on those elements, and a centring translate would be the first thing it overwrote.
+
 **It is progressive enhancement, and the overlay proves it.** The intro is `hidden` in the server-rendered HTML and is only ever revealed by script deciding to play. No JavaScript, a script that failed to load, an old browser, a thrown error, `?noanim=1` — in every one of those the overlay stays hidden and the invitation underneath is already complete, readable and submittable. Nothing is hidden by CSS waiting to be un-hidden.
 
 `shouldPlayIntro()` in `lib/animation/playback.ts` is pure and tested. It declines to play for, in order: `?noanim=1`, `prefers-reduced-motion: reduce`, a device reporting 4 cores or 2 GB or less, and a second visit. `?noanim=1` outranks everything including a replay press, because that is the link we send someone who reports trouble. Absent `hardwareConcurrency`/`deviceMemory` is **not** treated as low-end — Safari reports neither, and assuming the worst would switch the sequence off for every iPhone.
@@ -176,6 +182,12 @@ Only `transform` and `opacity` are animated. Two details that are easy to get wr
 - the text lines are staggered by **rendered vertical position**, not document order: `line-07-names` is last in the exported file but seventh down the card, so source order would reveal the couple's names after the blessing
 
 Beat 10 is one `<canvas>`, capped at 120 particles, on `requestAnimationFrame`, torn down when the beat ends. A hundred and twenty DOM nodes entering and leaving mid-sequence is the shape of jank.
+
+## The RSVP block on the card
+
+`site_config.site.rsvpContacts` holds who to telephone, as printed on the card — name, number, and which side. They render in the card's RSVP region as `tel:` links, because half the guests reading this are on the phone they would be dialling from, and again in the readable section below.
+
+They default to `[]` rather than being required, so a `site_config` row written before the field existed still parses instead of collapsing the whole key back to defaults — which would take the couple's names with it. Edited at `/admin/config` as one contact per line: `name, phone, side`.
 
 ## Inlining the card artwork
 

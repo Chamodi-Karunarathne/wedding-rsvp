@@ -38,6 +38,12 @@ export type Beat = {
   ease: string;
   /** For 'stagger' and 'bloom': seconds between each child starting. */
   stagger?: number;
+  /**
+   * Descendants of the target revealed alongside it. The monogram appears in
+   * two beats and only carries the closing line in the second, so which
+   * children come with it has to be per-beat rather than per-element.
+   */
+  revealChildren?: string;
   note?: string;
 };
 
@@ -86,6 +92,9 @@ export const BEATS: readonly Beat[] = [
     target: '[data-intro="card"]',
     effect: 'slide',
     ease: 'power2.out',
+    // The slide also takes the envelope out: the card cannot appear to come
+    // out of something that is still sitting on top of it.
+    note: 'Card rises as the envelope falls away beneath it.',
   },
   {
     id: 'florals-bloom',
@@ -154,6 +163,8 @@ export const BEATS: readonly Beat[] = [
     target: '[data-intro="monogram"]',
     effect: 'wipe',
     ease: 'power2.inOut',
+    revealChildren: '[data-intro-reveal]',
+    note: 'Brings the closing line and its rule with it. Beat 1 does not.',
   },
 ];
 

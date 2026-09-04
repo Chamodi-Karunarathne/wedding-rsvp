@@ -36,12 +36,28 @@ export const phaseConfigSchema = z.object({
   phaseOverride: z.enum(PHASES).nullable(),
 });
 
+export const rsvpContactSchema = z.object({
+  name: z.string().min(1).max(80),
+  /** Printed and dialled, never parsed. Stored exactly as entered. */
+  phone: z.string().min(1).max(40),
+  /** "Bride" / "Groom", or blank. Shown in brackets after the number. */
+  side: z.string().max(40).default(''),
+});
+
 export const siteSettingsSchema = z.object({
   brideName: z.string().min(1),
   groomName: z.string().min(1),
   /** IANA zone. Every guest-facing date is formatted in this zone, not the
    *  viewer's, so a guest abroad sees the local time of the wedding. */
   timezone: z.string().min(1),
+  /**
+   * Who to telephone, as printed on the card.
+   *
+   * Defaulted rather than required, so a site_config row written before this
+   * existed still parses instead of collapsing the whole key back to
+   * defaults - which would take the couple's names with it.
+   */
+  rsvpContacts: z.array(rsvpContactSchema).max(4).default([]),
 });
 
 export const messagingConfigSchema = z.object({
@@ -52,6 +68,7 @@ export const messagingConfigSchema = z.object({
 
 export type PhaseConfigValues = z.infer<typeof phaseConfigSchema>;
 export type SiteSettings = z.infer<typeof siteSettingsSchema>;
+export type RsvpContact = z.infer<typeof rsvpContactSchema>;
 export type MessagingConfig = z.infer<typeof messagingConfigSchema>;
 
 export type AppConfig = {
@@ -123,6 +140,7 @@ export const DEFAULT_SITE_SETTINGS: SiteSettings = {
   brideName: 'Bride',
   groomName: 'Groom',
   timezone: DEFAULT_TIMEZONE,
+  rsvpContacts: [],
 };
 
 /**

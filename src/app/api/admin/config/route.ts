@@ -37,6 +37,9 @@ export async function POST(request: Request): Promise<NextResponse> {
     const phase = parsed.data.value;
     value = {
       detailsOpenAt: fromDateTimeLocalValue(phase.detailsOpenAt, site.timezone),
+      // Omitting this dropped the reply date on every save, which then failed
+      // phaseConfigSchema and quietly reverted the whole key to defaults.
+      rsvpDeadline: fromDateTimeLocalValue(phase.rsvpDeadline, site.timezone),
       dayOfStartAt: fromDateTimeLocalValue(phase.dayOfStartAt, site.timezone),
       thankYouAt: fromDateTimeLocalValue(phase.thankYouAt, site.timezone),
       phaseOverride: phase.phaseOverride,

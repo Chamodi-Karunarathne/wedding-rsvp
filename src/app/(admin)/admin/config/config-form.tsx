@@ -26,7 +26,12 @@ type Props = {
     thankYouAt: string;
     phaseOverride: Phase | null;
   };
-  site: { brideName: string; groomName: string; timezone: string };
+  site: {
+    brideName: string;
+    groomName: string;
+    timezone: string;
+    rsvpContacts: { name: string; phone: string; side: string }[];
+  };
   messaging: { whatsappTemplate: string };
   derivedPhase: Phase;
 };
@@ -46,6 +51,30 @@ const SITE_FIELDS = [
 
 const PLACEHOLDERS = ['{{name}}', '{{url}}', '{{brideName}}', '{{groomName}}', '{{date}}', '{{rsvpBy}}'];
 
+/**
+ * Contacts are edited as text, one per line: `Name, Phone, Side`.
+ *
+ * A repeatable sub-form for at most four rows that change once a year would
+ * be more code than the problem deserves, and this pastes straight out of a
+ * message.
+ */
+function contactsToText(contacts: { name: string; phone: string; side: string }[]): string {
+  return contacts.map((c) => [c.name, c.phone, c.side].filter(Boolean).join(', ')).join('\n');
+}
+
+function textToContacts(text: string): { name: string; phone: string; side: string }[] {
+  return text
+    .split('\n')
+    .map((line) => line.trim())
+    .filter((line) => line !== '')
+    .slice(0, 4)
+    .map((line) => {
+      const [name = '', phone = '', side = ''] = line.split(',').map((part) => part.trim());
+      return { name, phone, side };
+    })
+    .filter((contact) => contact.name !== '' && contact.phone !== '');
+}
+
 /** No override chosen. Base UI needs a real value, not an empty string. */
 const NO_OVERRIDE = 'derive';
 
@@ -53,6 +82,7 @@ export function ConfigForm({ phase, site, messaging, derivedPhase }: Props) {
   const router = useRouter();
   const [phaseForm, setPhaseForm] = useState(phase);
   const [siteForm, setSiteForm] = useState(site);
+  const [contactsText, setContactsText] = useState(() => contactsToText(site.rsvpContacts));
   const [messagingForm, setMessagingForm] = useState(messaging);
   const [status, setStatus] = useState<Record<string, string>>({});
 
@@ -160,7 +190,7 @@ export function ConfigForm({ phase, site, messaging, derivedPhase }: Props) {
           <form
             onSubmit={(e) => {
               e.preventDefault();
-              void save('site', siteForm);
+              void save('site', { ...siteForm, rsvpContacts: textToContacts(contactsText) });
             }}
             className="space-y-4"
           >
@@ -176,6 +206,21 @@ export function ConfigForm({ phase, site, messaging, derivedPhase }: Props) {
                   />
                 </div>
               ))}
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="rsvpContacts">RSVP contacts</Label>
+              <Textarea
+                id="rsvpContacts"
+                rows={3}
+                value={contactsText}
+                onChange={(e) => setContactsText(e.target.value)}
+                placeholder="Masan, 077 5007091, Bride"
+              />
+              <p className="text-sm text-muted-foreground">
+                One per line: name, phone, side. These are printed on the card and shown on the
+                invitation as tel: links, so they are what a guest taps to call. Up to four.
+              </p>
             </div>
 
             <div className="flex items-center gap-3">

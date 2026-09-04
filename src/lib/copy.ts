@@ -84,15 +84,21 @@ export type CopyBundle = {
   };
   /* The card itself: the RSVP region printed on it, and the opening sequence. */
   card: {
-    /** Sits in the RSVP region of the card. Deliberately about two words. */
-    slotPrompt: string;
+    /** Sits in the RSVP region printed on the card. */
+    slotHeading: string;
+    /** {{date}} - the reply date. */
+    slotBy: string;
     slotLink: string;
     /** Announced in place of the artwork, which is aria-hidden. */
     readableHeading: string;
+    /** Heading for the telephone contacts in the readable section. */
+    contactsHeading: string;
   };
   intro: {
     skip: string;
     replay: string;
+    /** The closing line, under the monogram. */
+    farewell: string;
   };
   thanks: {
     heading: string;
@@ -163,13 +169,16 @@ const en: CopyBundle = {
     heading: 'A note for you',
   },
   card: {
-    slotPrompt: 'Kindly reply',
-    slotLink: 'Reply below',
+    slotHeading: 'RSVP',
+    slotBy: 'by {{date}}',
+    slotLink: 'Reply here',
     readableHeading: 'Your invitation',
+    contactsHeading: 'Or telephone us',
   },
   intro: {
     skip: 'Skip',
     replay: 'Play the opening again',
+    farewell: 'We look forward to celebrating with you',
   },
   thanks: {
     heading: 'Thank you',

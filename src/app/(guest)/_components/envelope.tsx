@@ -17,9 +17,15 @@ import { InlineSvg } from '@/lib/svg';
 type Props = {
   /** The card name: the shorter fallback when one is set, else display_name. */
   name: string;
+  /**
+   * The wax seal at the point of the flap. Only the copy inside the intro
+   * needs it - beat 3 cracks it open - so the resting envelope on the page
+   * is left unsealed rather than showing a seal nothing will ever break.
+   */
+  sealed?: boolean;
 };
 
-export function Envelope({ name }: Props) {
+export function Envelope({ name, sealed = false }: Props) {
   const script = scriptOf(name);
   const scale = envelopeNameScale(name);
 
@@ -36,11 +42,16 @@ export function Envelope({ name }: Props) {
       <p
         className="envelope-name"
         data-script={script}
-        data-intro="name"
         style={{ '--name-scale': scale } as CSSProperties}
       >
         {name}
       </p>
+
+      {sealed && (
+        <div className="envelope-seal" data-intro="seal">
+          <InlineSvg name="seal" />
+        </div>
+      )}
     </div>
   );
 }

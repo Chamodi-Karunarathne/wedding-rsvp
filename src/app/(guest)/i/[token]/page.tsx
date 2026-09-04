@@ -11,6 +11,7 @@ import type { InvitationView, SectionId } from '@/lib/services/types';
 import { Card } from '../../_components/card';
 import { Envelope } from '../../_components/envelope';
 import { Intro } from '../../_components/intro';
+import { RsvpBlock } from '../../_components/rsvp-block';
 import { RsvpForm } from './rsvp-form';
 
 /*
@@ -55,29 +56,35 @@ export default async function InvitationPage({ params }: PageProps) {
         `hidden` until script decides otherwise.
       */}
       <Intro token={guest.token} labels={{ skip: copy.intro.skip, replay: copy.intro.replay }}>
-        <div className="intro-piece" data-intro="monogram">
+        <div className="intro-piece intro-monogram" data-intro="monogram">
           <InlineSvg name="monogram" />
+          <p className="intro-farewell" data-intro-reveal>
+            {copy.intro.farewell}
+          </p>
+          <hr className="intro-rule" data-intro-reveal />
         </div>
-        <div className="intro-piece" data-intro="envelope">
-          <Envelope name={guest.cardName} />
-        </div>
-        <div className="intro-piece intro-seal" data-intro="seal">
-          <InlineSvg name="seal" />
+
+        {/* Sealed only here: beat 3 is the only thing that ever breaks it. */}
+        <div className="intro-piece intro-envelope" data-intro="envelope">
+          <Envelope name={guest.cardName} sealed />
         </div>
       </Intro>
 
       <main>
-        {/* The envelope, with the guest's name where a handwritten one goes. */}
-        <div className="mb-8">
+        <div className="invitation-hero">
+          {/* The guest's name, where a handwritten one goes. */}
           <Envelope name={guest.cardName} />
-        </div>
 
-        {/* The card. Decorative in full; the readable version is below it. */}
-        <div className="mb-10" data-intro="card">
-          <Card>
-            <span>{copy.card.slotPrompt}</span>
-            <a href="#rsvp">{copy.card.slotLink}</a>
-          </Card>
+          {/* The card. Decorative in full; the readable version is below it. */}
+          <div data-intro="card">
+            <Card>
+              <RsvpBlock
+                copy={copy}
+                deadline={formatDate(invitation.rsvpDeadline, invitation.site.timezone)}
+                contacts={invitation.site.rsvpContacts}
+              />
+            </Card>
+          </div>
         </div>
 
         {/*
@@ -220,6 +227,25 @@ function Section({
             <style>{`.rsvp-live{display:none}`}</style>
             <p className="mt-3 text-sm opacity-70">{copy.rsvp.noScript}</p>
           </noscript>
+
+          {invitation.site.rsvpContacts.length > 0 && (
+            <div className="mt-3 text-sm">
+              <h3 className="font-medium">{copy.card.contactsHeading}</h3>
+              <ul className="contact-list mt-1">
+                {invitation.site.rsvpContacts.map((contact) => (
+                  <li key={`${contact.name}-${contact.phone}`}>
+                    <a
+                      className="underline"
+                      href={`tel:${contact.phone.replace(/[^\d+]/g, '')}`}
+                    >
+                      {contact.name} {contact.phone}
+                    </a>
+                    {contact.side && ` (${contact.side})`}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
 
           <div className="rsvp-live mt-4">
             <RsvpForm

@@ -85,6 +85,16 @@ export const siteSettingsInputSchema = z.object({
   brideName: z.string().min(1).max(100),
   groomName: z.string().min(1).max(100),
   timezone: z.string().min(1).max(64),
+  /** Who to telephone, as printed on the card. */
+  rsvpContacts: z
+    .array(
+      z.object({
+        name: z.string().min(1).max(80),
+        phone: z.string().min(1).max(40),
+        side: z.string().max(40),
+      }),
+    )
+    .max(4),
 });
 
 export const messagingConfigInputSchema = z.object({

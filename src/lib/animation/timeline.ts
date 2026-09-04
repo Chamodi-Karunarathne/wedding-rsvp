@@ -60,7 +60,9 @@ function startParticles(canvas: HTMLCanvasElement, seconds: number): Cleanup {
     vy: 18 + Math.random() * 42,
     vx: -10 + Math.random() * 20,
     spin: Math.random() * Math.PI,
-    gold: Math.random() > 0.5,
+    // Two thirds petals, one third gold dust - the storyboard is mostly
+    // petals with gold caught in among them.
+    gold: Math.random() > 0.66,
   }));
 
   let frame = 0;
@@ -82,7 +84,7 @@ function startParticles(canvas: HTMLCanvasElement, seconds: number): Cleanup {
       if (p.y > height) p.y = -8;
 
       context.globalAlpha = remaining * 0.85;
-      context.fillStyle = p.gold ? '#b18906' : '#e8d5ad';
+      context.fillStyle = p.gold ? '#e3c356' : '#f6dfe6';
       context.beginPath();
       context.ellipse(p.x, p.y, p.r, p.r * 0.55, p.spin, 0, Math.PI * 2);
       context.fill();
@@ -133,6 +135,22 @@ export function buildIntroTimeline(root: ParentNode, onComplete: () => void): Bu
           },
           beat.start,
         );
+
+        // The closing line, on the beat that declares it. The monogram
+        // appears twice and only carries the line the second time.
+        if (beat.revealChildren) {
+          const children = found.flatMap((element) =>
+            Array.from(element.querySelectorAll<HTMLElement>(beat.revealChildren ?? '')),
+          );
+          if (children.length > 0) {
+            timeline.fromTo(
+              children,
+              { opacity: 0, y: 10 },
+              { opacity: 1, y: 0, duration: beat.duration * 0.5, ease: 'power1.out', stagger: 0.2 },
+              beat.start + beat.duration * 0.45,
+            );
+          }
+        }
         break;
       }
 
@@ -177,14 +195,27 @@ export function buildIntroTimeline(root: ParentNode, onComplete: () => void): Bu
         break;
       }
 
-      case 'slide':
+      case 'slide': {
+        // The card rises out from behind the envelope, which drops away as it
+        // goes: it cannot look like it came out of something still sitting on
+        // top of it.
+        const envelope = root.querySelector<HTMLElement>('[data-intro="envelope"]');
+        if (envelope) {
+          timeline.to(
+            envelope,
+            { opacity: 0, y: 60, scale: 0.97, duration: beat.duration * 0.7, ease: 'power2.in' },
+            beat.start,
+          );
+        }
+
         timeline.fromTo(
           found,
-          { opacity: 0, y: 48, scale: 0.96 },
+          { opacity: 0, y: 70, scale: 0.94 },
           { opacity: 1, y: 0, scale: 1, duration: beat.duration, ease: beat.ease },
-          beat.start,
+          beat.start + beat.duration * 0.25,
         );
         break;
+      }
 
       case 'bloom': {
         for (const cluster of found) {

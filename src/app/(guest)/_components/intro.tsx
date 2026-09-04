@@ -27,6 +27,17 @@ type Props = {
 
 type Phase = 'deciding' | 'playing' | 'finished';
 
+/**
+ * The card is lifted out of the page and centred for beats 4 to 9, then put
+ * back. Staging is a class, applied once and removed once - never an animated
+ * property - so nothing here transitions layout.
+ */
+function stageCard(on: boolean): void {
+  const card = document.querySelector<HTMLElement>('[data-intro="card"]');
+  card?.classList.toggle('is-staged', on);
+  document.documentElement.classList.toggle('intro-locked', on);
+}
+
 export function Intro({ token, children, labels }: Props) {
   const overlayRef = useRef<HTMLDivElement>(null);
   const cleanupRef = useRef<(() => void) | null>(null);
@@ -39,6 +50,10 @@ export function Intro({ token, children, labels }: Props) {
   const finish = useCallback(() => {
     cleanupRef.current?.();
     cleanupRef.current = null;
+
+    // Back into the page, and scrolling again. Done before the styles are
+    // cleared so the card never flashes fixed-and-visible in the flow.
+    stageCard(false);
 
     // Anything the timeline left mid-animation is reset, so a skip lands on
     // the finished invitation rather than on a half-played one.
@@ -97,6 +112,11 @@ export function Intro({ token, children, labels }: Props) {
         element.style.opacity = '0';
       }
 
+      // The sequence always opens at the top of the page, whatever the
+      // browser restored on a back-navigation.
+      window.scrollTo(0, 0);
+      stageCard(true);
+
       setPhase('playing');
       overlay.hidden = false;
 
@@ -118,7 +138,11 @@ export function Intro({ token, children, labels }: Props) {
 
   useEffect(() => {
     void play(false);
-    return () => cleanupRef.current?.();
+    return () => {
+      cleanupRef.current?.();
+      // Navigating away mid-sequence must not leave the page unscrollable.
+      stageCard(false);
+    };
   }, [play]);
 
   // The skip control appears early and never moves after that.
@@ -149,7 +173,7 @@ export function Intro({ token, children, labels }: Props) {
         data-phase={phase}
       >
         <div className="intro-veil" />
-        {children}
+        <div className="intro-stage">{children}</div>
         <canvas className="intro-canvas" data-intro="canvas" />
       </div>
 
