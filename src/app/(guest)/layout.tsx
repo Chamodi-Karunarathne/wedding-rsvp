@@ -25,5 +25,14 @@ const notoSerifSinhala = Noto_Serif_Sinhala({
 });
 
 export default function GuestLayout({ children }: { children: ReactNode }) {
-  return <div className={`${notoSerifSinhala.variable} mx-auto max-w-2xl p-6`}>{children}</div>;
+  return (
+    <div className={`${notoSerifSinhala.variable} guest-ground`}>
+      {/*
+        Wider than a reading column, because the card is the hero and gets the
+        room. Text inside caps its own measure - .legible is 34rem - so
+        nothing ends up set across the full width.
+      */}
+      <div className="mx-auto max-w-5xl px-5 py-8 sm:px-6">{children}</div>
+    </div>
+  );
 }

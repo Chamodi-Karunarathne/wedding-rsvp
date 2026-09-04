@@ -84,15 +84,27 @@ export type CopyBundle = {
   };
   /* The card itself: the RSVP region printed on it, and the opening sequence. */
   card: {
-    /** Sits in the RSVP region printed on the card. */
-    slotHeading: string;
-    /** {{date}} - the reply date. */
-    slotBy: string;
-    slotLink: string;
+    /* The two buttons in the RSVP region printed on the card. */
+    accept: string;
+    decline: string;
+    /** Shown when the household may bring more than one. */
+    howMany: string;
+    confirm: string;
+    back: string;
+    /** {{n}} - the saved party count, on a card already answered. */
+    savedAttending: string;
+    savedDeclined: string;
+    change: string;
     /** Announced in place of the artwork, which is aria-hidden. */
     readableHeading: string;
     /** Heading for the telephone contacts in the readable section. */
     contactsHeading: string;
+  };
+  /** The closing frame, shown the moment somebody answers. */
+  ending: {
+    accepted: string;
+    declined: string;
+    close: string;
   };
   intro: {
     skip: string;
@@ -169,11 +181,23 @@ const en: CopyBundle = {
     heading: 'A note for you',
   },
   card: {
-    slotHeading: 'RSVP',
-    slotBy: 'by {{date}}',
-    slotLink: 'Reply here',
+    accept: 'Joyfully accept',
+    decline: 'Regretfully decline',
+    howMany: 'How many of you?',
+    confirm: 'Send',
+    back: 'Back',
+    savedAttending: 'Attending, party of {{n}}',
+    savedDeclined: 'Unable to attend',
+    change: 'Change',
     readableHeading: 'Your invitation',
     contactsHeading: 'Or telephone us',
+  },
+  ending: {
+    accepted: 'We look forward to celebrating with you',
+    // Never the accepted line. Somebody who has just told us they cannot
+    // come should not be told we look forward to seeing them.
+    declined: 'Thank you for letting us know. You will be dearly missed.',
+    close: 'Back to the invitation',
   },
   intro: {
     skip: 'Skip',

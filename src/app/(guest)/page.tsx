@@ -12,7 +12,7 @@ export const metadata = {
 
 export default function HoldingPage() {
   return (
-    <main>
+    <main className="mx-auto max-w-2xl">
       <h1 className="text-xl font-semibold">Save the date</h1>
       <p className="mt-2">
         If you have received an invitation, please use the personal link or short code

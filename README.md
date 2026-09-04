@@ -183,6 +183,16 @@ Only `transform` and `opacity` are animated. Two details that are easy to get wr
 
 Beat 10 is one `<canvas>`, capped at 120 particles, on `requestAnimationFrame`, torn down when the beat ends. A hundred and twenty DOM nodes entering and leaving mid-sequence is the shape of jank.
 
+## Answering on the card
+
+The RSVP region printed on the card holds two buttons, not a paragraph. Most households answer in a single tap; anyone who may bring others gets a count step, because the headcount is the one thing that cannot be guessed and the number the caterer is waiting on.
+
+Answering raises the **closing frame** - the monogram and a line, the last beat of the opening sequence reused as the thank-you. The line differs by answer: somebody who has just said they cannot come is not told we look forward to seeing them. It is only ever raised by answering *here*, so a returning guest lands on their card rather than on a thank-you for something they did weeks ago.
+
+Buttons hold a 44px tap target even on a 360px phone, where the printed region is only 83px tall, so `.rsvp-slot` lets them overflow into the blank card beneath it. A tap target that shrinks with the artwork is not a tap target.
+
+The card omits `message` from its payload, which by the endpoint's contract leaves any message the guest already left alone. It posts to the same `/api/rsvp` as the fuller form below, which stays the way to add names, leave a message, or change an answer - keyed on the saved answer so answering on the card remounts it rather than leaving the two disagreeing.
+
 ## The RSVP block on the card
 
 `site_config.site.rsvpContacts` holds who to telephone, as printed on the card — name, number, and which side. They render in the card's RSVP region as `tel:` links, because half the guests reading this are on the phone they would be dialling from, and again in the readable section below.

@@ -39,6 +39,25 @@
 /* -------------------------------------------------------------------------- */
 
 /*
+ * The warm, out-of-focus ground, shared by the page and the sequence.
+ *
+ * Layered radial gradients rather than a photograph: no bytes, scales to any
+ * viewport, and cannot be the thing that blocks LCP. The page wears it too,
+ * so landing after the sequence looks like the same room the sequence
+ * happened in rather than a different site.
+ */
+.guest-ground {
+  min-height: 100svh;
+  background:
+    radial-gradient(38% 30% at 18% 14%, rgba(255, 240, 219, 0.95), transparent 70%),
+    radial-gradient(32% 26% at 82% 20%, rgba(254, 235, 242, 0.9), transparent 70%),
+    radial-gradient(46% 34% at 74% 84%, rgba(247, 231, 208, 0.9), transparent 72%),
+    radial-gradient(40% 30% at 22% 88%, rgba(255, 244, 232, 0.85), transparent 70%),
+    linear-gradient(160deg, #fffdf8 0%, var(--paper-warm) 55%, #fdf3e6 100%);
+  background-attachment: fixed;
+}
+
+/*
  * The envelope and the card, stacked on a phone and side by side once there
  * is room. This is the resting state - what a guest sees with no JavaScript,
  * after the sequence, or on any later visit.
@@ -65,7 +84,7 @@
   position: relative;
   container-type: inline-size;
   width: 100%;
-  max-width: 30rem;
+  max-width: 34rem;
   margin-inline: auto;
 }
 
@@ -94,39 +113,127 @@
  * units, under a fifth of the card's height, and a form with radios, a party
  * count and a message box does not fit in that at any size a phone can render.
  */
+/*
+ * The RSVP region, locked to the printed card at every screen size.
+ *
+ * overflow is visible on purpose: the buttons hold a 44px tap target even on
+ * a 360px phone, where the printed region is only 83px tall, and there is
+ * blank card beneath it for them to breathe into. A tap target that shrinks
+ * with the artwork is not a tap target.
+ */
 .rsvp-slot {
   position: absolute;
   left: var(--slot-left);
   top: var(--slot-top);
   width: var(--slot-width);
   height: var(--slot-height);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 0.15em;
+  display: grid;
+  place-items: center;
+  overflow: visible;
   text-align: center;
   font-family: var(--font-card);
-  /*
-   * Sized so five lines - RSVP, the date, two numbers and the link - clear
-   * the region at every width the card is ever drawn at. Checked from 360px
-   * up; the binding case is the phone, where the region is only 74px tall.
-   */
-  font-size: clamp(0.4rem, 2.2cqw, 0.72rem);
-  line-height: 1.35;
+  font-size: clamp(0.55rem, 2.4cqw, 0.85rem);
   letter-spacing: 0.06em;
   color: var(--ink);
 }
 
-.rsvp-slot .slot-heading {
-  letter-spacing: 0.28em;
+.slot-inner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5em;
+  width: 100%;
+}
+
+.slot-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.5em;
+}
+
+.slot-btn {
+  min-height: 44px;
+  padding: 0.5em 1.1em;
+  border: 1px solid rgba(177, 137, 6, 0.45);
+  border-radius: 999px;
+  background: rgba(255, 253, 248, 0.92);
+  color: var(--ink);
+  font: inherit;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background-color 160ms ease, color 160ms ease;
+}
+
+.slot-btn:hover {
+  background: rgba(255, 248, 232, 1);
+}
+
+.slot-btn.is-yes {
+  border-color: var(--gold);
   color: var(--gold);
 }
 
-.rsvp-slot a {
+.slot-btn:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 2px;
+}
+
+.slot-label {
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
   color: var(--gold);
-  text-decoration: underline;
-  text-underline-offset: 0.2em;
+}
+
+.slot-count {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.4em;
+}
+
+.slot-stepper {
+  display: flex;
+  align-items: center;
+  gap: 0.6em;
+}
+
+.slot-step {
+  min-width: 44px;
+  min-height: 44px;
+  border: 1px solid rgba(177, 137, 6, 0.45);
+  border-radius: 999px;
+  background: rgba(255, 253, 248, 0.92);
+  color: var(--gold);
+  font: inherit;
+  font-size: 1.15em;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.slot-step:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 2px;
+}
+
+.slot-number {
+  min-width: 1.6em;
+  font-size: 1.5em;
+  color: var(--gold);
+}
+
+.slot-answered {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 0.6em;
+}
+
+.slot-error {
+  color: #a8322a;
 }
 
 /* Beat 9's gradient. Inert until the timeline moves it; opacity 0 by default,
@@ -227,9 +334,17 @@
  * Copperplate at true card scale lands near 6px on a phone, which is
  * unreadable for exactly the guests most likely to need it.
  */
+/*
+ * Quieter than the card, and below it, because the card is what the
+ * storyboard is about. Still real HTML, still in the document, still what a
+ * screen reader announces in place of the artwork - which is aria-hidden -
+ * and still the place to add names, leave a message, or change an answer.
+ */
 .legible {
   font-family: var(--font-card);
   color: var(--ink);
+  max-width: 34rem;
+  margin-inline: auto;
 }
 
 .legible h2 {
@@ -248,6 +363,106 @@
 .legible .contact-list {
   list-style: none;
   padding: 0;
+}
+
+/* -------------------------------------------------------------------------- */
+/* the closing frame                                                          */
+/* -------------------------------------------------------------------------- */
+
+/*
+ * Raised the moment somebody answers on the card. The last beat of the
+ * opening sequence, reused: the same monogram, the same ground, a line that
+ * differs depending on what they actually said.
+ */
+.ending {
+  position: fixed;
+  inset: 0;
+  z-index: 70;
+  display: grid;
+  place-items: center;
+  padding: 1.5rem;
+  animation: ending-in 520ms ease both;
+}
+
+@keyframes ending-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.ending-veil {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(40% 32% at 20% 16%, rgba(255, 240, 219, 0.97), transparent 70%),
+    radial-gradient(34% 28% at 80% 22%, rgba(254, 235, 242, 0.95), transparent 70%),
+    linear-gradient(160deg, #fffdf8 0%, var(--paper-warm) 60%, #fdf3e6 100%);
+}
+
+.ending-content {
+  position: relative;
+  container-type: inline-size;
+  width: min(92vw, 30rem);
+  text-align: center;
+}
+
+.ending-monogram {
+  width: clamp(6rem, 40cqw, 12rem);
+  margin: 0 auto;
+}
+
+.ending-monogram svg {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.ending-line {
+  margin: 1.6rem 0 0;
+  font-family: var(--font-card);
+  font-size: clamp(0.78rem, 3.6cqw, 1.05rem);
+  letter-spacing: 0.2em;
+  line-height: 1.9;
+  text-transform: uppercase;
+  color: var(--gold);
+}
+
+.ending-rule {
+  width: 40%;
+  margin: 1.1rem auto 0;
+  height: 1px;
+  border: 0;
+  background: linear-gradient(90deg, transparent, var(--gold-light), transparent);
+}
+
+.ending-close {
+  margin-top: 1.6rem;
+  min-height: 44px;
+  padding: 0.6rem 1.2rem;
+  border: 0;
+  background: none;
+  color: var(--ink);
+  font-family: var(--font-card);
+  font-size: 0.85rem;
+  opacity: 0.75;
+  text-decoration: underline;
+  text-underline-offset: 0.25em;
+  cursor: pointer;
+}
+
+.ending-close:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 2px;
+  opacity: 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ending {
+    animation: none;
+  }
 }
 
 /* -------------------------------------------------------------------------- */

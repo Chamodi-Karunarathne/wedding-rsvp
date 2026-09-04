@@ -11,7 +11,7 @@ import type { InvitationView, SectionId } from '@/lib/services/types';
 import { Card } from '../../_components/card';
 import { Envelope } from '../../_components/envelope';
 import { Intro } from '../../_components/intro';
-import { RsvpBlock } from '../../_components/rsvp-block';
+import { CardRsvp } from '../../_components/card-rsvp';
 import { RsvpForm } from './rsvp-form';
 
 /*
@@ -48,6 +48,15 @@ export default async function InvitationPage({ params }: PageProps) {
   const copy = copyFor(invitation.guest.language);
   const { guest } = invitation;
 
+  /*
+   * The event the card's buttons answer for. There is one, but the page reads
+   * it from the invitation rather than naming a slug, so a second event added
+   * later is a data change and this keeps working for the first one.
+   */
+  const primaryEvent = invitation.events[0];
+  const primarySlug = primaryEvent?.slug ?? '';
+  const primaryRsvp = primarySlug ? invitation.rsvps[primarySlug] : undefined;
+
   return (
     <>
       {/*
@@ -78,10 +87,17 @@ export default async function InvitationPage({ params }: PageProps) {
           {/* The card. Decorative in full; the readable version is below it. */}
           <div data-intro="card">
             <Card>
-              <RsvpBlock
+              <CardRsvp
+                token={guest.token}
+                eventSlug={primarySlug}
+                maxPartySize={guest.maxPartySize}
+                existing={
+                  primaryRsvp
+                    ? { attending: primaryRsvp.attending, partyCount: primaryRsvp.partyCount }
+                    : null
+                }
                 copy={copy}
-                deadline={formatDate(invitation.rsvpDeadline, invitation.site.timezone)}
-                contacts={invitation.site.rsvpContacts}
+                monogram={<InlineSvg name="monogram" />}
               />
             </Card>
           </div>
@@ -249,6 +265,14 @@ function Section({
 
           <div className="rsvp-live mt-4">
             <RsvpForm
+              /*
+               * Keyed on the saved answer so that answering on the card
+               * remounts this with the new value. A refresh alone would leave
+               * its useState initialisers holding the old one.
+               */
+              key={
+                events[0] ? (rsvps[events[0].slug]?.updatedAt?.toISOString() ?? 'unanswered') : 'none'
+              }
               token={guest.token}
               events={events}
               rsvps={rsvps}
