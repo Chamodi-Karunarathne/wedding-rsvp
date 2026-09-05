@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { ImageResponse } from 'next/og';
 import { scriptOf } from '@/lib/domain/script';
 import { loadInvitation } from '@/lib/services/invitation';
@@ -41,9 +43,51 @@ const SEAL_SIZE = 132;
  * file as an image sidesteps that entirely AND means the preview is the
  * actual artwork rather than an approximation of it that can drift.
  */
+/**
+ * The face the name is set in.
+ *
+ * Satori has no access to next/font, so without this the guest's name came out
+ * in whatever sans-serif the renderer defaults to - the one element of the
+ * preview that is about a specific household, set in a face that appears
+ * nowhere else on the invitation. Crimson Text is vendored under its OFL
+ * licence in public/fonts.
+ *
+ * A STATIC instance, not a variable font. Satori's parser cannot read one:
+ * handed the variable Cormorant Garamond it threw "Cannot read properties of
+ * undefined (reading '256')" and the route 500'd, which for an OG image means
+ * a link with no preview at all.
+ *
+ * Read once at module scope: this file is fetched by a link unfurler, and
+ * re-reading it per request to render an image that is then cached forever
+ * would be work done for nobody.
+ */
+const displayFont = readFileSync(
+  join(process.cwd(), 'public', 'fonts', 'CrimsonText-Regular.ttf'),
+);
+
+/**
+ * The palette, applied to the artwork itself.
+ *
+ * On the site the exports are inlined and CSS paints them - Satori never sees
+ * that stylesheet, so the preview was showing the raw Illustrator drawing:
+ * white paper, near-black hairlines. The first thing five hundred households
+ * see would have been a wireframe of the envelope they get on the page in
+ * cream and gold. Substituted into the source here so the two agree, with the
+ * same values guest.css uses.
+ */
+const ARTWORK_PALETTE: [RegExp, string][] = [
+  [/#231f20/gi, 'rgba(177,137,6,0.55)'], // hairlines -> gold
+  [/#fef3f8/gi, '#f7dfe6'], // lining -> blush
+  [/#fff(?![0-9a-f])/gi, '#fdf6ea'], // paper -> warm cream
+];
+
 function artworkDataUri(name: string): string {
   const { viewBox, inner } = readCardSvg(name);
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${viewBox}">${inner}</svg>`;
+  const painted = ARTWORK_PALETTE.reduce(
+    (source, [pattern, colour]) => source.replace(pattern, colour),
+    inner,
+  );
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${viewBox}">${painted}</svg>`;
   return `data:image/svg+xml;base64,${Buffer.from(svg).toString('base64')}`;
 }
 
@@ -78,6 +122,7 @@ export default async function OpengraphImage({ params }: Props) {
           alignItems: 'center',
           justifyContent: 'center',
           background: PAPER,
+          fontFamily: 'Crimson Text',
         }}
       >
         <div
@@ -139,6 +184,16 @@ export default async function OpengraphImage({ params }: Props) {
         </div>
       </div>
     ),
-    size,
+    {
+      ...size,
+      fonts: [
+        {
+          name: 'Crimson Text',
+          data: displayFont,
+          weight: 400,
+          style: 'normal',
+        },
+      ],
+    },
   );
 }
