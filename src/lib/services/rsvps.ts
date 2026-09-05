@@ -131,7 +131,8 @@ async function saveResponses(
           eventId: entry.eventId,
           attending: entry.values.attending,
           partyCount: entry.values.partyCount,
-          attendeeNames: entry.values.attendeeNames,
+          // A brand new row has nothing to preserve, so "unchanged" is null.
+          attendeeNames: entry.values.attendeeNames ?? null,
           source,
           recordedBy,
         })
@@ -140,7 +141,15 @@ async function saveResponses(
           set: {
             attending: entry.values.attending,
             partyCount: entry.values.partyCount,
-            attendeeNames: entry.values.attendeeNames,
+            /*
+             * Only written when the payload actually carried the field. The
+             * card's two-button RSVP has no names input and sends none;
+             * overwriting here would wipe names the guest entered in the
+             * fuller form just because they later corrected their headcount.
+             */
+            ...(entry.values.attendeeNames !== undefined && {
+              attendeeNames: entry.values.attendeeNames,
+            }),
             source,
             recordedBy,
             // submittedAt deliberately untouched: it records the FIRST answer.

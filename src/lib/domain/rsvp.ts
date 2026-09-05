@@ -17,7 +17,11 @@ export type NormalizedRsvp = {
   eventSlug: string;
   attending: boolean;
   partyCount: number;
-  attendeeNames: string | null;
+  /**
+   * undefined means "leave whatever is stored alone" - the same distinction
+   * messageAction draws. null means the guest explicitly cleared the field.
+   */
+  attendeeNames: string | null | undefined;
 };
 
 /**
@@ -35,8 +39,19 @@ export function partyAllowanceFor(
   return guest.maxPartySize;
 }
 
-function cleanNames(value: string | null | undefined): string | null {
-  if (typeof value !== 'string') return null;
+/**
+ * Absent is not the same as empty.
+ *
+ * The card's two-button RSVP sends no attendeeNames at all - it has no field
+ * for them. Collapsing that into null meant a guest who had typed "Ranjani,
+ * Sunil" into the fuller form and later tapped "change" on the card silently
+ * lost the names, which are exactly what the place settings are drawn from.
+ * The previous answer survived in rsvp_history, but nobody would think to
+ * look there for something they never knew had gone.
+ */
+function cleanNames(value: string | null | undefined): string | null | undefined {
+  if (value === undefined) return undefined; // field absent - unchanged
+  if (value === null) return null; // explicitly cleared
   const trimmed = value.trim();
   return trimmed === '' ? null : trimmed;
 }
@@ -44,10 +59,10 @@ function cleanNames(value: string | null | undefined): string | null {
 /**
  * Applies every party-size invariant and returns a row that is safe to write.
  *
- * Declining always normalizes to a party of zero with no attendee names,
- * regardless of what the client sent - so a guest who fills in the form,
- * changes their mind and unticks "attending" does not leave a stale count
- * behind.
+ * Declining always normalizes to a party of zero with names explicitly
+ * cleared, regardless of what the client sent - so a guest who fills in the
+ * form, changes their mind and unticks "attending" does not leave a stale
+ * count or a list of attendees behind.
  */
 export function normalizeRsvp(
   intent: RsvpIntent,

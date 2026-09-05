@@ -233,16 +233,43 @@ async function main(): Promise<void> {
     /* --- 12: a self-submission over a phone entry keeps the old answer --- */
     console.log('\n[12] Overwriting a phone-recorded RSVP writes rsvp_history');
 
-    const phoneRecorded = await pool.query<{ id: string; token: string; party_count: number }>(
-      `SELECT g.id, g.token, r.party_count
-         FROM guests g JOIN rsvps r ON r.guest_id = g.id
-        WHERE r.source = 'phone' LIMIT 1`,
+    /*
+     * This check establishes its own precondition rather than scavenging the
+     * database for a phone-recorded RSVP.
+     *
+     * It used to take whichever one the seed happened to provide - and then
+     * overwrite it, which is the whole point of the check. That made the
+     * script self-destructive: a second run found no phone-recorded answer
+     * left and reported a failure in rsvp_history that did not exist. A
+     * verification script that only passes against a freshly seeded database,
+     * and lies on the second run, is worse than no script at all.
+     *
+     * The precondition is written with SQL on purpose. What is under test is
+     * the overwrite path, not how the phone answer got there - check [13]
+     * covers recording one through the admin endpoint.
+     */
+    const candidate = await pool.query<{ id: string; token: string }>(
+      `SELECT g.id, g.token
+         FROM guests g
+         JOIN invitations i ON i.guest_id = g.id
+         JOIN events e ON e.id = i.event_id
+        WHERE e.slug = $1 AND g.id <> $2
+        LIMIT 1`,
+      [slug, target.id],
     );
-    const recorded = phoneRecorded.rows[0];
+    const recorded = candidate.rows[0] ? { ...candidate.rows[0], party_count: 3 } : undefined;
 
     if (!recorded) {
-      check('a phone-recorded RSVP exists to overwrite', false, 'none in the database');
+      check('a guest is available to test the overwrite', false, 'none invited to this event');
     } else {
+      await pool.query(
+        `INSERT INTO rsvps (guest_id, event_id, attending, party_count, attendee_names, source, recorded_by)
+         VALUES ($1, (SELECT id FROM events WHERE slug = $2), true, 3, 'Taken by phone', 'phone', 'verify-script')
+         ON CONFLICT (guest_id, event_id) DO UPDATE
+            SET attending = true, party_count = 3, attendee_names = 'Taken by phone',
+                source = 'phone', recorded_by = 'verify-script', updated_at = now()`,
+        [recorded.id, slug],
+      );
       const historyBefore = await pool.query<{ count: string }>(
         'SELECT COUNT(*) AS count FROM rsvp_history WHERE guest_id = $1',
         [recorded.id],
@@ -297,6 +324,50 @@ async function main(): Promise<void> {
       );
     }
 
+    /* --- 14: an absent attendeeNames must not wipe stored names --------- */
+    console.log('\n[14] Answering on the card does not erase names typed into the form');
+
+    // This lived in the seam between the domain rule and the upsert, so the
+    // unit tests on either side could both pass while the behaviour was wrong.
+    const namesTarget = target;
+    await post({
+      token: namesTarget.token,
+      responses: [
+        { eventSlug: slug, attending: true, partyCount: 2, attendeeNames: 'Ranjani, Sunil' },
+      ],
+    });
+
+    // Exactly what the card sends: no attendeeNames key at all.
+    await post({
+      token: namesTarget.token,
+      responses: [{ eventSlug: slug, attending: true, partyCount: 2 }],
+    });
+
+    const keptNames = await pool.query<{ attendee_names: string | null }>(
+      'SELECT attendee_names FROM rsvps WHERE guest_id = $1',
+      [namesTarget.id],
+    );
+    check(
+      'names survive a card re-confirm that sends no names field',
+      keptNames.rows[0]?.attendee_names === 'Ranjani, Sunil',
+      `got ${JSON.stringify(keptNames.rows[0]?.attendee_names)}`,
+    );
+
+    // The other half: clearing the box must still clear the column.
+    await post({
+      token: namesTarget.token,
+      responses: [{ eventSlug: slug, attending: true, partyCount: 2, attendeeNames: '' }],
+    });
+    const clearedNames = await pool.query<{ attendee_names: string | null }>(
+      'SELECT attendee_names FROM rsvps WHERE guest_id = $1',
+      [namesTarget.id],
+    );
+    check(
+      'but an explicitly emptied field still clears them',
+      clearedNames.rows[0]?.attendee_names === null,
+      `got ${JSON.stringify(clearedNames.rows[0]?.attendee_names)}`,
+    );
+
     /* --- 11: send export ----------------------------------------------- */
     console.log('\n[11] Send export contains name, phone and an absolute invitation URL');
 
@@ -312,11 +383,21 @@ async function main(): Promise<void> {
       const csvResponse = await fetch(`${BASE}/api/admin/export/send`, {
         headers: { cookie },
       });
-      const csv = await csvResponse.text();
+
+      // Read the BYTES, not response.text(). The WHATWG UTF-8 decoder strips a
+      // leading BOM, so .text() can never observe one - checking the decoded
+      // string reports a missing BOM on an export that has one, every time.
+      const bytes = new Uint8Array(await csvResponse.arrayBuffer());
+      const hasBom = bytes[0] === 0xef && bytes[1] === 0xbb && bytes[2] === 0xbf;
+      const csv = new TextDecoder('utf-8').decode(bytes);
       const header = csv.split('\r\n')[0] ?? '';
 
       check('export returns 200', csvResponse.status === 200, `got ${csvResponse.status}`);
-      check('starts with a UTF-8 BOM so Excel reads it correctly', csv.charCodeAt(0) === 0xfeff);
+      check(
+        'starts with a UTF-8 BOM so Excel reads it correctly',
+        hasBom,
+        `first bytes were ${[...bytes.slice(0, 3)].map((b) => b.toString(16)).join(' ')}`,
+      );
       for (const column of ['display_name', 'phone', 'invitation_url', 'channels']) {
         check(`has a ${column} column`, header.includes(column));
       }

@@ -70,6 +70,45 @@ describe('normalizeRsvp', () => {
     const blank = normalizeRsvp(intent({ attendeeNames: '   ' }), 2, 'x');
     assert.equal(blank.ok && blank.data.attendeeNames, null);
   });
+
+  describe('an absent attendeeNames field is not an empty one', () => {
+    // The card's two-button RSVP has no names input and sends no field at all.
+    // Treating that as "clear it" silently wiped names the guest had entered
+    // in the fuller form as soon as they corrected their headcount on the card.
+    it('leaves names unchanged when the field is absent', () => {
+      const result = normalizeRsvp(intent({}), 2, 'x');
+      assert.equal(result.ok, true);
+      if (result.ok) assert.equal(result.data.attendeeNames, undefined);
+    });
+
+    it('clears names when the field is explicitly null', () => {
+      const result = normalizeRsvp(intent({ attendeeNames: null }), 2, 'x');
+      assert.equal(result.ok, true);
+      if (result.ok) assert.equal(result.data.attendeeNames, null);
+    });
+
+    it('clears names when the field is an empty string', () => {
+      const result = normalizeRsvp(intent({ attendeeNames: '' }), 2, 'x');
+      assert.equal(result.ok, true);
+      if (result.ok) assert.equal(result.data.attendeeNames, null);
+    });
+
+    it('still clears names on a decline, whatever was sent', () => {
+      const result = normalizeRsvp(intent({ attending: false, partyCount: 0 }), 2, 'x');
+      assert.equal(result.ok, true);
+      // null, not undefined: declining is an explicit clear, not a no-op.
+      if (result.ok) assert.equal(result.data.attendeeNames, null);
+    });
+
+    it('matches the distinction messageAction already draws', () => {
+      const absent = normalizeRsvp(intent({}), 2, 'x');
+      const cleared = normalizeRsvp(intent({ attendeeNames: '' }), 2, 'x');
+      assert.equal(messageAction(undefined).kind, 'ignore');
+      assert.equal(absent.ok && absent.data.attendeeNames === undefined, true);
+      assert.equal(messageAction('').kind, 'delete');
+      assert.equal(cleared.ok && cleared.data.attendeeNames === null, true);
+    });
+  });
 });
 
 describe('partyAllowanceFor', () => {
