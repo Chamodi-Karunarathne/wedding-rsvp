@@ -186,10 +186,17 @@ export default async function InvitationPage({ params, searchParams }: PageProps
             contacts: site.rsvpContacts,
           }}
         >
-          <div className="invitation-hero">
-            {/* The guest's name, where a handwritten one goes. */}
-            <Envelope name={guest.cardName} />
+          {/*
+            The card alone.
 
+            The envelope belongs to the opening sequence and stops existing
+            once the card is out of it - beat 4 slides the card out as the
+            envelope falls away, and an envelope still sitting beside the card
+            afterwards undoes that: it reads as a second, unopened invitation
+            rather than as the one this card came from. The guest's name is on
+            the envelope during the sequence, and in the sheet after it.
+          */}
+          <div className="invitation-hero">
             <div data-intro="card">
               <Card>
                 <RespondButton />

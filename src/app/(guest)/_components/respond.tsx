@@ -45,20 +45,44 @@ export type SavedAnswer = {
  * would make the whole card a Client Component and send the artwork through
  * the serialization boundary as props.
  */
-type RespondControl = { open: () => void; label: string };
+type RespondControl = {
+  open: () => void;
+  label: string;
+  /** What this household has already told us, in one line. Null before they
+   *  have said anything. */
+  standing: string | null;
+};
 const RespondContext = createContext<RespondControl | null>(null);
 
-/** The single control printed on the card. */
+/**
+ * The single control printed on the card, with the standing answer above it.
+ *
+ * The button used to read "Tell us otherwise" for anybody who had replied,
+ * which is only half a sentence: it offers to change an answer without ever
+ * saying what the answer was. A household that accepted three weeks ago
+ * returns to their invitation and cannot tell from the card whether we have
+ * them down as coming. The state is now stated, and changing it is the
+ * quieter, secondary thing - which is the right emphasis, because most people
+ * open it again to check, not to change their mind.
+ */
 export function RespondButton() {
   const control = useContext(RespondContext);
   // Rendered by the server inside <Card> before the provider mounts on the
-  // client; a disabled button is better than a missing one.
+  // client; nothing is better than a button that cannot open anything.
   if (!control) return null;
 
   return (
-    <button type="button" className="respond-btn" onClick={control.open}>
-      {control.label}
-    </button>
+    <div className="respond">
+      {control.standing && <p className="respond-standing">{control.standing}</p>}
+      <button
+        type="button"
+        className="respond-btn"
+        data-tone={control.standing ? 'quiet' : 'primary'}
+        onClick={control.open}
+      >
+        {control.label}
+      </button>
+    </div>
   );
 }
 
@@ -198,7 +222,21 @@ export function RespondFlow({
 
   return (
     <RespondContext.Provider
-      value={{ open, label: answer ? copy.card.respondAgain : copy.card.respond }}
+      value={{
+        open,
+        label: answer ? copy.card.respondAgain : copy.card.respond,
+        /*
+         * savedAttending and savedDeclined were written for exactly this and
+         * had stopped being used anywhere. A declining household is told they
+         * will be missed, never a count - "Expecting 0 of you" is not a
+         * sentence anybody should read about themselves.
+         */
+        standing: !answer
+          ? null
+          : answer.attending
+            ? renderTemplate(copy.card.savedAttending, { n: answer.partyCount })
+            : copy.card.savedDeclined,
+      }}
     >
       {/*
         data-replied fades the card out and the closing panel in. A class on a
@@ -239,6 +277,11 @@ export function RespondFlow({
 
       <dialog ref={dialogRef} className="sheet" aria-labelledby="sheet-title">
         <div className="sheet-inner">
+          {/* Decoration only, and the reason for the sheet's top padding. */}
+          <div className="sheet-garland" aria-hidden="true">
+            <img alt="" src={cardAsset('floral-garland.svg')} width={600} height={120} />
+          </div>
+
           <h2 id="sheet-title" className="sheet-title">
             {copy.dialog.title}
           </h2>

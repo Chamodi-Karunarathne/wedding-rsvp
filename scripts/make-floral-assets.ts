@@ -309,10 +309,110 @@ function floralSprig(): string {
 
 const dir = join(process.cwd(), 'public', 'card');
 
+/* -------------------------------------------------------------------------- */
+/* floral-garland.svg                                                         */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * A symmetric garland: one spray, and the same spray mirrored, meeting at the
+ * centre under a small bud. Sits across the head of the reply sheet.
+ *
+ * Mirrored rather than drawn twice, so the two halves cannot drift out of
+ * agreement when the curve is adjusted.
+ */
+function floralGarland(): string {
+  const W = 600;
+  const H = 120;
+
+  const half = spray(
+    {
+      stem: [
+        { x: 300, y: 96 },
+        { x: 216, y: 104 },
+        { x: 120, y: 74 },
+        { x: 24, y: 20 },
+      ],
+      count: 8,
+      leafLength: 30,
+      leafWidth: 14,
+      taper: 0.42,
+      spread: 44,
+      from: 0.06,
+      to: 0.96,
+    },
+    'floral-garland__half',
+  );
+
+  return (
+    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}">` +
+    `<g id="floral-garland__floral-garland-root">` +
+    `<g id="floral-garland__left">${half}</g>` +
+    `<g id="floral-garland__right" transform="translate(${W} 0) scale(-1 1)">${half}</g>` +
+    `<circle fill="${GOLD}" cx="300" cy="94" r="3.4"/>` +
+    `</g></svg>`
+  );
+}
+
+/* -------------------------------------------------------------------------- */
+/* floral-bough.svg                                                           */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * A tall arching branch for the page edges. Deliberately sparse and long: it
+ * is scenery at low opacity behind the card, not something to be read.
+ */
+function floralBough(): string {
+  const W = 320;
+  const H = 900;
+
+  const groups = [
+    spray(
+      {
+        stem: [
+          { x: 40, y: 10 },
+          { x: 150, y: 220 },
+          { x: 120, y: 560 },
+          { x: 210, y: 880 },
+        ],
+        count: 14,
+        leafLength: 44,
+        leafWidth: 19,
+        taper: 0.6,
+        spread: 48,
+        from: 0.04,
+        to: 0.98,
+      },
+      'floral-bough__main',
+    ),
+    spray(
+      {
+        stem: [
+          { x: 20, y: 120 },
+          { x: 90, y: 300 },
+          { x: 60, y: 500 },
+          { x: 118, y: 700 },
+        ],
+        count: 9,
+        leafLength: 30,
+        leafWidth: 13,
+        taper: 0.55,
+        spread: 42,
+        from: 0.06,
+        to: 0.96,
+      },
+      'floral-bough__second',
+    ),
+  ];
+
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}"><g id="floral-bough__floral-bough-root">${groups.join('')}</g></svg>`;
+}
+
 const files: [string, string][] = [
   ['floral-corner.svg', floralCorner()],
   ['frame-ornament.svg', frameOrnament()],
   ['floral-sprig.svg', floralSprig()],
+  ['floral-garland.svg', floralGarland()],
+  ['floral-bough.svg', floralBough()],
 ];
 
 for (const [name, contents] of files) {

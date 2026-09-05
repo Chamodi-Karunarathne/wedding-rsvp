@@ -1,0 +1,21 @@
+{
+  "$comment": [
+    "autoPort is false because this project genuinely needs port 3000, not any",
+    "free port: .env pins NEXT_PUBLIC_SITE_URL to http://localhost:3000, and",
+    "that value is what `pnpm verify` targets, what the OG image URLs are built",
+    "from, and what the send list puts in front of an admin as a guest's link.",
+    "On another port the acceptance checks fail against a server that is fine.",
+    "So if 3000 is busy, free it rather than moving off it - and check first",
+    "that the holder is not a dev server someone is deliberately running."
+  ],
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "dev",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["run", "dev"],
+      "port": 3000,
+      "autoPort": false
+    }
+  ]
+}
