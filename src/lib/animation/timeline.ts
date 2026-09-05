@@ -115,6 +115,22 @@ export function buildIntroTimeline(root: ParentNode, onComplete: () => void): Bu
   const cleanups: Cleanup[] = [];
   const timeline = gsap.timeline({ paused: true, onComplete });
 
+  /*
+   * Anything a beat reveals later starts hidden.
+   *
+   * These are real elements in the server HTML - which is what makes the
+   * sequence progressive enhancement - so they are visible until something
+   * hides them. Nothing did, and "WE LOOK FORWARD TO CELEBRATING WITH YOU" was
+   * on screen under the monogram from the first frame, twenty seconds before
+   * the beat that is supposed to bring it in.
+   *
+   * Hidden HERE, in script, and never in CSS: if this code never runs the
+   * closing line simply renders with the rest of the page, which is the whole
+   * point of the overlay being optional.
+   */
+  const deferred = Array.from(root.querySelectorAll<HTMLElement>('[data-intro-reveal]'));
+  if (deferred.length > 0) gsap.set(deferred, { opacity: 0 });
+
   for (const beat of BEATS) {
     const found = targets(root, beat);
     if (found.length === 0) continue;
@@ -290,6 +306,23 @@ export function buildIntroTimeline(root: ParentNode, onComplete: () => void): Bu
         }
         break;
       }
+    }
+
+    /*
+     * The target leaving again. Added after the beat's own tweens so it wins
+     * on the same property, and placed at an absolute time so a beat can leave
+     * long after it arrived - the card is raised at 8s and only clears at 20s.
+     */
+    if (beat.exitAt !== undefined) {
+      timeline.to(
+        found,
+        {
+          opacity: 0,
+          duration: beat.exitDuration ?? 0.8,
+          ease: 'power1.inOut',
+        },
+        beat.exitAt,
+      );
     }
   }
 

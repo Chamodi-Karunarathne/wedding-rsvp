@@ -11,12 +11,14 @@
     "are served with immutable cache headers, so a re-export under the same",
     "filename would otherwise never reach anyone who had already loaded it."
   ],
-  "version": "2831d851e925",
+  "version": "60abaf879222",
   "assets": [
     "card-base.svg",
     "card-florals.svg",
     "card-text.svg",
     "envelope.svg",
+    "floral-corner.svg",
+    "frame-ornament.svg",
     "monogram.svg",
     "seal.svg"
   ]

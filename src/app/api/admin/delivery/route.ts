@@ -1,5 +1,6 @@
 import type { NextResponse } from 'next/server';
 import { jsonError, jsonOk, readJson, zodError } from '@/lib/api/respond';
+import { requireAdmin } from '@/lib/api/guard';
 import { deliveryChannelSchema } from '@/lib/api/schemas';
 import { setDeliveryChannel } from '@/lib/services/guests';
 
@@ -9,6 +10,9 @@ export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 export async function POST(request: Request): Promise<NextResponse> {
+  const denied = await requireAdmin();
+  if (denied) return denied;
+
   const body = await readJson(request);
   if (!body.ok) return jsonError(body.error);
 

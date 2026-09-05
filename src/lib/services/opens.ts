@@ -3,6 +3,20 @@ import { getDb, type DbLike } from '@/db/client';
 import { guestOpens } from '@/db/schema';
 import { isCrawler } from '@/lib/domain/crawler';
 
+export type OpenContext = {
+  userAgent: string | null | undefined;
+  /**
+   * True when this view is not a guest reading their invitation - an admin
+   * checking what was sent, or an explicit ?preview=1.
+   *
+   * Without this, opening a guest's link from /admin/send marks that household
+   * as having opened it, and 'opened' versus 'sent' is exactly what decides
+   * between resending the link and picking up the phone. The metric is only
+   * worth keeping if it means what it says.
+   */
+  preview?: boolean;
+};
+
 /**
  * PERMANENT. The only analytics write in the system.
  *
@@ -12,10 +26,11 @@ import { isCrawler } from '@/lib/domain/crawler';
  */
 export async function recordOpen(
   guestId: string,
-  userAgent: string | null | undefined,
+  context: OpenContext,
   db: DbLike = getDb(),
 ): Promise<void> {
-  if (isCrawler(userAgent)) return;
+  if (context.preview) return;
+  if (isCrawler(context.userAgent)) return;
 
   const now = new Date();
   await db

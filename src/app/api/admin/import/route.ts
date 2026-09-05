@@ -1,5 +1,6 @@
 import type { NextResponse } from 'next/server';
 import { jsonError, jsonOk, readJson, zodError } from '@/lib/api/respond';
+import { requireAdmin } from '@/lib/api/guard';
 import { csvImportSchema } from '@/lib/api/schemas';
 import { importGuestsCsv } from '@/lib/services/import';
 
@@ -16,6 +17,9 @@ export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
 
 export async function POST(request: Request): Promise<NextResponse> {
+  const denied = await requireAdmin();
+  if (denied) return denied;
+
   const body = await readJson(request);
   if (!body.ok) return jsonError(body.error);
 

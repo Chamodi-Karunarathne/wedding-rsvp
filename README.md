@@ -71,7 +71,14 @@ That is on purpose. If a homecoming or a reception appears, it should be a row s
 
 ## Before anyone receives a link
 
-`src/app/(guest)/i/[token]/opengraph-image.tsx` is a **placeholder**. WhatsApp caches link previews more or less permanently, so the first image a guest's phone fetches is the one they keep forever — redeploying does not replace it for anyone who already has the link. It currently renders "PLACEHOLDER — not the final invitation image" in large red type, deliberately, so it cannot slip through quietly. Replace it before sending anything to anybody, including a test group chat.
+`src/app/(guest)/i/[token]/opengraph-image.tsx` is **provisional, and no longer obviously so**. WhatsApp caches link previews more or less permanently, so the first image a guest's phone fetches is the one they keep forever — redeploying does not replace it for anyone who already has the link.
+
+It renders the real envelope artwork with the guest's name and the wax seal. That is deliberate: it is the first thing all five hundred households will see. But it means the image no longer announces itself as unfinished, so **it has to be signed off explicitly** rather than caught by someone noticing it looks wrong. Sign off two things together, because both are cached just as hard:
+
+- the image itself, and
+- the preview's title and description, which come from `generateMetadata` in the page beside it. They deliberately name only the couple — no guest name, no venue, no date, because a forwarded screenshot of a preview should not carry a household's details.
+
+A name in a script the OG font cannot set falls back to the couple's names rather than rendering as empty boxes; `scriptOf` decides. Check a Sinhala-addressed household as well as a Latin one before signing anything off.
 
 ## Domain rules, and where they live
 

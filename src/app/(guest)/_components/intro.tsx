@@ -51,6 +51,22 @@ export function Intro({ token, children, labels }: Props) {
     cleanupRef.current?.();
     cleanupRef.current = null;
 
+    /*
+     * Put the overlay away.
+     *
+     * This is the whole point of finishing and it was missing: play() sets
+     * hidden = false and nothing ever set it back. The overlay is
+     * position: fixed; inset: 0; z-index: 50, so once the sequence ended - or
+     * the guest pressed Skip - it stayed on top of the invitation forever. The
+     * page underneath was complete and correct the entire time and no guest
+     * could reach it. React state said 'finished' while the DOM said otherwise.
+     *
+     * Set on the node rather than through state because play() writes the same
+     * property imperatively, and one owner for one property is the only way
+     * these two stay in agreement.
+     */
+    if (overlayRef.current) overlayRef.current.hidden = true;
+
     // Back into the page, and scrolling again. Done before the styles are
     // cleared so the card never flashes fixed-and-visible in the flow.
     stageCard(false);
@@ -106,7 +122,16 @@ export function Intro({ token, children, labels }: Props) {
       // Hide what the sequence is about to reveal. Done HERE, in script,
       // never in CSS: if this code never runs, nothing was ever hidden.
       const card = document.querySelector<HTMLElement>('[data-intro="card"]');
-      const managed = [card].filter((el): el is HTMLElement => el !== null);
+      /*
+       * The sweep is managed too, so finish() clears what the timeline left on
+       * it. Beat 9 ends with it translated to xPercent: 120 and only its
+       * opacity zeroed - the transform stayed, and a 100%-wide element pushed
+       * that far right made the finished page 1085px wide on a 524px screen.
+       * A horizontal scrollbar on the invitation, caused by an invisible
+       * decoration.
+       */
+      const sweep = document.querySelector<HTMLElement>('[data-intro="sweep"]');
+      const managed = [card, sweep].filter((el): el is HTMLElement => el !== null);
       for (const element of managed) {
         element.dataset.introManaged = '';
         element.style.opacity = '0';
@@ -118,6 +143,18 @@ export function Intro({ token, children, labels }: Props) {
       stageCard(true);
 
       setPhase('playing');
+
+      /*
+       * The overlay is revealed here, imperatively, AND kept revealed by
+       * `hidden={phase !== 'playing'}` in the markup below.
+       *
+       * Both, on purpose. The attribute is what React owns, so a re-render -
+       * the skip button appearing at 0.8s, for instance - cannot quietly put
+       * the overlay back. The imperative set is what makes it visible NOW,
+       * before the timeline is built: GSAP measures the artwork with getBBox()
+       * to work out where the seal halves turn about, and an element inside a
+       * `hidden` subtree measures zero on every axis.
+       */
       overlay.hidden = false;
 
       try {
@@ -127,7 +164,39 @@ export function Intro({ token, children, labels }: Props) {
         const { buildIntroTimeline } = await import('@/lib/animation/timeline');
         const { timeline, cleanup } = buildIntroTimeline(document, finish);
         cleanupRef.current = cleanup;
-        timeline.play();
+
+        /*
+         * A handle on the timeline while developing, so a beat can be inspected
+         * at rest instead of caught mid-flight:
+         *
+         *   __intro.seek(10.5)   the moment the florals finish blooming
+         *   __intro.pause()
+         *
+         * Stripped from production builds by the constant folding on
+         * NODE_ENV, so nothing reaches a guest. Checking a 23 second sequence
+         * by taking screenshots and hoping is not a workflow.
+         */
+        if (process.env.NODE_ENV !== 'production') {
+          // Structurally typed rather than importing GSAP's types, so this
+          // debug hook adds nothing to the client bundle's import graph.
+          (window as unknown as { __intro?: unknown }).__intro = timeline;
+        }
+
+        /*
+         * ?beat=12.5 holds the sequence at that second instead of playing it.
+         *
+         * A twenty-three second animation cannot be checked by loading the
+         * page and taking screenshots: the frame you want is gone before the
+         * screenshot lands, and the sequence finishes and puts itself away
+         * while you are still looking. This stops on the frame and stays
+         * there. Development only.
+         */
+        const beat = params.get('beat');
+        if (process.env.NODE_ENV !== 'production' && beat !== null && beat !== '') {
+          timeline.pause(Number(beat));
+        } else {
+          timeline.play();
+        }
       } catch {
         // A broken sequence must never cost anybody their invitation.
         finish();
@@ -167,7 +236,11 @@ export function Intro({ token, children, labels }: Props) {
       <div
         ref={overlayRef}
         className="intro"
-        hidden
+        // Driven by state, not left as a bare `hidden`. It is set imperatively
+        // too (see play), and this is what stops any later re-render from
+        // disagreeing with that - or from leaving the overlay covering a
+        // finished invitation.
+        hidden={phase !== 'playing'}
         // The invitation underneath is the real content; this is scenery.
         aria-hidden="true"
         data-phase={phase}

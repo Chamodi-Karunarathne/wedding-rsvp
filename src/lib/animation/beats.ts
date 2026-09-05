@@ -44,6 +44,16 @@ export type Beat = {
    * children come with it has to be per-beat rather than per-element.
    */
   revealChildren?: string;
+  /**
+   * When the target leaves again, in seconds on the master timeline.
+   *
+   * Without this a beat's target simply stays wherever it was put. The
+   * monogram was raised at beat 1 and never lowered, so it sat on top of the
+   * envelope, the seal and the whole card for the remaining twenty seconds -
+   * every later beat played out behind it.
+   */
+  exitAt?: number;
+  exitDuration?: number;
   note?: string;
 };
 
@@ -63,6 +73,10 @@ export const BEATS: readonly Beat[] = [
     target: '[data-intro="monogram"]',
     effect: 'wipe',
     ease: 'power2.inOut',
+    // Leaves as the envelope arrives, so the two cross-fade rather than the
+    // mark hanging over the envelope for the rest of the sequence.
+    exitAt: 2.6,
+    exitDuration: 0.9,
     // A single wipe, not a per-letter stagger: monogram.svg is one group of
     // three anonymous paths with no mono-m / mono-amp / mono-c to stagger.
     note: 'Single wipe. The mark has no per-letter groups to stagger.',
@@ -92,6 +106,11 @@ export const BEATS: readonly Beat[] = [
     target: '[data-intro="card"]',
     effect: 'slide',
     ease: 'power2.out',
+    // Clears the stage for the closing monogram, which the storyboard shows
+    // alone on the ground rather than over the card. finish() restores the
+    // card to the page afterwards.
+    exitAt: 19.9,
+    exitDuration: 1.1,
     // The slide also takes the envelope out: the card cannot appear to come
     // out of something that is still sitting on top of it.
     note: 'Card rises as the envelope falls away beneath it.',

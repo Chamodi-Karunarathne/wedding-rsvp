@@ -1,4 +1,5 @@
 import { NextResponse, type NextRequest } from 'next/server';
+import { requireAdmin } from '@/lib/api/guard';
 import { buildRsvpExportCsv, buildSendListCsv } from '@/lib/services/exports';
 import type { DashboardFilters, } from '@/lib/services/dashboard';
 import type { DeliveryChannelName, RsvpSource, Side } from '@/lib/services/types';
@@ -25,6 +26,12 @@ export async function GET(
   request: NextRequest,
   context: { params: Promise<{ kind: string }> },
 ): Promise<NextResponse> {
+  // Checked before the kind is even parsed: this endpoint hands back every
+  // household in one response, so it is the last place to rely on the proxy
+  // alone.
+  const denied = await requireAdmin();
+  if (denied) return denied;
+
   const { kind } = await context.params;
   if (!isKind(kind)) {
     return NextResponse.json(

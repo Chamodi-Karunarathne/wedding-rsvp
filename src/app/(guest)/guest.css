@@ -32,6 +32,22 @@
   --card-bg: #fffdf8;
   --blush: #fef3f8;
   --paper-warm: #f7ead9;
+
+  /*
+   * The palette the artwork is painted with.
+   *
+   * The Illustrator exports are technical drawings - #fff fills and #231f20
+   * hairlines - which is why the envelope and the card read as wireframes
+   * until something paints them. Inlining the SVGs rather than referencing
+   * them with <img> is what makes that possible: a presentation attribute
+   * loses to any CSS rule, so the colour lives here and a re-export never has
+   * to carry it.
+   */
+  --paper-envelope: #fdf6ea;
+  --paper-flap: #f9eedc;
+  --lining: #f7dfe6;
+  --gold-line: rgba(177, 137, 6, 0.55);
+  --gold-hairline: rgba(177, 137, 6, 0.32);
 }
 
 /* -------------------------------------------------------------------------- */
@@ -48,6 +64,12 @@
  */
 .guest-ground {
   min-height: 100svh;
+  /*
+   * Nothing decorative may ever produce a horizontal scrollbar. `clip` rather
+   * than `hidden` so this does not silently become a scroll container and
+   * break `position: sticky` or scroll-into-view for anything inside it.
+   */
+  overflow-x: clip;
   background:
     radial-gradient(38% 30% at 18% 14%, rgba(255, 240, 219, 0.95), transparent 70%),
     radial-gradient(32% 26% at 82% 20%, rgba(254, 235, 242, 0.9), transparent 70%),
@@ -62,10 +84,24 @@
  * is room. This is the resting state - what a guest sees with no JavaScript,
  * after the sequence, or on any later visit.
  */
+/*
+ * justify-items is `stretch`, NOT `center`.
+ *
+ * Centring makes every child shrink-to-fit, which leaves the card's wrapper
+ * with an indefinite inline size. Everything inside it - .card-stage, .card,
+ * .card-art - is sized in percentages, so they resolved against nothing and
+ * the whole card collapsed to 0x0. The artwork was in the DOM and measured
+ * 425x553 in its own coordinates while occupying no space on the page, and
+ * the absolutely positioned RSVP slot floated free over the text below it.
+ *
+ * Both children cap their own width and centre themselves, so stretching the
+ * track changes nothing visually except that the card now has a width to be a
+ * percentage of.
+ */
 .invitation-hero {
   display: grid;
   gap: clamp(1.5rem, 5vw, 3rem);
-  justify-items: center;
+  justify-items: stretch;
   margin-bottom: clamp(2rem, 6vw, 3.5rem);
 }
 
@@ -282,10 +318,22 @@
  * name's length rather than guessed at, because clamp() cannot know how many
  * characters it is being asked to fit.
  */
+/*
+ * top is 78%, below the seal rather than behind it.
+ *
+ * envelope.svg puts the flap point at 62.3% down. The seal is 20% of the
+ * envelope's width, and the envelope is 1.32 times wider than it is tall, so
+ * the seal covers 26% of the height and runs from 49% to 75%. At 66% the name
+ * was set straight through the middle of it - "Mr. & Mrs. [seal] Wijesinghe" -
+ * on every sealed envelope in the sequence.
+ *
+ * 78% also centres the name on the face below the flap, which is where a name
+ * goes on an envelope, so the unsealed copy on the page reads better too.
+ */
 .envelope-name {
   position: absolute;
   left: 11%;
-  top: 66%;
+  top: 78%;
   width: 78%;
   margin: 0;
   text-align: center;
@@ -323,6 +371,126 @@
   display: block;
   width: 100%;
   height: auto;
+}
+
+/* -------------------------------------------------------------------------- */
+/* painting the line art                                                      */
+/* -------------------------------------------------------------------------- */
+
+/*
+ * The exports separate fills from outlines by attribute: a fill path carries
+ * stroke-width="0" and no stroke, an outline path carries stroke="#231f20"
+ * and fill="none". So `path[stroke]` selects every hairline and
+ * `path:not([stroke])` every fill, without needing the artwork re-exported
+ * with classes on it.
+ */
+
+.envelope-art path[stroke] {
+  stroke: var(--gold-line);
+  stroke-width: 1.4;
+}
+
+.envelope-art [id$='envelope-body'] path:not([stroke]) {
+  fill: var(--paper-envelope);
+}
+
+/* A shade darker than the body, so the flap reads as a plane in front of it. */
+.envelope-art [id$='envelope-flap'] path:not([stroke]) {
+  fill: var(--paper-flap);
+}
+
+.envelope-art [id$='envelope-lining'] path:not([stroke]) {
+  fill: var(--lining);
+}
+
+/*
+ * The card's own outline is a full-bleed rectangle in the export. As a
+ * hairline it fights the drop shadow for the card's edge and wins, which is
+ * what made the card look like a box rather than a piece of paper. Dropped
+ * entirely; the shadow and the inner rule below carry the edge instead.
+ */
+.card-art [data-layer='card-base'] path[stroke] {
+  stroke: transparent;
+}
+
+/* The thin gold rule inside the card edge, as on the printed piece. */
+.card::after {
+  content: '';
+  position: absolute;
+  inset: clamp(0.5rem, 2.4cqw, 1.1rem);
+  border: 1px solid var(--gold-hairline);
+  pointer-events: none;
+}
+
+/* -------------------------------------------------------------------------- */
+/* the botanical corners                                                      */
+/* -------------------------------------------------------------------------- */
+
+/*
+ * Generated by scripts/make-floral-assets.ts, not downloaded - see the note at
+ * the top of that file. One drawing, flipped, so the two corners are the same
+ * spray seen twice rather than two drawings that can drift apart.
+ *
+ * Purely decorative: aria-hidden in the markup, and behind everything.
+ */
+.page-floral {
+  position: fixed;
+  z-index: 0;
+  width: clamp(9rem, 26vw, 20rem);
+  opacity: 0.5;
+  pointer-events: none;
+  user-select: none;
+}
+
+.page-floral img {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.page-floral[data-corner='top-left'] {
+  top: 0;
+  left: 0;
+}
+
+.page-floral[data-corner='bottom-right'] {
+  right: 0;
+  bottom: 0;
+  transform: rotate(180deg);
+}
+
+/*
+ * The content sits above the scenery.
+ *
+ * Targeted at the content wrapper, NOT at `.guest-ground > *`: that selector
+ * has the same specificity as .page-floral and comes later, so it won the
+ * cascade and replaced `position: fixed` with `relative`. The corners dropped
+ * into the flow, took up real space at the top of the page, and squeezed the
+ * invitation into a column half the width of the screen.
+ */
+.guest-content {
+  position: relative;
+  z-index: 1;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .page-floral {
+    animation: floral-settle 1.4s ease-out both;
+  }
+}
+
+@keyframes floral-settle {
+  from {
+    opacity: 0;
+    transform: translate(var(--floral-from-x, -1rem), var(--floral-from-y, -1rem))
+      rotate(var(--floral-rotate, 0deg));
+  }
+}
+
+.page-floral[data-corner='bottom-right'] {
+  --floral-from-x: 1rem;
+  --floral-from-y: 1rem;
+  --floral-rotate: 180deg;
 }
 
 /* -------------------------------------------------------------------------- */
@@ -559,9 +727,48 @@
   height: auto;
 }
 
+/*
+ * The padding is what the closing frame is drawn in.
+ *
+ * Beat 11 wipes this element with a clip-path, and clip-path clips to the
+ * element's own box - so the frame, which was positioned outside that box with
+ * negative insets, was clipped away entirely and never appeared. Giving the
+ * piece room instead puts the frame inside the box being wiped, and it is
+ * revealed by the same sweep as the mark.
+ */
 .intro-monogram {
-  width: clamp(7rem, 46cqw, 15rem);
+  width: clamp(13rem, 78cqw, 26rem);
+  padding: 20% 13% 15%;
   text-align: center;
+}
+
+/*
+ * The closing frame, drawn around the mark and its line rather than around the
+ * mark alone - so it has to be larger than .intro-monogram and centred on it,
+ * which is what the negative inset does. Behind everything, and inert.
+ */
+/*
+ * No z-index. It is the first child, so it already paints behind its siblings;
+ * a negative z-index instead pushed it out to the overlay's own painting layer
+ * and the veil covered it completely.
+ */
+/*
+ * A div that stretches to the inset box, with the image filling it. The image
+ * cannot take the insets itself: a replaced element with all four insets set
+ * and auto sizing falls back to its intrinsic size instead of stretching, so
+ * the frame came out at 400px square, sitting inside the monogram.
+ */
+.intro-frame {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.intro-frame img {
+  width: 100%;
+  height: 100%;
+  /* The ornament is drawn square; the box it frames is not. */
+  object-fit: fill;
 }
 
 .intro-envelope {
@@ -607,13 +814,28 @@
  * 1.3 times as tall as it is wide and a short landscape window would
  * otherwise push its foot off the screen.
  */
-.card-stage.is-staged {
+/*
+ * The card, lifted out of the page and centred for beats 4 to 9.
+ *
+ * The selector is the WRAPPER, [data-intro="card"], because that is the
+ * element stageCard() puts the class on and the element GSAP animates. It
+ * used to read `.card-stage.is-staged` - a different element, one level in -
+ * so it matched nothing: the card stayed in the page flow below the fold
+ * while the overlay covered the screen, and beats 4 to 10 played out on an
+ * empty stage. The envelope and the closing monogram are inside the overlay
+ * and were unaffected, which is exactly why the sequence looked like it
+ * jumped from the seal straight to the ending.
+ */
+[data-intro='card'].is-staged {
   position: fixed;
   inset: 0;
   margin: auto;
   z-index: 55;
   width: min(84vw, 26rem, 62svh);
   height: fit-content;
+}
+
+[data-intro='card'].is-staged .card-stage {
   max-width: none;
 }
 

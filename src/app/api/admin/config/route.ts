@@ -1,6 +1,7 @@
 import type { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { jsonError, jsonOk, readJson, zodError } from '@/lib/api/respond';
+import { requireAdmin } from '@/lib/api/guard';
 import {
   messagingConfigInputSchema,
   phaseConfigInputSchema,
@@ -21,6 +22,9 @@ const requestSchema = z.discriminatedUnion('key', [
 ]);
 
 export async function POST(request: Request): Promise<NextResponse> {
+  const denied = await requireAdmin();
+  if (denied) return denied;
+
   const body = await readJson(request);
   if (!body.ok) return jsonError(body.error);
 

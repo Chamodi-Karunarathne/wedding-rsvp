@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import { Noto_Serif_Sinhala } from 'next/font/google';
+import { cardAsset } from '@/lib/domain/card-assets';
 import './guest.css';
 
 /*
@@ -28,11 +29,23 @@ export default function GuestLayout({ children }: { children: ReactNode }) {
   return (
     <div className={`${notoSerifSinhala.variable} guest-ground`}>
       {/*
+        Scenery. Referenced with <img> rather than inlined, unlike the card
+        artwork: nothing animates inside these, so they can be a cached request
+        instead of bytes in every HTML response. Decorative, so alt="".
+      */}
+      <div className="page-floral" data-corner="top-left" aria-hidden="true">
+        <img src={cardAsset('floral-corner.svg')} alt="" width={200} height={200} />
+      </div>
+      <div className="page-floral" data-corner="bottom-right" aria-hidden="true">
+        <img src={cardAsset('floral-corner.svg')} alt="" width={200} height={200} />
+      </div>
+
+      {/*
         Wider than a reading column, because the card is the hero and gets the
         room. Text inside caps its own measure - .legible is 34rem - so
         nothing ends up set across the full width.
       */}
-      <div className="mx-auto max-w-5xl px-5 py-8 sm:px-6">{children}</div>
+      <div className="guest-content mx-auto max-w-5xl px-5 py-8 sm:px-6">{children}</div>
     </div>
   );
 }
