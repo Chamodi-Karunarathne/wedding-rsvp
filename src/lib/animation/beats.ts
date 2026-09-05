@@ -18,7 +18,7 @@ export type BeatEffect =
   | 'wipe' /* a mask sweeping across, revealing what is under it */
   | 'fade'
   | 'rise' /* fade up from slightly below */
-  | 'crack' /* the two seal halves rotating apart */
+  | 'crack' /* the seal halves rotating apart, and the flap lifting after */
   | 'slide' /* the card leaving the envelope */
   | 'bloom' /* scale up from the stem base */
   | 'stagger' /* fade in children one after another */

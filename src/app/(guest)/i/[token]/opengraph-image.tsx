@@ -61,9 +61,31 @@ const SEAL_SIZE = 132;
  * re-reading it per request to render an image that is then cached forever
  * would be work done for nobody.
  */
-const displayFont = readFileSync(
-  join(process.cwd(), 'public', 'fonts', 'CrimsonText-Regular.ttf'),
-);
+let cachedFont: Buffer | null | undefined;
+
+/**
+ * Read on first use, not at module scope, and never fatal.
+ *
+ * Module-scope I/O in a route file runs whenever anything loads the module -
+ * including route collection, which Next does in a worker pool. A throw there
+ * kills the worker rather than the request, and surfaces as "Jest worker
+ * encountered N child process exceptions", which names neither the file nor
+ * the cause. Nothing in a route module should be able to do that before a
+ * request has even arrived.
+ *
+ * A missing font costs the preview its serif. Throwing costs it the preview.
+ */
+function displayFont(): Buffer | null {
+  if (cachedFont !== undefined) return cachedFont;
+  try {
+    cachedFont = readFileSync(join(process.cwd(), 'public', 'fonts', FONT_FILE));
+  } catch {
+    cachedFont = null;
+  }
+  return cachedFont;
+}
+
+const FONT_FILE = 'CrimsonText-Regular.ttf';
 
 /**
  * The palette, applied to the artwork itself.
@@ -111,6 +133,7 @@ export default async function OpengraphImage({ params }: Props) {
    */
   const nameIsLatin = name !== '' && scriptOf(name) === 'latin';
   const shown = nameIsLatin ? name : `${site?.brideName ?? ''} & ${site?.groomName ?? ''}`;
+  const font = displayFont();
 
   return new ImageResponse(
     (
@@ -186,14 +209,9 @@ export default async function OpengraphImage({ params }: Props) {
     ),
     {
       ...size,
-      fonts: [
-        {
-          name: 'Crimson Text',
-          data: displayFont,
-          weight: 400,
-          style: 'normal',
-        },
-      ],
+      // Omitted entirely when the file could not be read, rather than passed
+      // as null: satori validates this list before it renders anything.
+      ...(font ? { fonts: [{ name: 'Crimson Text', data: font, weight: 400 as const, style: 'normal' as const }] } : {}),
     },
   );
 }

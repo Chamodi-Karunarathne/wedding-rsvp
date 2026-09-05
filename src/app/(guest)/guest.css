@@ -295,19 +295,117 @@
 /* the envelope                                                               */
 /* -------------------------------------------------------------------------- */
 
-.envelope-stage {
+/*
+ * Assembled from layers rather than drawn from envelope.svg, so the card has
+ * a front panel to come out from behind. See _components/envelope.tsx for the
+ * stacking order.
+ *
+ * Aspect ratio is the export's, 656.52 x 497.75, so the new envelope sits
+ * exactly where the old one did.
+ */
+.env {
   position: relative;
   container-type: inline-size;
   width: 100%;
   max-width: 26rem;
   margin-inline: auto;
+  aspect-ratio: 656.52 / 497.75;
   filter: drop-shadow(0 16px 30px rgba(120, 90, 30, 0.28));
 }
 
-.envelope-art {
-  display: block;
-  width: 100%;
-  height: auto;
+.env-back,
+.env-body,
+.env-flap {
+  position: absolute;
+  inset: 0;
+}
+
+.env-back {
+  background: linear-gradient(160deg, #fdf6ea 0%, #f6e8d4 100%);
+  border: 1px solid var(--gold-line);
+}
+
+/*
+ * The front panel. Opaque, and above the card, which is what makes the card
+ * look like it is coming out of something rather than appearing in front of
+ * it. The notch is the V where the two side flaps meet.
+ */
+.env-body {
+  background: linear-gradient(170deg, #fdf6ea 0%, #f8ecda 60%, #f3e3cc 100%);
+  border: 1px solid var(--gold-line);
+  clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%);
+  z-index: 3;
+}
+
+/* The seam where the side flaps meet, drawn rather than left implied. */
+.env-body::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(to bottom right, transparent calc(50% - 0.5px), var(--gold-hairline) 50%, transparent calc(50% + 0.5px)),
+    linear-gradient(to bottom left, transparent calc(50% - 0.5px), var(--gold-hairline) 50%, transparent calc(50% + 0.5px));
+  clip-path: polygon(0 0, 50% 47%, 100% 0, 100% 100%, 0 100%);
+  opacity: 0.75;
+}
+
+/*
+ * The flap, folded down over the front. Beat 3 rotates it about its top edge,
+ * which is why the origin is set here and never in the timeline: GSAP owns
+ * transform on this element and would overwrite a centring translate.
+ */
+.env-flap {
+  background: linear-gradient(180deg, #fbf1e0 0%, #f4e4cd 100%);
+  border: 1px solid var(--gold-line);
+  clip-path: polygon(0 0, 100% 0, 50% 62.3%);
+  transform-origin: 50% 0;
+  transform-style: preserve-3d;
+  z-index: 4;
+}
+
+/*
+ * The lining is on the flap's BACK face, which is the only place it exists on
+ * a real envelope. Shown at full strength it made the closed flap read as a
+ * large pink triangle - the lining of a closed envelope is not visible, and
+ * the storyboard's is cream.
+ *
+ * backface-visibility rather than a second element: the flap turns through
+ * rotationX, so the browser is already deciding which face to draw.
+ */
+.env-flap {
+  backface-visibility: hidden;
+}
+
+.env-flap::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: var(--lining);
+  clip-path: polygon(0 0, 100% 0, 50% 62.3%);
+  transform: rotateX(180deg);
+  backface-visibility: hidden;
+}
+
+/*
+ * The card inside. Sits between the back and the front panel, so it is
+ * invisible until beat 4 draws it up past the top edge.
+ */
+.env-sleeve {
+  position: absolute;
+  left: 8%;
+  top: 8%;
+  width: 84%;
+  height: 84%;
+  background: linear-gradient(170deg, #fffdf8 0%, #fdf7ec 100%);
+  border: 1px solid var(--gold-hairline);
+  box-shadow: 0 6px 18px -8px rgba(120, 90, 30, 0.5);
+  z-index: 2;
+}
+
+.env-sleeve-rule {
+  position: absolute;
+  inset: 7%;
+  border: 1px solid var(--gold-hairline);
 }
 
 /*
@@ -317,25 +415,17 @@
  * the window. --name-scale shrinks long names, and is computed from the
  * name's length rather than guessed at, because clamp() cannot know how many
  * characters it is being asked to fit.
- */
-/*
- * top is 78%, below the seal rather than behind it.
  *
- * envelope.svg puts the flap point at 62.3% down. The seal is 20% of the
- * envelope's width, and the envelope is 1.32 times wider than it is tall, so
- * the seal covers 26% of the height and runs from 49% to 75%. At 66% the name
- * was set straight through the middle of it - "Mr. & Mrs. [seal] Wijesinghe" -
- * on every sealed envelope in the sequence.
- *
- * 78% also centres the name on the face below the flap, which is where a name
- * goes on an envelope, so the unsealed copy on the page reads better too.
+ * Below the seal, not behind it: the seal covers 49% to 75% of the height, and
+ * at 66% the name was set straight through the middle of it.
  */
-.envelope-name {
+.env-name {
   position: absolute;
   left: 11%;
   top: 78%;
   width: 78%;
   margin: 0;
+  z-index: 5;
   text-align: center;
   text-wrap: balance;
   overflow-wrap: break-word;
@@ -345,8 +435,8 @@
   color: var(--ink);
 }
 
-.envelope-name[data-script='sinhala'],
-.envelope-name[data-script='other'] {
+.env-name[data-script='sinhala'],
+.env-name[data-script='other'] {
   font-family: var(--font-card-unicode);
   /* Sinhala has taller ascenders and descenders than Latin at the same size. */
   line-height: 1.35;
@@ -357,17 +447,17 @@
  *
  * Positioned with left/top and no transform, because GSAP owns transform on
  * this element during beat 3 and a centring translate would be overwritten
- * the moment the halves start turning. envelope.svg puts the flap point at
- * 50% across and 62.3% down, and the seal is 20% of the envelope's width.
+ * the moment the halves start turning.
  */
-.envelope-seal {
+.env-seal {
   position: absolute;
   left: 40%;
   top: 49.1%;
   width: 20%;
+  z-index: 6;
 }
 
-.envelope-seal svg {
+.env-seal svg {
   display: block;
   width: 100%;
   height: auto;
@@ -385,23 +475,12 @@
  * with classes on it.
  */
 
-.envelope-art path[stroke] {
-  stroke: var(--gold-line);
-  stroke-width: 1.4;
-}
-
-.envelope-art [id$='envelope-body'] path:not([stroke]) {
-  fill: var(--paper-envelope);
-}
-
-/* A shade darker than the body, so the flap reads as a plane in front of it. */
-.envelope-art [id$='envelope-flap'] path:not([stroke]) {
-  fill: var(--paper-flap);
-}
-
-.envelope-art [id$='envelope-lining'] path:not([stroke]) {
-  fill: var(--lining);
-}
+/*
+ * envelope.svg is no longer rendered: the envelope is built from layers in
+ * _components/envelope.tsx so the card has a front panel to come out from
+ * behind. The file stays in the manifest because the OG image still draws it,
+ * where there is no DOM to layer and a flat drawing is exactly right.
+ */
 
 /*
  * The card's own outline is a full-bleed rectangle in the export. As a
@@ -896,5 +975,424 @@
   .card-sweep {
     animation: none !important;
     transition: none !important;
+  }
+}
+
+/* -------------------------------------------------------------------------- */
+/* the card's one control, and the sheet it opens                             */
+/* -------------------------------------------------------------------------- */
+
+/*
+ * The card carries a single button. Everything the page used to set out
+ * beneath it - when, where, dress code, the reply, the numbers to telephone -
+ * is in the sheet this opens, so the card is the invitation rather than a
+ * picture of one with a transcript underneath.
+ */
+.respond-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  /* Comfortably over the 44px minimum even where the printed region is not. */
+  min-height: 44px;
+  padding: 0.55rem 1.6rem;
+  border: 1px solid var(--gold);
+  border-radius: 999px;
+  background: rgba(255, 253, 248, 0.9);
+  color: var(--gold);
+  font-family: var(--font-card);
+  font-size: clamp(0.78rem, 3.4cqw, 1rem);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition:
+    background-color 0.25s ease,
+    color 0.25s ease;
+}
+
+.respond-btn:hover,
+.respond-btn:focus-visible {
+  background: var(--gold);
+  color: #fffdf8;
+}
+
+/* -------------------------------------------------------------------------- */
+
+.sheet {
+  width: min(34rem, 92vw);
+  max-height: 88svh;
+  /* Setting a width overrides the UA's own centring for a modal dialog, so
+     this has to put it back. */
+  margin: auto;
+  padding: 0;
+  border: none;
+  background: transparent;
+  overflow: visible;
+}
+
+.sheet::backdrop {
+  background: rgba(72, 52, 12, 0.42);
+}
+
+.sheet-inner {
+  max-height: 88svh;
+  overflow-y: auto;
+  padding: clamp(1.25rem, 5vw, 2rem);
+  border: 1px solid var(--gold-hairline);
+  border-radius: 2px;
+  background: var(--card-bg);
+  box-shadow: 0 24px 60px -20px rgba(120, 90, 30, 0.5);
+  color: var(--ink);
+}
+
+.sheet-title {
+  margin: 0 0 1rem;
+  font-family: var(--font-card);
+  font-size: 1.35rem;
+  color: var(--gold);
+  letter-spacing: 0.04em;
+}
+
+.sheet-section + .sheet-section {
+  margin-top: 1.5rem;
+  padding-top: 1.25rem;
+  border-top: 1px solid var(--gold-hairline);
+}
+
+.sheet-heading {
+  margin: 0 0 0.5rem;
+  font-family: var(--font-card);
+  font-size: 0.78rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--gold);
+}
+
+.sheet-details {
+  margin: 0;
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.35rem 1rem;
+  font-size: 0.95rem;
+}
+
+.sheet-details dt {
+  font-weight: 600;
+  opacity: 0.7;
+}
+
+.sheet-details dd {
+  margin: 0;
+}
+
+.sheet-muted {
+  margin: 0.35rem 0 0;
+  font-size: 0.85rem;
+  opacity: 0.7;
+}
+
+.sheet-form {
+  margin-top: 0.75rem;
+  display: grid;
+  gap: 1rem;
+}
+
+/* Two large targets rather than radio buttons: this is the whole question. */
+.choice {
+  display: grid;
+  gap: 0.5rem;
+}
+
+@media (min-width: 26rem) {
+  .choice {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+.choice-btn {
+  min-height: 48px;
+  padding: 0.7rem 1rem;
+  border: 1px solid var(--gold-hairline);
+  border-radius: 2px;
+  background: transparent;
+  color: var(--ink);
+  font-family: var(--font-card);
+  font-size: 0.95rem;
+  cursor: pointer;
+}
+
+.choice-btn[data-selected='true'] {
+  border-color: var(--gold);
+  background: rgba(177, 137, 6, 0.1);
+  color: var(--gold);
+}
+
+.field {
+  display: grid;
+  gap: 0.25rem;
+}
+
+.field label {
+  font-size: 0.85rem;
+  font-weight: 600;
+  opacity: 0.75;
+}
+
+.field input,
+.field textarea {
+  width: 100%;
+  min-height: 44px;
+  padding: 0.5rem 0.65rem;
+  border: 1px solid var(--gold-hairline);
+  border-radius: 2px;
+  background: #fff;
+  color: var(--ink);
+  font: inherit;
+}
+
+.sheet-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 1rem;
+}
+
+.btn-primary {
+  min-height: 48px;
+  padding: 0.7rem 1.8rem;
+  border: 1px solid var(--gold);
+  border-radius: 999px;
+  background: var(--gold);
+  color: #fffdf8;
+  font-family: var(--font-card);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+
+.btn-primary:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.link-button {
+  border: 0;
+  background: none;
+  padding: 0;
+  color: var(--ink);
+  font: inherit;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.sheet-error:not(:empty) {
+  margin: 0;
+  color: #a12b2b;
+  font-size: 0.9rem;
+}
+
+/* Nothing behind the sheet scrolls while it is open. */
+.dialog-open {
+  overflow: hidden;
+}
+
+/* -------------------------------------------------------------------------- */
+/* what replaces the card once a reply has been sent                          */
+/* -------------------------------------------------------------------------- */
+
+.stage {
+  position: relative;
+}
+
+.stage-card {
+  transition:
+    opacity 0.7s ease,
+    transform 0.7s ease;
+}
+
+.stage[data-replied='true'] .stage-card {
+  opacity: 0;
+  transform: scale(0.97);
+  pointer-events: none;
+}
+
+.closing {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  align-content: center;
+  justify-items: center;
+  text-align: center;
+  padding: 1rem;
+  animation: closing-in 0.9s ease-out both;
+  animation-delay: 0.35s;
+}
+
+.closing-monogram {
+  width: clamp(6rem, 30vw, 11rem);
+}
+
+.closing-monogram svg {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.closing-heading {
+  margin: 1rem 0 0;
+  font-family: var(--font-card);
+  font-size: 1.5rem;
+  color: var(--gold);
+  letter-spacing: 0.08em;
+}
+
+.closing-line {
+  margin: 0.5rem 0 0;
+  max-width: 24rem;
+  font-family: var(--font-card);
+  font-size: 1.05rem;
+}
+
+.closing-rule {
+  width: 5rem;
+  margin: 1.25rem 0;
+  border: 0;
+  border-top: 1px solid var(--gold-hairline);
+}
+
+@keyframes closing-in {
+  from {
+    opacity: 0;
+    transform: translateY(0.75rem);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .stage-card,
+  .closing {
+    transition-duration: 0.01ms;
+    animation-duration: 0.01ms;
+  }
+}
+
+/* -------------------------------------------------------------------------- */
+/* the botanicals, in motion                                                  */
+/* -------------------------------------------------------------------------- */
+
+/*
+ * A slow sway on the corner sprays, as if there were air in the room.
+ *
+ * transform and opacity only, and each corner is given its own duration and
+ * delay so the two never breathe in unison - which is what makes a repeating
+ * animation read as a loop rather than as movement.
+ *
+ * All of it sits behind `prefers-reduced-motion: no-preference`. The sprays
+ * are decoration; nobody loses anything by their being still.
+ */
+@media (prefers-reduced-motion: no-preference) {
+  .page-floral[data-corner='top-left'] {
+    animation:
+      floral-settle 1.4s ease-out both,
+      floral-sway 15s ease-in-out 1.4s infinite;
+  }
+
+  .page-floral[data-corner='bottom-right'] {
+    animation:
+      floral-settle 1.4s ease-out 0.2s both,
+      floral-sway-flipped 18s ease-in-out 1.8s infinite;
+  }
+
+  .sprig {
+    animation: sprig-bloom 1.6s cubic-bezier(0.2, 0.8, 0.3, 1) both;
+  }
+}
+
+/*
+ * The sway keyframes carry the corner's resting rotation, because animating
+ * `transform` replaces it outright - the bottom-right spray is rotated 180deg
+ * and would snap upright on the first frame otherwise.
+ */
+@keyframes floral-sway {
+  0%,
+  100% {
+    transform: rotate(0deg) translateY(0);
+  }
+  50% {
+    transform: rotate(1.1deg) translateY(0.4rem);
+  }
+}
+
+@keyframes floral-sway-flipped {
+  0%,
+  100% {
+    transform: rotate(180deg) translateY(0);
+  }
+  50% {
+    transform: rotate(181.1deg) translateY(0.4rem);
+  }
+}
+
+/* -------------------------------------------------------------------------- */
+
+/*
+ * The sprigs either side of the thank-you. Decorative, so aria-hidden and
+ * absolutely positioned out of the flow - the panel is a status message and
+ * should announce as one line, not as two drawings and a line.
+ */
+.sprig {
+  position: absolute;
+  width: clamp(6rem, 22vw, 12rem);
+  opacity: 0.55;
+  pointer-events: none;
+}
+
+.sprig img {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+/*
+ * Bracketing the message, not the stage.
+ *
+ * .closing spans the whole card area, so percentages off its edges put these
+ * in the far corners of the page where they read as more page decoration
+ * rather than as a frame around the thank-you. Positioned from the centre
+ * instead, which is where the monogram and the line actually are.
+ */
+.sprig[data-side='left'] {
+  left: 50%;
+  top: 50%;
+  transform: translate(-19rem, -7rem) rotate(-8deg);
+}
+
+.sprig[data-side='right'] {
+  left: 50%;
+  top: 50%;
+  transform: translate(7rem, 1rem) rotate(172deg);
+}
+
+/* On a phone there is no room beside the message; they sit above and below. */
+@media (max-width: 48rem) {
+  .sprig[data-side='left'] {
+    transform: translate(-9rem, -10rem) rotate(-8deg);
+  }
+
+  .sprig[data-side='right'] {
+    transform: translate(-1rem, 5rem) rotate(172deg);
+  }
+}
+
+/*
+ * Only opacity is animated in.
+ *
+ * The resting transform now carries a translate that differs per side and per
+ * breakpoint, and a keyframe that sets `transform` would replace all of it -
+ * the sprigs would jump to the centre for the length of the animation and then
+ * snap back into place.
+ */
+@keyframes sprig-bloom {
+  from {
+    opacity: 0;
   }
 }

@@ -2,19 +2,16 @@ import { headers } from 'next/headers';
 import { notFound } from 'next/navigation';
 import type { Metadata } from 'next';
 import { copyFor } from '@/lib/copy';
-import { renderTemplate } from '@/lib/domain/template';
 import { formatDate, formatEventDateTime } from '@/lib/format';
 import { hasAdminSession } from '@/lib/api/guard';
 import { cardAsset } from '@/lib/domain/card-assets';
 import { loadInvitation } from '@/lib/services/invitation';
 import { recordOpen } from '@/lib/services/opens';
 import { InlineSvg } from '@/lib/svg';
-import type { InvitationView, SectionId } from '@/lib/services/types';
 import { Card } from '../../_components/card';
 import { Envelope } from '../../_components/envelope';
 import { Intro } from '../../_components/intro';
-import { CardRsvp } from '../../_components/card-rsvp';
-import { RsvpForm } from './rsvp-form';
+import { RespondButton, RespondFlow } from '../../_components/respond';
 
 /*
  * DISPOSABLE. This entire directory is expected to be deleted and rewritten
@@ -84,7 +81,7 @@ export default async function InvitationPage({ params, searchParams }: PageProps
   });
 
   const copy = copyFor(invitation.guest.language);
-  const { guest } = invitation;
+  const { guest, site } = invitation;
 
   /*
    * The event the card's buttons answer for. There is one, but the page reads
@@ -132,218 +129,98 @@ export default async function InvitationPage({ params, searchParams }: PageProps
         </div>
       </Intro>
 
-      <main>
-        <div className="invitation-hero">
-          {/* The guest's name, where a handwritten one goes. */}
-          <Envelope name={guest.cardName} />
+      {/*
+        With no JavaScript a <dialog> is display:none, which would leave a
+        guest holding an invitation with no way to read the details or reply.
+        The dialog's contents are ordinary server-rendered HTML, so this lays
+        the same markup out inline instead and hides the button that would
+        have opened it. The form cannot submit without script - the telephone
+        numbers inside it are the answer, and they are in there too.
+      */}
+      <noscript>
+        <style>{`
+          .respond-btn { display: none }
+          .sheet {
+            display: block;
+            position: static;
+            width: 100%;
+            max-width: 34rem;
+            margin: 2rem auto 0;
+          }
+          .sheet-form { display: none }
+        `}</style>
+      </noscript>
 
-          {/* The card. Decorative in full; the readable version is below it. */}
-          <div data-intro="card">
-            <Card>
-              <CardRsvp
-                token={guest.token}
-                eventSlug={primarySlug}
-                maxPartySize={guest.maxPartySize}
-                existing={
-                  primaryRsvp
-                    ? { attending: primaryRsvp.attending, partyCount: primaryRsvp.partyCount }
-                    : null
+      <main>
+        {/*
+          The card is the invitation. Everything that used to be set out in a
+          readable column beneath it - when, where, dress code, the reply form,
+          the numbers to telephone - is now inside the dialog the card's one
+          button opens, so the page under the card is empty and the card is not
+          competing with a transcript of itself.
+        */}
+        <RespondFlow
+          token={guest.token}
+          eventSlug={primarySlug}
+          maxPartySize={guest.maxPartySize}
+          existing={
+            primaryRsvp
+              ? {
+                  attending: primaryRsvp.attending,
+                  partyCount: primaryRsvp.partyCount,
+                  attendeeNames: primaryRsvp.attendeeNames,
                 }
-                copy={copy}
-                monogram={<InlineSvg name="monogram" />}
-              />
-            </Card>
+              : null
+          }
+          existingMessage={invitation.message}
+          copy={copy}
+          monogram={<InlineSvg name="monogram" />}
+          details={{
+            when: primaryEvent ? formatEventDateTime(primaryEvent.startsAt, site.timezone) : '',
+            venueName: primaryEvent?.venueName ?? '',
+            venueAddress: primaryEvent?.venueAddress ?? '',
+            dressCode: primaryEvent?.dressCode ?? null,
+            mapUrl: primaryEvent?.mapUrl ?? null,
+            deadline: formatDate(invitation.rsvpDeadline, site.timezone),
+            deadlinePassed: invitation.rsvpDeadlinePassed,
+            contacts: site.rsvpContacts,
+          }}
+        >
+          <div className="invitation-hero">
+            {/* The guest's name, where a handwritten one goes. */}
+            <Envelope name={guest.cardName} />
+
+            <div data-intro="card">
+              <Card>
+                <RespondButton />
+              </Card>
+            </div>
           </div>
-        </div>
+        </RespondFlow>
 
         {/*
-          Phase decides ORDER, never visibility. Every section renders in every
-          phase - a guest opening this for the first time in late November must
-          still see the invitation, and the RSVP form must always be reachable.
+          What a screen reader gets in place of the artwork, which is
+          aria-hidden in full. Visually hidden rather than deleted: the card is
+          five hundred vector paths and announces nothing, and the personal
+          note is the one thing on this page written to this household alone.
         */}
-        <div className="legible">
-          {invitation.sections.map((id) => (
-            <Section key={id} id={id} invitation={invitation} copy={copy} />
-          ))}
+        <div className="sr-only">
+          <h2>{copy.card.readableHeading}</h2>
+          <p>{copy.invitation.lead}</p>
+          <p>
+            {site.brideName} &amp; {site.groomName}
+          </p>
+          <p>{copy.invitation.youAreInvited}</p>
+          <p>{copy.invitation.inviteesLabel}</p>
+          <p>{guest.displayName}</p>
+          {guest.personalNote && (
+            <>
+              <h3>{copy.note.heading}</h3>
+              <p>{guest.personalNote}</p>
+            </>
+          )}
         </div>
       </main>
     </>
   );
-}
-
-function Section({
-  id,
-  invitation,
-  copy,
-}: {
-  id: SectionId;
-  invitation: InvitationView;
-  copy: ReturnType<typeof copyFor>;
-}) {
-  const { guest, events, rsvps, site, message } = invitation;
-
-  switch (id) {
-    case 'invitation':
-      return (
-        <section className="mb-8 border-b pb-6">
-          {/*
-            This is what a screen reader announces instead of card-text.svg,
-            and what anyone reads who cannot make out copperplate at card
-            scale - which on a phone lands around six pixels.
-          */}
-          <h2 className="sr-only">{copy.card.readableHeading}</h2>
-          <p>{copy.invitation.lead}</p>
-          <p className="names my-2">
-            {site.brideName} &amp; {site.groomName}
-          </p>
-          <p>{copy.invitation.youAreInvited}</p>
-          <p className="mt-4 text-sm opacity-70">{copy.invitation.inviteesLabel}</p>
-          <p className="text-lg wrap-break-word">{guest.displayName}</p>
-          <p className="text-sm opacity-70">
-            {guest.maxPartySize === 1
-              ? copy.invitation.partyOfOne
-              : renderTemplate(copy.invitation.partyOf, { n: guest.maxPartySize })}
-          </p>
-        </section>
-      );
-
-    case 'note':
-      if (!guest.personalNote) return null;
-      return (
-        <section className="mb-8 border-b pb-6">
-          <h2>{copy.note.heading}</h2>
-          <p className="mt-2 whitespace-pre-line">{guest.personalNote}</p>
-        </section>
-      );
-
-    case 'events': {
-      // There is one event, so no list chrome and no name heading - the page
-      // is already about it. The map stays rather than picking events[0], so
-      // that adding a second event stays a data change.
-      const named = events.length > 1;
-
-      return (
-        <section className="mb-8 border-b pb-6">
-          <h2>{copy.events.heading}</h2>
-          {events.length === 0 ? (
-            <p className="mt-2">{copy.events.noneHeading}</p>
-          ) : (
-            <div className="mt-2 space-y-4">
-              {events.map((event) => (
-                <div key={event.slug}>
-                  {named && <h3 className="font-medium">{event.name}</h3>}
-                  <dl className="text-sm">
-                    <dt className="font-medium">{copy.events.when}</dt>
-                    <dd>{formatEventDateTime(event.startsAt, site.timezone)}</dd>
-                    <dt className="mt-1 font-medium">{copy.events.where}</dt>
-                    <dd>
-                      {event.venueName}
-                      <br />
-                      {event.venueAddress}
-                    </dd>
-                    {event.dressCode && (
-                      <>
-                        <dt className="mt-1 font-medium">{copy.events.dressCode}</dt>
-                        <dd>{event.dressCode}</dd>
-                      </>
-                    )}
-                  </dl>
-                  {event.mapUrl && (
-                    <p className="mt-1 text-sm">
-                      <a
-                        href={event.mapUrl}
-                        target="_blank"
-                        rel="noreferrer noopener"
-                        className="underline"
-                      >
-                        {copy.events.directions}
-                      </a>
-                    </p>
-                  )}
-                </div>
-              ))}
-            </div>
-          )}
-        </section>
-      );
-    }
-
-    case 'rsvp':
-      return (
-        <section id="rsvp" className="mb-8 scroll-mt-6 border-b pb-6">
-          <h2>{copy.rsvp.heading}</h2>
-          <p className="mt-1">{copy.rsvp.intro}</p>
-
-          {/*
-            The reply date is shown, never enforced. After it passes this
-            softens rather than closing the form - a late answer still saves.
-          */}
-          <p className="mt-1 text-sm opacity-70">
-            {invitation.rsvpDeadlinePassed
-              ? copy.rsvp.deadlinePassed
-              : renderTemplate(copy.rsvp.deadline, {
-                  date: formatDate(invitation.rsvpDeadline, site.timezone),
-                })}
-          </p>
-
-          {/*
-            No JavaScript means the form below cannot send anything, so it is
-            hidden rather than left there to be filled in and swallowed. The
-            saved answer above still renders - it is server-rendered - and
-            phone responses are a first-class path now.
-          */}
-          <noscript>
-            <style>{`.rsvp-live{display:none}`}</style>
-            <p className="mt-3 text-sm opacity-70">{copy.rsvp.noScript}</p>
-          </noscript>
-
-          {invitation.site.rsvpContacts.length > 0 && (
-            <div className="mt-3 text-sm">
-              <h3 className="font-medium">{copy.card.contactsHeading}</h3>
-              <ul className="contact-list mt-1">
-                {invitation.site.rsvpContacts.map((contact) => (
-                  <li key={`${contact.name}-${contact.phone}`}>
-                    <a
-                      className="underline"
-                      href={`tel:${contact.phone.replace(/[^\d+]/g, '')}`}
-                    >
-                      {contact.name} {contact.phone}
-                    </a>
-                    {contact.side && ` (${contact.side})`}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
-
-          <div className="rsvp-live mt-4">
-            <RsvpForm
-              /*
-               * Keyed on the saved answer so that answering on the card
-               * remounts this with the new value. A refresh alone would leave
-               * its useState initialisers holding the old one.
-               */
-              key={
-                events[0] ? (rsvps[events[0].slug]?.updatedAt?.toISOString() ?? 'unanswered') : 'none'
-              }
-              token={guest.token}
-              events={events}
-              rsvps={rsvps}
-              message={message}
-              maxPartySize={guest.maxPartySize}
-              timezone={site.timezone}
-              copy={copy}
-            />
-          </div>
-        </section>
-      );
-
-    case 'thanks':
-      return (
-        <section className="mb-8">
-          <h2>{copy.thanks.heading}</h2>
-          <p className="mt-2">{copy.thanks.body}</p>
-        </section>
-      );
-  }
 }

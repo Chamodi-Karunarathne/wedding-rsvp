@@ -99,6 +99,21 @@ export type CopyBundle = {
     readableHeading: string;
     /** Heading for the telephone contacts in the readable section. */
     contactsHeading: string;
+    /** The single control on the card. Opens the details and reply dialog. */
+    respond: string;
+    respondAgain: string;
+  };
+  /**
+   * The dialog the card's button opens: the details, and the reply.
+   *
+   * These are also what a guest with no JavaScript reads, because the dialog's
+   * contents are rendered inline in that case rather than being unreachable.
+   */
+  dialog: {
+    title: string;
+    close: string;
+    detailsHeading: string;
+    replyHeading: string;
   };
   /** The closing frame, shown the moment somebody answers. */
   ending: {
@@ -115,6 +130,10 @@ export type CopyBundle = {
   thanks: {
     heading: string;
     body: string;
+    /** Shown in place of the card once a reply has just been sent. */
+    attendingBody: string;
+    declinedBody: string;
+    change: string;
   };
   notFound: {
     heading: string;
@@ -123,96 +142,126 @@ export type CopyBundle = {
 };
 
 const en: CopyBundle = {
+  /*
+   * The register: warm, a little old-fashioned, and never chatty. This is a
+   * Poruwa ceremony in Colombo and the card it echoes is set in copperplate;
+   * the words on screen should sound like they belong on that card, not like
+   * a form. So "Will you be at our side?" rather than "RSVP", and "With the
+   * greatest regret" rather than "Decline".
+   *
+   * Two rules that are not style preferences:
+   *   - Nothing said to somebody who has just declined may imply we expect to
+   *     see them. Every declined line below is written separately for that
+   *     reason, never shared with the accepted one.
+   *   - Every value is a plain string. The whole bundle crosses into a Client
+   *     Component, so a function here throws at render on exactly the routes
+   *     that matter. copy.test.ts fails if one creeps back in.
+   */
   invitation: {
     lead: 'Together with their families',
     youAreInvited: 'request the pleasure of your company',
-    inviteesLabel: 'This invitation is for',
-    partyOfOne: 'Reserved for you',
-    partyOf: 'Reserved for up to {{n}} guests',
+    inviteesLabel: 'This invitation was written for',
+    partyOfOne: 'A place has been kept for you',
+    partyOf: 'Places have been kept for {{n}} of you',
   },
   events: {
-    heading: 'The day',
-    when: 'When',
-    where: 'Where',
-    dressCode: 'Dress code',
-    directions: 'Open in maps',
-    noneHeading: 'Details to follow',
+    heading: 'The day itself',
+    when: 'The hour',
+    where: 'The place',
+    dressCode: 'What to wear',
+    directions: 'Find your way there',
+    noneHeading: 'Still being written',
   },
   rsvp: {
-    heading: 'Will you join us?',
-    intro: 'Please let us know whether you can join us.',
-    attendingQuestion: 'Will you attend the {{event}}?',
-    attendingQuestionSingle: 'Will you be joining us?',
-    yes: 'Joyfully accepts',
-    no: 'Regretfully declines',
-    partyCountLabel: 'How many of you?',
-    partyCountHelpOne: 'This invitation is for one guest.',
-    partyCountHelpMany: 'Up to {{max}} guests.',
-    attendeeNamesLabel: 'Who is coming?',
-    attendeeNamesHelp: 'Optional. Helps us with place settings.',
-    messageLabel: 'A message for us',
-    messageHelp: 'Optional.',
-    deadline: 'Please let us know by {{date}}.',
+    heading: 'Will you be at our side?',
+    intro: 'Tell us, and we will keep your place.',
+    attendingQuestion: 'Will you be with us for the {{event}}?',
+    attendingQuestionSingle: 'Will you be at our side?',
+    yes: 'With the greatest joy',
+    no: 'With the greatest regret',
+    partyCountLabel: 'How many places shall we keep?',
+    partyCountHelpOne: 'This invitation was written for one.',
+    partyCountHelpMany: 'Up to {{max}}, whenever you are ready to say.',
+    attendeeNamesLabel: 'Who shall we be expecting?',
+    attendeeNamesHelp: 'If you would like your names written at the table.',
+    messageLabel: 'A word for us',
+    messageHelp: 'Only if you would like to.',
+    deadline: 'We hope to hear from you by {{date}}.',
     deadlinePassed:
-      'Our reply date has passed, but please do still tell us - we would far rather hear ' +
-      'from you late than not hear from you at all.',
-    submit: 'Send response',
-    submitting: 'Sending...',
-    saved: 'Thank you - your response has been saved.',
-    savedAt: 'Last updated {{when}}.',
-    changeAnytime: 'You can change your answer at any time by returning to this page.',
-    error: 'Something went wrong. Please try again.',
-    noResponseYet: 'No response recorded yet.',
-    currentlyAttending: 'Currently attending, party of {{n}}.',
-    currentlyDeclined: 'Currently declined.',
+      'Our reply date has come and gone, but do still tell us - we would far rather hear ' +
+      'from you late than never hear from you at all.',
+    submit: 'Send it with our love',
+    submitting: 'On its way...',
+    saved: 'Safely received, with thanks.',
+    savedAt: 'Last written {{when}}.',
+    changeAnytime: 'Nothing is set in stone. Come back and tell us otherwise whenever you like.',
+    error: 'That did not quite arrive. Would you try once more?',
+    noResponseYet: 'We have not heard from you yet.',
+    currentlyAttending: 'Expecting {{n}} of you.',
+    currentlyDeclined: 'You have told us you cannot come.',
 
-    savedHeading: 'Your response',
-    savedAttending: 'You have told us that {{n}} of you will be joining us.',
-    savedAttendingOne: 'You have told us that you will be joining us.',
-    savedDeclined: 'You have told us that you will not be able to join us.',
-    change: 'Change your response',
-    cancelChange: 'Leave it as it is',
-    saveChanges: 'Save changes',
+    savedHeading: 'What we have written down',
+    savedAttending: 'We are expecting {{n}} of you.',
+    savedAttendingOne: 'We are expecting you.',
+    savedDeclined: 'We know you cannot be there, and we understand.',
+    change: 'Tell us otherwise',
+    cancelChange: 'Leave it as it stands',
+    saveChanges: 'Write it down',
     noScript:
-      'This form needs JavaScript to send your reply. If you would rather not turn it on, ' +
-      'do get in touch with us directly and we will record your answer for you.',
+      'Sending a reply from here needs JavaScript. If you would rather not turn it on, ' +
+      'telephone us and we will write your answer down ourselves.',
   },
   note: {
-    heading: 'A note for you',
+    heading: 'A word meant only for you',
   },
   card: {
-    accept: 'Joyfully accept',
-    decline: 'Regretfully decline',
-    howMany: 'How many of you?',
-    confirm: 'Send',
-    back: 'Back',
-    savedAttending: 'Attending, party of {{n}}',
-    savedDeclined: 'Unable to attend',
-    change: 'Change',
+    accept: 'With the greatest joy',
+    decline: 'With the greatest regret',
+    howMany: 'How many places?',
+    confirm: 'Send it',
+    back: 'A moment',
+    savedAttending: 'Expecting {{n}} of you',
+    savedDeclined: 'You will be missed',
+    change: 'Tell us otherwise',
     readableHeading: 'Your invitation',
-    contactsHeading: 'Or telephone us',
+    contactsHeading: 'Or simply telephone us',
+    respond: 'Open your invitation',
+    respondAgain: 'Tell us otherwise',
+  },
+  dialog: {
+    title: 'The day, and your place in it',
+    close: 'Not just yet',
+    detailsHeading: 'The day itself',
+    replyHeading: 'Your place at it',
   },
   ending: {
     accepted: 'We look forward to celebrating with you',
     // Never the accepted line. Somebody who has just told us they cannot
     // come should not be told we look forward to seeing them.
-    declined: 'Thank you for letting us know. You will be dearly missed.',
+    declined: 'Thank you for telling us. You will be dearly missed.',
     close: 'Back to the invitation',
   },
   intro: {
     skip: 'Skip',
-    replay: 'Play the opening again',
+    replay: 'Watch it open again',
     farewell: 'We look forward to celebrating with you',
   },
   thanks: {
     heading: 'Thank you',
     body: 'Thank you for celebrating with us. It meant everything to have you there.',
+    attendingBody:
+      'Your place is kept, and your name is written down. We can hardly wait to see you there.',
+    // Never the accepted line. Somebody who has just told us they cannot come
+    // should not be told we can hardly wait to see them.
+    declinedBody:
+      'Thank you for telling us. You will be very much missed on the day, and thought of.',
+    change: 'Tell us otherwise',
   },
   notFound: {
-    heading: 'We could not find that invitation',
+    heading: 'We cannot find that invitation',
     body:
-      'Please check the link you were sent. If it still does not work, do get in touch ' +
-      'with us directly and we will send it again.',
+      'Do check the link you were sent. If it still will not open, telephone us and we ' +
+      'will send it along again.',
   },
 };
 

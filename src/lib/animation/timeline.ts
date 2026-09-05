@@ -208,28 +208,76 @@ export function buildIntroTimeline(root: ParentNode, onComplete: () => void): Bu
           { opacity: 0, duration: beat.duration * 0.4, ease: 'power1.in' },
           beat.start + beat.duration * 0.6,
         );
+
+        /*
+         * The flap lifts as the halves fall away. Part of this beat rather
+         * than a twelfth one: the storyboard has eleven, breaking a seal and
+         * opening the flap are one moment, and beats.test.ts holds the count
+         * to eleven precisely so the sequence cannot drift from the boards.
+         *
+         * rotationX, not rotation, so it folds away from the viewer like paper
+         * rather than spinning in the plane of the screen.
+         */
+        const flap = root.querySelector<HTMLElement>('[data-intro="flap"]');
+        if (flap) {
+          timeline.to(
+            flap,
+            {
+              rotationX: -168,
+              transformPerspective: 900,
+              duration: beat.duration * 0.85,
+              ease: 'power2.inOut',
+            },
+            beat.start + beat.duration * 0.45,
+          );
+        }
         break;
       }
 
       case 'slide': {
-        // The card rises out from behind the envelope, which drops away as it
-        // goes: it cannot look like it came out of something still sitting on
-        // top of it.
+        /*
+         * The card comes out of the envelope, and only then does the envelope
+         * go.
+         *
+         * Three things move, in this order, or it does not read as one motion:
+         * the sleeve - the card panel INSIDE the envelope - draws upward from
+         * behind the front panel; the real card fades in over it as it clears;
+         * and the envelope drops away underneath once the card is out, not
+         * while it is still emerging.
+         */
         const envelope = root.querySelector<HTMLElement>('[data-intro="envelope"]');
-        if (envelope) {
+        const sleeve = root.querySelector<HTMLElement>('[data-intro="sleeve"]');
+
+        if (sleeve) {
+          // Up and out. -86% clears the envelope's top edge completely.
           timeline.to(
-            envelope,
-            { opacity: 0, y: 60, scale: 0.97, duration: beat.duration * 0.7, ease: 'power2.in' },
+            sleeve,
+            { yPercent: -86, scale: 1.04, duration: beat.duration * 0.8, ease: beat.ease },
             beat.start,
+          );
+          // Handed over to the real card as it arrives, rather than left to
+          // sit behind it looking like a second card.
+          timeline.to(
+            sleeve,
+            { opacity: 0, duration: beat.duration * 0.3, ease: 'power1.in' },
+            beat.start + beat.duration * 0.55,
           );
         }
 
         timeline.fromTo(
           found,
-          { opacity: 0, y: 70, scale: 0.94 },
-          { opacity: 1, y: 0, scale: 1, duration: beat.duration, ease: beat.ease },
-          beat.start + beat.duration * 0.25,
+          { opacity: 0, y: 40, scale: 0.96 },
+          { opacity: 1, y: 0, scale: 1, duration: beat.duration * 0.75, ease: beat.ease },
+          beat.start + beat.duration * 0.5,
         );
+
+        if (envelope) {
+          timeline.to(
+            envelope,
+            { opacity: 0, y: 70, scale: 0.96, duration: beat.duration * 0.6, ease: 'power2.in' },
+            beat.start + beat.duration * 0.55,
+          );
+        }
         break;
       }
 

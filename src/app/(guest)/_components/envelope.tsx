@@ -4,23 +4,35 @@ import { scriptOf } from '@/lib/domain/script';
 import { InlineSvg } from '@/lib/svg';
 
 /*
- * The envelope, with the guest's name written on its face.
+ * The envelope, built from layers rather than from envelope.svg.
  *
- * The name is here and NOT on the card. The card is a faithful reproduction
- * of the printed piece, which carries no name; a handwritten name belongs on
- * the envelope, which is exactly where the printed one has it.
+ * The export is one flat drawing: a rectangle with a triangle on it. Nothing
+ * can come OUT of that, because there is no front panel for a card to emerge
+ * from behind - which is the whole of beat 4. So the envelope is assembled
+ * here instead, in the order a real one stacks:
  *
- * The name is live text over the artwork rather than baked into the SVG -
- * five hundred households would otherwise be five hundred exports.
+ *   back   the panel behind everything
+ *   sleeve the card, sitting inside
+ *   body   the front panel, which the card slides up from behind
+ *   flap   folded down over the front, and lifted by beat 3
+ *
+ * Each layer is a div with a clip-path, not an <img>: they have to be
+ * separately transformable, and the flap has to rotate about its own top edge
+ * while the card translates independently behind it.
+ *
+ * The name is live text over the artwork rather than baked in - five hundred
+ * households would otherwise be five hundred exports.
  */
 
 type Props = {
   /** The card name: the shorter fallback when one is set, else display_name. */
   name: string;
   /**
-   * The wax seal at the point of the flap. Only the copy inside the intro
-   * needs it - beat 3 cracks it open - so the resting envelope on the page
-   * is left unsealed rather than showing a seal nothing will ever break.
+   * The wax seal at the point of the flap, and the card inside.
+   *
+   * Only the copy inside the intro needs either: beat 3 breaks the seal and
+   * beat 4 draws the card out. The resting envelope on the page is left
+   * closed and empty rather than showing a seal nothing will ever break.
    */
   sealed?: boolean;
 };
@@ -30,8 +42,24 @@ export function Envelope({ name, sealed = false }: Props) {
   const scale = envelopeNameScale(name);
 
   return (
-    <div className="envelope-stage">
-      <InlineSvg name="envelope" className="envelope-art" />
+    <div className="env" data-sealed={sealed ? 'true' : 'false'}>
+      <div className="env-back" />
+
+      {/*
+        The card inside. A plain panel, not the real artwork: it is in motion
+        and mostly hidden, and rendering five hundred vector paths twice in
+        every response to animate something nobody can read at this size is
+        not a trade worth making. Beat 4 hands over to the real card as this
+        one reaches the middle.
+      */}
+      {sealed && (
+        <div className="env-sleeve" data-intro="sleeve" aria-hidden="true">
+          <div className="env-sleeve-rule" />
+        </div>
+      )}
+
+      <div className="env-body" />
+      <div className="env-flap" data-intro="flap" />
 
       {/*
         data-script picks the font stack. Linux Libertine has no Sinhala
@@ -40,7 +68,7 @@ export function Envelope({ name, sealed = false }: Props) {
         report that as a bug rather than assume their phone is broken.
       */}
       <p
-        className="envelope-name"
+        className="env-name"
         data-script={script}
         style={{ '--name-scale': scale } as CSSProperties}
       >
@@ -48,7 +76,7 @@ export function Envelope({ name, sealed = false }: Props) {
       </p>
 
       {sealed && (
-        <div className="envelope-seal" data-intro="seal">
+        <div className="env-seal" data-intro="seal">
           <InlineSvg name="seal" />
         </div>
       )}

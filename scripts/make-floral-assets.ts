@@ -257,11 +257,62 @@ function frameOrnament(): string {
 
 /* -------------------------------------------------------------------------- */
 
+/**
+ * A single delicate stem, for accents that should not compete with the corner
+ * sprays: beside the thank-you, and drifting behind the page.
+ *
+ * Each stem is its own group with an id, so the sequence can bring them in one
+ * after another rather than fading the whole drawing at once.
+ */
+function floralSprig(): string {
+  const groups = [
+    spray(
+      {
+        stem: [
+          { x: 10, y: 96 },
+          { x: 58, y: 62 },
+          { x: 118, y: 52 },
+          { x: 188, y: 74 },
+        ],
+        count: 7,
+        leafLength: 26,
+        leafWidth: 12,
+        taper: 0.42,
+        spread: 44,
+        from: 0.08,
+        to: 0.96,
+      },
+      'floral-sprig__stem-a',
+    ),
+    spray(
+      {
+        stem: [
+          { x: 14, y: 108 },
+          { x: 62, y: 108 },
+          { x: 118, y: 96 },
+          { x: 172, y: 112 },
+        ],
+        count: 6,
+        leafLength: 21,
+        leafWidth: 9,
+        taper: 0.45,
+        spread: 38,
+        from: 0.1,
+        to: 0.95,
+      },
+      'floral-sprig__stem-b',
+    ),
+  ];
+
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 160"><g id="floral-sprig__floral-sprig-root">${groups.join('')}</g></svg>`;
+}
+
 const dir = join(process.cwd(), 'public', 'card');
 
 const files: [string, string][] = [
   ['floral-corner.svg', floralCorner()],
   ['frame-ornament.svg', frameOrnament()],
+  ['floral-sprig.svg', floralSprig()],
 ];
 
 for (const [name, contents] of files) {
