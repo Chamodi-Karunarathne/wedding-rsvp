@@ -1,0 +1,126 @@
+/*
+ * PERMANENT. The two standalone screens a guest can land on with no
+ * invitation loaded: the holding page at /, and the not-found page an unknown
+ * or mistyped token reaches.
+ *
+ * Deliberately NOT part of (guest)/guest.css. not-found.tsx sits outside the
+ * (guest) route group so that deleting the guest UI does not delete the 404,
+ * and a permanent page cannot depend on a stylesheet that is expected to be
+ * thrown away. The palette is small enough to restate; the alternative is a
+ * 404 that loses its styling on the day the guest UI is replaced.
+ */
+
+.notice-ground {
+  min-height: 100svh;
+  display: grid;
+  place-items: center;
+  padding: 2rem 1.25rem;
+  overflow-x: clip;
+  background:
+    radial-gradient(38% 30% at 18% 14%, rgba(255, 240, 219, 0.95), transparent 70%),
+    radial-gradient(32% 26% at 82% 20%, rgba(254, 235, 242, 0.9), transparent 70%),
+    radial-gradient(46% 34% at 74% 84%, rgba(247, 231, 208, 0.9), transparent 72%),
+    linear-gradient(160deg, #fffdf8 0%, #f7ead9 55%, #fdf3e6 100%);
+}
+
+.notice {
+  position: relative;
+  width: min(30rem, 100%);
+  padding: clamp(3.5rem, 14vw, 4.5rem) clamp(1.5rem, 6vw, 2.5rem) clamp(2rem, 7vw, 2.75rem);
+  border: 1px solid rgba(177, 137, 6, 0.32);
+  border-radius: 20px;
+  background:
+    radial-gradient(120% 60% at 50% 0%, rgba(247, 223, 230, 0.5), transparent 62%),
+    linear-gradient(170deg, #fffdf8 0%, #fdf6ea 100%);
+  box-shadow:
+    0 30px 70px -24px rgba(120, 90, 30, 0.4),
+    0 0 0 6px rgba(255, 253, 248, 0.55);
+  text-align: center;
+  color: #6d6e71;
+}
+
+/* The garland, in the padding the notice reserves at its head. */
+.notice-garland {
+  position: absolute;
+  top: clamp(0.8rem, 4vw, 1.3rem);
+  left: 50%;
+  width: min(15rem, 60%);
+  translate: -50% 0;
+  pointer-events: none;
+}
+
+.notice-garland img {
+  display: block;
+  width: 100%;
+  height: auto;
+  opacity: 0.85;
+}
+
+.notice-title {
+  margin: 0 0 0.85rem;
+  font-family: var(--font-display), 'Cormorant Garamond', Georgia, serif;
+  font-size: clamp(1.7rem, 7vw, 2.3rem);
+  font-weight: 400;
+  line-height: 1.15;
+  color: #b18906;
+}
+
+.notice-body {
+  margin: 0 auto;
+  max-width: 26rem;
+  font-family: var(--font-body), 'Jost', system-ui, sans-serif;
+  font-size: 1rem;
+  line-height: 1.7;
+}
+
+.notice-body + .notice-body {
+  margin-top: 0.85rem;
+}
+
+.notice-fine {
+  margin-top: 1.5rem;
+  font-family: var(--font-body), 'Jost', system-ui, sans-serif;
+  font-size: 0.7rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  opacity: 0.5;
+}
+
+/* A hairline with a diamond at its centre, between body and fine print. */
+.notice-rule {
+  width: 4.5rem;
+  margin: 1.5rem auto 0;
+  border: 0;
+  border-top: 1px solid rgba(177, 137, 6, 0.32);
+}
+
+/* The corner sprays, mirrored, well behind the notice itself. */
+.notice-corner {
+  position: fixed;
+  z-index: 0;
+  width: clamp(8rem, 24vw, 17rem);
+  opacity: 0.45;
+  pointer-events: none;
+  user-select: none;
+}
+
+.notice-corner img {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.notice-corner[data-corner='top-left'] {
+  top: 0;
+  left: 0;
+}
+
+.notice-corner[data-corner='bottom-right'] {
+  right: 0;
+  bottom: 0;
+  transform: rotate(180deg);
+}
+
+.notice {
+  z-index: 1;
+}

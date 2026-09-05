@@ -260,14 +260,26 @@ export function RespondFlow({
               <img alt="" src={cardAsset('floral-sprig.svg')} width={200} height={160} />
             </div>
 
+            {/*
+              The gold frame of the storyboard's last panel. It belongs HERE
+              rather than in the sequence: this is the end of the exchange, and
+              the sequence's job is to hand over an invitation, not to say
+              goodbye before it has been read.
+            */}
+            <div className="closing-frame" aria-hidden="true">
+              <img alt="" src={cardAsset('frame-ornament.svg')} width={400} height={400} />
+            </div>
+
             <div className="closing-monogram">{monogram}</div>
             <h2 className="closing-heading">{copy.thanks.heading}</h2>
             <p className="closing-line">
               {answer.attending ? copy.thanks.attendingBody : copy.thanks.declinedBody}
             </p>
             <hr className="closing-rule" />
+            {/* The farewell, at the actual end of the flow. */}
+            <p className="closing-farewell">{copy.intro.farewell}</p>
             <p>
-              <button type="button" className="link-button" onClick={() => setJustReplied(false)}>
+              <button type="button" className="btn-quiet" onClick={() => setJustReplied(false)}>
                 {copy.thanks.change}
               </button>
             </p>
@@ -299,7 +311,36 @@ export function RespondFlow({
                 {details.mapUrl && (
                   <>
                     <br />
-                    <a href={details.mapUrl} target="_blank" rel="noreferrer noopener">
+                    <a
+                      className="map-link"
+                      href={details.mapUrl}
+                      target="_blank"
+                      rel="noreferrer noopener"
+                    >
+                      {/*
+                        A map pin, inline rather than an icon dependency: one
+                        path, and it inherits currentColor so it cannot fall
+                        out of step with the link beside it. Decorative - the
+                        link's own words already say where it goes.
+                      */}
+                      <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                        <path
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="1.6"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          d="M12 21s7-5.6 7-11a7 7 0 1 0-14 0c0 5.4 7 11 7 11Z"
+                        />
+                        <circle
+                          cx="12"
+                          cy="10"
+                          r="2.6"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="1.6"
+                        />
+                      </svg>
                       {copy.events.directions}
                     </a>
                   </>

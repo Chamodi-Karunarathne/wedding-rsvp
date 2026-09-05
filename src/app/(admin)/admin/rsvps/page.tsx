@@ -175,8 +175,8 @@ export default async function AdminRsvpsPage({ searchParams }: PageProps) {
                   const rsvp = row.rsvps[0];
                   return (
                     <TableRow key={row.guest.id}>
-                      <TableCell className="font-medium wrap-break-word">
-                        {row.guest.displayName}
+                      <TableCell className="font-medium">
+                        <span className="admin-name">{row.guest.displayName}</span>
                       </TableCell>
                       <TableCell>
                         <Badge variant="outline">{row.guest.side}</Badge>

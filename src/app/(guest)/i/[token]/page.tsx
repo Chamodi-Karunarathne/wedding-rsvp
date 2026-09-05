@@ -100,27 +100,15 @@ export default async function InvitationPage({ params, searchParams }: PageProps
         `hidden` until script decides otherwise.
       */}
       <Intro token={guest.token} labels={{ skip: copy.intro.skip, replay: copy.intro.replay }}>
+        {/*
+          The mark alone. The frame, the farewell and its rule used to live
+          here too, revealed by a closing beat that no longer exists - they are
+          in the panel that replaces the card once a guest has replied, which
+          is where a goodbye belongs. Left here they would simply never be
+          shown.
+        */}
         <div className="intro-piece intro-monogram" data-intro="monogram">
-          {/*
-            The gold border of the storyboard's last frame. Marked
-            data-intro-reveal so it arrives with the closing line and NOT with
-            the opening beat - the mark opens the sequence bare and is framed
-            only when it closes it.
-          */}
-          {/*
-            An <img>, not an inlined SVG. Nothing animates inside the frame, so
-            it has no reason to be inline - and as an inline SVG it inherited
-            the monogram's clip-path wipe and its stacking context and refused
-            to paint at all.
-          */}
-          <div className="intro-frame" data-intro-reveal aria-hidden="true">
-            <img alt="" src={cardAsset('frame-ornament.svg')} width={400} height={400} />
-          </div>
           <InlineSvg name="monogram" />
-          <p className="intro-farewell" data-intro-reveal>
-            {copy.intro.farewell}
-          </p>
-          <hr className="intro-rule" data-intro-reveal />
         </div>
 
         {/* Sealed only here: beat 3 is the only thing that ever breaks it. */}

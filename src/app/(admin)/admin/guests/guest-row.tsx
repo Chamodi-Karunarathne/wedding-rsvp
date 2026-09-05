@@ -16,8 +16,8 @@ export function GuestRow({ row, events }: { row: GuestListRow; events: EventView
   return (
     <>
       <TableRow data-state={open ? 'selected' : undefined}>
-        <TableCell className="font-medium wrap-break-word">
-          {row.guest.displayName}
+        <TableCell className="font-medium">
+          <span className="admin-name">{row.guest.displayName}</span>
           {row.guest.displayNameFallback && (
             <span className="block text-xs font-normal text-muted-foreground">
               card: {row.guest.cardName}

@@ -9,17 +9,37 @@ import {
 } from './beats.ts';
 
 describe('the intro sequence', () => {
-  it('is the eleven beats that were specified', () => {
-    assert.equal(BEATS.length, 11);
+  /*
+   * Ten, not the storyboard's eleven.
+   *
+   * The eleventh was the closing monogram - "we look forward to celebrating
+   * with you" - which the boards place at the end of a film. In a sequence
+   * that hands somebody an invitation to read and answer, it landed three
+   * seconds after the card arrived, took the card away with it, and then gave
+   * the card back. A farewell belongs at the end of the exchange, so it moved
+   * to the panel that replaces the card once a guest has actually replied.
+   */
+  it('is ten beats and ends on the card, not on a farewell', () => {
+    assert.equal(BEATS.length, 10);
+    assert.ok(
+      !BEATS.some((b) => b.id === 'monogram-ending'),
+      'the closing monogram belongs after the reply, not inside the sequence',
+    );
   });
 
   it('has a unique id per beat, so a timeline label cannot collide', () => {
     assert.equal(new Set(BEATS.map((b) => b.id)).size, BEATS.length);
   });
 
-  it('starts at zero and runs about 23 seconds', () => {
+  it('starts at zero and runs about twenty seconds', () => {
     assert.equal(BEATS[0]!.start, 0);
-    assert.equal(SEQUENCE_DURATION, 23);
+    assert.equal(SEQUENCE_DURATION, 20);
+  });
+
+  it('leaves the card on screen once it is out of the envelope', () => {
+    const card = BEATS.find((b) => b.id === 'card-slides-out');
+    assert.ok(card, 'the card beat is the point of the sequence');
+    assert.equal(card.exitAt, undefined, 'the card must not be faded away again');
   });
 
   it('never runs a beat backwards or for no time', () => {

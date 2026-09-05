@@ -55,14 +55,20 @@ export function Card({ children }: Props) {
             />
           ))}
         </svg>
-      </figure>
 
-      {/*
-        Beat 9. A gradient element translated across the card, never a
-        filter: a filter over a card this size is a full repaint per frame.
-        Invisible until the timeline touches it, and inert without one.
-      */}
-      <div className="card-sweep" data-intro="sweep" aria-hidden="true" />
+        {/*
+          Beat 9. A gradient element translated across the card, never a
+          filter: a filter over a card this size is a full repaint per frame.
+          Invisible until the timeline touches it, and inert without one.
+
+          INSIDE the figure, which is the card's exact box and clips its
+          overflow. As a sibling of the figure its only bound was .card-stage,
+          which is deliberately unclipped so the reply button can overhang -
+          so the sweep travelled the full width of the page and read as a gold
+          line sliding across the background either side of the card.
+        */}
+        <div className="card-sweep" data-intro="sweep" aria-hidden="true" />
+      </figure>
 
       <div
         className="rsvp-slot"

@@ -74,7 +74,9 @@ export function SendRow({
 
   return (
     <TableRow>
-      <TableCell className="font-medium wrap-break-word">{displayName}</TableCell>
+      <TableCell className="font-medium">
+        <span className="admin-name">{displayName}</span>
+      </TableCell>
       <TableCell className="text-muted-foreground tabular-nums">{phone ?? '-'}</TableCell>
       <TableCell>
         <Badge variant={STATE_VARIANT[state]}>{DELIVERY_STATE_LABELS[state]}</Badge>

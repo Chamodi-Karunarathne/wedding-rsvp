@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { Cormorant_Garamond, Jost, Noto_Serif_Sinhala } from 'next/font/google';
+import { Noto_Serif_Sinhala } from 'next/font/google';
 import { cardAsset } from '@/lib/domain/card-assets';
 import './guest.css';
 
@@ -18,32 +18,11 @@ import './guest.css';
  * a font they do not need on a Colombo mobile connection.
  */
 /*
- * The two faces the invitation is set in.
- *
- * Cormorant Garamond for anything that reads as the invitation speaking - the
- * couple, the headings, the card's own control. It is a light old-style serif
- * that sits beside the copperplate of the printed card instead of arguing
- * with it, where the previous Noto Serif read as a system default.
- *
- * Jost for the reply form. A form set in a display serif is a form that is
- * harder to fill in, and this is the one part of the page where being easy to
- * read at 14px on a phone in a hotel lobby matters more than being pretty.
- * Both are preloaded: unlike the Sinhala face, every guest uses these.
+ * Only the Sinhala face is loaded here. Cormorant Garamond and Jost - the two
+ * the invitation is actually set in - moved to the root layout, because
+ * not-found.tsx is guest-facing but deliberately lives outside this route
+ * group and was being left in a system serif.
  */
-const cormorant = Cormorant_Garamond({
-  subsets: ['latin'],
-  weight: ['300', '400', '500', '600'],
-  variable: '--font-display',
-  display: 'swap',
-});
-
-const jost = Jost({
-  subsets: ['latin'],
-  weight: ['300', '400', '500'],
-  variable: '--font-body',
-  display: 'swap',
-});
-
 const notoSerifSinhala = Noto_Serif_Sinhala({
   subsets: ['sinhala'],
   weight: ['400', '600'],
@@ -55,7 +34,7 @@ const notoSerifSinhala = Noto_Serif_Sinhala({
 export default function GuestLayout({ children }: { children: ReactNode }) {
   return (
     <div
-      className={`${cormorant.variable} ${jost.variable} ${notoSerifSinhala.variable} guest-ground`}
+      className={`${notoSerifSinhala.variable} guest-ground`}
     >
       {/*
         Scenery. Referenced with <img> rather than inlined, unlike the card

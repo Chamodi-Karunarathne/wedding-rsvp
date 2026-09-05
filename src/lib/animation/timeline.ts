@@ -190,21 +190,33 @@ export function buildIntroTimeline(root: ParentNode, onComplete: () => void): Bu
         const left = found[0]?.querySelector<SVGGraphicsElement>('[id*="seal-left"]');
         const right = found[0]?.querySelector<SVGGraphicsElement>('[id*="seal-right"]');
 
+        /*
+         * fromTo, not to, on both the halves and the seal itself.
+         *
+         * A replay builds a fresh timeline against the SAME elements, which
+         * still carry the inline transform and opacity the last run left on
+         * them. A `to` tween starts from whatever is already there - so on the
+         * second watch the halves began at 22 degrees and already broken, and
+         * the seal began at opacity 0 and was never seen at all. Declaring the
+         * start state makes every play identical to the first.
+         */
         for (const [half, origin, angle] of [
           [left, 'right center', -22],
           [right, 'left center', 22],
         ] as const) {
           if (!half) continue;
           gsap.set(half, { transformBox: 'fill-box', transformOrigin: origin });
-          timeline.to(
+          timeline.fromTo(
             half,
+            { rotation: 0, x: 0 },
             { rotation: angle, x: angle > 0 ? 6 : -6, duration: beat.duration, ease: beat.ease },
             beat.start,
           );
         }
 
-        timeline.to(
+        timeline.fromTo(
           found,
+          { opacity: 1 },
           { opacity: 0, duration: beat.duration * 0.4, ease: 'power1.in' },
           beat.start + beat.duration * 0.6,
         );
@@ -378,7 +390,21 @@ export function buildIntroTimeline(root: ParentNode, onComplete: () => void): Bu
     timeline,
     cleanup: () => {
       for (const stop of cleanups) stop();
-      timeline.kill();
+      /*
+       * revert(), not kill().
+       *
+       * kill() stops the tweens and leaves every inline style they wrote on
+       * the elements. GSAP renders a fromTo's FROM state as soon as the tween
+       * is built, not when it starts - so building this timeline immediately
+       * sets every text line and every floral cluster on the card to opacity
+       * 0, twelve seconds before their beats are due. A guest who pressed Skip
+       * during the envelope was handed a blank card with a gold border and
+       * nothing printed on it.
+       *
+       * revert() puts back what was there before the timeline touched it, and
+       * kills the timeline on the way out.
+       */
+      timeline.revert();
     },
   };
 }

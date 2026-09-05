@@ -106,14 +106,16 @@ export const BEATS: readonly Beat[] = [
     target: '[data-intro="card"]',
     effect: 'slide',
     ease: 'power2.out',
-    // Clears the stage for the closing monogram, which the storyboard shows
-    // alone on the ground rather than over the card. finish() restores the
-    // card to the page afterwards.
-    exitAt: 19.9,
-    exitDuration: 1.1,
+    /*
+     * No exit. Once the card is out of the envelope it stays out - it is the
+     * invitation, and the sequence exists to hand it over. It used to be faded
+     * away again at 19.9s to clear the stage for a closing monogram, so a
+     * guest watched their invitation arrive and then leave before the sequence
+     * had finished, and the card reappeared afterwards with no explanation.
+     */
     // The slide also takes the envelope out: the card cannot appear to come
     // out of something that is still sitting on top of it.
-    note: 'Card rises as the envelope falls away beneath it.',
+    note: 'Card rises as the envelope falls away beneath it, and stays.',
   },
   {
     id: 'florals-bloom',
@@ -175,16 +177,19 @@ export const BEATS: readonly Beat[] = [
     ease: 'none',
     note: 'One canvas, capped at 120 particles, destroyed when the beat ends.',
   },
-  {
-    id: 'monogram-ending',
-    start: 20,
-    duration: 3,
-    target: '[data-intro="monogram"]',
-    effect: 'wipe',
-    ease: 'power2.inOut',
-    revealChildren: '[data-intro-reveal]',
-    note: 'Brings the closing line and its rule with it. Beat 1 does not.',
-  },
+  /*
+   * There is no closing monogram beat.
+   *
+   * "We look forward to celebrating with you" is a farewell, and a farewell
+   * belongs at the end of the exchange - not three seconds after a guest has
+   * been handed an invitation they have not yet read or answered. It sat in
+   * the middle of the sequence, taking the card away with it, and then the
+   * card came back.
+   *
+   * It now lives in the panel that replaces the card once somebody replies -
+   * see the closing frame in _components/respond.tsx - which is genuinely the
+   * last thing in the flow. The sequence ends on the card, where it should.
+   */
 ];
 
 export const SEQUENCE_DURATION = sequenceDuration(BEATS);

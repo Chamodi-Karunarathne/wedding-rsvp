@@ -142,3 +142,22 @@
     @apply font-serif;
     }
 }
+/*
+ * Guest names in the admin tables.
+ *
+ * The columns are auto-laid-out, so a cell grows to its content's max-content
+ * width and one 120-character household - the seed has a real one - pushed
+ * Side, Answer and Party off the right of the screen. `wrap-break-word` alone
+ * did nothing: it only breaks once a cell is already constrained, and nothing
+ * constrained it. max-width on the <td> is ignored under auto layout, so the
+ * cap goes on a block INSIDE the cell, which does limit the column's
+ * max-content contribution.
+ *
+ * ch rather than rem: this is a measure, and the thing being measured is a
+ * name.
+ */
+.admin-name {
+  display: block;
+  max-width: 24ch;
+  overflow-wrap: break-word;
+}
