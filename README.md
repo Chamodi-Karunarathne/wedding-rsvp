@@ -1,4 +1,4 @@
-# Wedding invitation site
+# Wedding invitation RSVP site
 
 Per-guest invitations, RSVPs, and an admin console for ~500 households.
 
@@ -18,18 +18,18 @@ pnpm dev
 
 ## Scripts
 
-| Command | What it does |
-| --- | --- |
-| `pnpm dev` / `build` / `start` | Next.js |
-| `pnpm typecheck` | `tsc --noEmit` |
-| `pnpm test` | Unit tests via Node's built-in runner. No test framework dependency. |
-| `pnpm db:generate` | Write a migration from schema changes. Works without a database. |
-| `pnpm db:migrate` | Apply migrations |
-| `pnpm db:seed` | Wipe and reseed. Refuses to run against `NODE_ENV=production` without `--force`. |
-| `pnpm verify` | Runs the database-backed acceptance checks. Needs `pnpm dev` running. |
-| `pnpm make-test-csv` | Writes a 50-row import fixture for the CSV import check. |
-| `pnpm assets:optimize` | Rewrites `public/card/*.svg` through SVGO at 2dp precision. |
-| `pnpm card:preview` | Renders the composed card to a PNG, for checking layer offsets. |
+| Command                        | What it does                                                                     |
+| ------------------------------ | -------------------------------------------------------------------------------- |
+| `pnpm dev` / `build` / `start` | Next.js                                                                          |
+| `pnpm typecheck`               | `tsc --noEmit`                                                                   |
+| `pnpm test`                    | Unit tests via Node's built-in runner. No test framework dependency.             |
+| `pnpm db:generate`             | Write a migration from schema changes. Works without a database.                 |
+| `pnpm db:migrate`              | Apply migrations                                                                 |
+| `pnpm db:seed`                 | Wipe and reseed. Refuses to run against `NODE_ENV=production` without `--force`. |
+| `pnpm verify`                  | Runs the database-backed acceptance checks. Needs `pnpm dev` running.            |
+| `pnpm make-test-csv`           | Writes a 50-row import fixture for the CSV import check.                         |
+| `pnpm assets:optimize`         | Rewrites `public/card/*.svg` through SVGO at 2dp precision.                      |
+| `pnpm card:preview`            | Renders the composed card to a PNG, for checking layer offsets.                  |
 
 ## Architecture
 
@@ -149,11 +149,11 @@ The root layout no longer sets a width. Guest pages get their reading column fro
 
 The three card layers were exported from three different artboards, each trimmed to its own content, so they do **not** share a viewBox:
 
-| layer | viewBox | ratio |
-| --- | --- | --- |
-| card-base | `0 0 426.2 553.76` | 0.770 |
+| layer        | viewBox             | ratio |
+| ------------ | ------------------- | ----- |
+| card-base    | `0 0 426.2 553.76`  | 0.770 |
 | card-florals | `0 0 423.59 533.43` | 0.794 |
-| card-text | `0 0 302.51 304.04` | 0.995 |
+| card-text    | `0 0 302.51 304.04` | 0.995 |
 
 Stacked at `inset: 0` the text block would be stretched by about 29% against the base. So the card is **one** `<svg>` in card-base's coordinate system with each layer nested as a `<g>` carrying a single translate/scale, and those numbers live in `src/lib/card/layers.ts`. They were arrived at by rendering the composite and looking at it — `pnpm card:preview --guides` is that tool, and it imports the same module the page does so the two cannot drift.
 
@@ -194,7 +194,7 @@ Beat 10 is one `<canvas>`, capped at 120 particles, on `requestAnimationFrame`, 
 
 The RSVP region printed on the card holds two buttons, not a paragraph. Most households answer in a single tap; anyone who may bring others gets a count step, because the headcount is the one thing that cannot be guessed and the number the caterer is waiting on.
 
-Answering raises the **closing frame** - the monogram and a line, the last beat of the opening sequence reused as the thank-you. The line differs by answer: somebody who has just said they cannot come is not told we look forward to seeing them. It is only ever raised by answering *here*, so a returning guest lands on their card rather than on a thank-you for something they did weeks ago.
+Answering raises the **closing frame** - the monogram and a line, the last beat of the opening sequence reused as the thank-you. The line differs by answer: somebody who has just said they cannot come is not told we look forward to seeing them. It is only ever raised by answering _here_, so a returning guest lands on their card rather than on a thank-you for something they did weeks ago.
 
 Buttons hold a 44px tap target even on a 360px phone, where the printed region is only 83px tall, so `.rsvp-slot` lets them overflow into the blank card beneath it. A tap target that shrinks with the artwork is not a tap target.
 
@@ -210,7 +210,7 @@ They default to `[]` rather than being required, so a `site_config` row written 
 
 `lib/svg.ts` reads `public/card/*.svg` on the server, caches each parse in module scope, and exposes `<InlineSvg name="monogram" />`. No SVGR and no bundler configuration.
 
-They are inlined rather than referenced with `<img>` because the intro sequence animates elements *inside* them — the seal halves, the floral clusters, the text lines — and nothing reaches into an `<img>`. Names are checked against `manifest.json`, so a typo fails with the list of what exists rather than rendering an empty box on somebody's invitation.
+They are inlined rather than referenced with `<img>` because the intro sequence animates elements _inside_ them — the seal halves, the floral clusters, the text lines — and nothing reaches into an `<img>`. Names are checked against `manifest.json`, so a typo fails with the list of what exists rather than rendering an empty box on somebody's invitation.
 
 The cache is deliberately bypassed outside production: the artwork is being re-exported from Illustrator, and a cache that outlives the file would mean restarting the dev server to see a new export.
 
