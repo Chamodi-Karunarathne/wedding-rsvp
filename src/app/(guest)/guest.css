@@ -858,3 +858,184 @@
 .guest-ground .sheet { --gold: #896b3c; }
 .guest-ground .respond-btn[data-tone='quiet'] { color: #896b3c; }
 .invitation-dedication p:last-child { max-width: 90vw; overflow-wrap: anywhere; text-wrap: balance; margin-inline: auto; }
+
+
+/* Stationery materials: fixed lighting from the upper left. No layout or motion changes. */
+.guest-ground {
+  --stationery-paper:
+    radial-gradient(ellipse at 12% 3%, rgb(255 255 250 / .92), transparent 68%),
+    linear-gradient(124deg, #f8f2e6 8%, #f2eadc 64%, #eaddc6);
+  --champagne-metal:
+    linear-gradient(132deg, #f4e9ce 0%, #e3ce9e 36%, #f0dfb9 51%, #d9c08a 100%);
+}
+.guest-ground::after,
+.intro-veil::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(ellipse at 22% 12%, rgb(255 250 231 / .22), transparent 54%),
+    radial-gradient(ellipse at 50% 43%, transparent 42%, rgb(82 64 43 / .14) 100%);
+}
+.intro-veil::before { position: absolute; }
+.intro-veil::after { opacity: .28; }
+
+/* The existing photographed flowers provide the soft foreground; paper stays unfiltered. */
+.card-stage::before {
+  inset: 3% 1% 0 2%;
+  opacity: .18;
+  filter: blur(13px);
+  transform: translate(9px, 12px) rotate(-.6deg);
+}
+.card-stage::after {
+  content: '';
+  position: absolute;
+  z-index: -1;
+  left: 5%;
+  right: -1%;
+  bottom: -3%;
+  height: 19%;
+  background: radial-gradient(ellipse at 52% 15%, rgb(75 54 29 / .24), transparent 70%);
+  pointer-events: none;
+}
+.card {
+  background: var(--stationery-paper);
+  box-shadow:
+    inset 1px 1px 0 rgb(255 255 250 / .95),
+    1px 1px 0 #d5c7af,
+    2px 3px 0 #e1d4bc,
+    3px 5px 4px rgb(74 52 27 / .16),
+    11px 18px 26px -13px rgb(62 43 21 / .28);
+}
+.card::before,
+.env-back::after,
+.env-flap::before,
+.env-fold::after {
+  background-size: 144px 144px;
+  opacity: .48;
+}
+.card::after {
+  border-color: #c4af80 #aa8e57 #bda470 #cfbb8d;
+  box-shadow: inset 0 .7px .6px rgb(255 254 237 / .8), 0 .6px .5px rgb(105 79 38 / .1);
+}
+.card-names { text-shadow: 0 .6px 0 rgb(255 254 235 / .8); }
+.env::before {
+  inset: 9% 1% -4%;
+  border-radius: 5%;
+  filter: blur(15px);
+  opacity: .28;
+  transform: translate(9px, 11px) rotate(-.8deg);
+}
+.env-back {
+  background: linear-gradient(150deg, #e4d9c5, #b8a58b);
+  border-color: #d5c7af;
+  box-shadow: inset 0 9px 11px -9px rgb(56 40 22 / .5), 1px 2px 0 #d5c6ab, 2px 5px 6px rgb(77 58 33 / .18);
+}
+.env-fold-left {
+  background: linear-gradient(135deg, #fbf7ed 4%, #e9ddc8 62%, #d2c0a2);
+}
+.env-fold-right {
+  background: linear-gradient(224deg, #efe6d5 5%, #dfd0b6 74%, #c6b18e);
+}
+.env-fold-bottom {
+  background:
+    radial-gradient(ellipse at 24% 30%, rgb(255 254 246 / .65), transparent 68%),
+    linear-gradient(175deg, #f8f1e2 18%, #f1e7d5 67%, #e6d8bf);
+}
+.env-fold-bottom::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100' preserveAspectRatio='none'%3E%3Cpath d='M0 97 50 47 100 97' fill='none' stroke='%237b6241' stroke-opacity='.22' stroke-width='.7'/%3E%3Cpath d='M0 97.65 50 47.65 100 97.65' fill='none' stroke='%23fffdf2' stroke-opacity='.8' stroke-width='.32'/%3E%3C/svg%3E") center / 100% 100%;
+}
+.env-body::after {
+  border-color: rgb(255 252 240 / .65) rgb(176 154 116 / .35) rgb(161 139 102 / .4) rgb(255 252 240 / .75);
+}
+/* Clip the paper faces, not their parent, so the flap can cast a real edge shadow. */
+.env-flap {
+  clip-path: none;
+  background: none;
+  filter: drop-shadow(0 2px 1.4px rgb(77 57 31 / .24));
+}
+.env-flap::after,
+.env-flap::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  clip-path: polygon(0 0, 100% 0, 98% 6%, 52% 61%, 50% 62%, 48% 61%, 2% 6%);
+  pointer-events: none;
+}
+.env-flap::after {
+  background:
+    radial-gradient(ellipse at 24% 0%, rgb(255 255 249 / .9), transparent 75%),
+    linear-gradient(164deg, #f9f3e7 6%, #eee3d0 65%, #d8c7a8 94%);
+  box-shadow: inset 0 1px 0 #fffdf6;
+}
+.env-flap::before { z-index: 1; }
+.env-sleeve { background: var(--stationery-paper); }
+.env-sleeve::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: var(--paper-texture) 0 0 / 144px 144px;
+  mix-blend-mode: multiply;
+  opacity: .48;
+  pointer-events: none;
+}
+.env-sleeve-rule { border-color: #c4af80 #aa8e57 #bda470 #cfbb8d; }
+.env-name { text-shadow: 0 .7px 0 rgb(255 253 239 / .9); }
+.env-seal {
+  filter: drop-shadow(0 1px .6px rgb(68 46 18 / .52)) drop-shadow(2px 4px 2.8px rgb(68 46 18 / .24));
+}
+.wax-initials {
+  fill: #88632e;
+  stroke: #c6a466;
+  stroke-width: .2;
+}
+.wax-initials.wax-impression-light { fill: #f4dfa6; stroke: none; }
+
+/* The controls borrow the paper, foil and pressed edges of the physical invitation. */
+.guest-ground .respond-btn[data-tone='primary'],
+.guest-ground .btn-primary {
+  background: var(--champagne-metal);
+  color: #604720;
+  border: 1px solid #b2965f;
+  text-shadow: 0 1px 0 rgb(255 251 229 / .6);
+  box-shadow: inset 0 1px 0 #fff4d8, inset 0 -1px 0 rgb(133 99 43 / .15), 0 2px 3px rgb(84 59 24 / .12);
+}
+.guest-ground .respond-btn[data-tone='primary']:hover,
+.guest-ground .btn-primary:hover:not(:disabled) {
+  border-color: #927340;
+  box-shadow: inset 0 1px 0 #fff8e8, inset 0 -1px 0 rgb(133 99 43 / .2), 0 3px 5px rgb(84 59 24 / .16);
+}
+.guest-ground .respond-btn[data-tone='quiet'],
+.guest-ground .choice-btn:not([data-selected='true']),
+.guest-ground .btn-quiet {
+  background: linear-gradient(130deg, #fdf9ef, #eee4d2);
+  border-color: #c4af83;
+  color: #735831;
+  box-shadow: inset 0 1px 0 #fffdf5, 0 1px 2px rgb(91 65 30 / .08);
+}
+.guest-ground .choice-btn[data-selected='true'] {
+  background: linear-gradient(128deg, #896b3c, #74562e);
+  border-color: #806235;
+  box-shadow: inset 0 1px 0 rgb(246 224 172 / .42), inset 0 -1px 1px rgb(52 36 15 / .18), 0 2px 3px rgb(91 65 30 / .12);
+  text-shadow: 0 1px 1px rgb(53 35 15 / .22);
+}
+.guest-ground .sheet-inner {
+  background: linear-gradient(rgb(255 250 239 / .55), rgb(255 250 239 / .55)), var(--paper-texture), var(--stationery-paper);
+  background-size: auto, 144px 144px, auto, auto;
+  box-shadow: inset 1px 1px 0 #fffdf5, 1px 2px 0 #ded0b6, 0 18px 42px -17px rgb(66 47 24 / .42);
+}
+.guest-ground .field input,
+.guest-ground .field textarea {
+  background: #fbf7ed;
+  border-color: #cebd9c;
+  box-shadow: inset 0 1px 3px rgb(92 69 35 / .08), 0 1px 0 rgb(255 253 242 / .8);
+}
+.intro-skip {
+  background: linear-gradient(125deg, rgb(254 249 236 / .92), rgb(233 220 195 / .88));
+  border-color: rgb(163 137 91 / .45);
+  box-shadow: inset 0 1px 0 rgb(255 253 239 / .75), 0 2px 4px rgb(83 62 32 / .08);
+}
