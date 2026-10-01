@@ -45,11 +45,14 @@ export type CopyBundle = {
     yes: string;
     no: string;
     partyCountLabel: string;
+    fewerPlaces: string;
+    morePlaces: string;
     partyCountHelpOne: string;
     /** {{max}} - the maximum party size. */
     partyCountHelpMany: string;
     attendeeNamesLabel: string;
     attendeeNamesHelp: string;
+    attendeeNamesPlaceholder: string;
     messageLabel: string;
     messageHelp: string;
     /** {{date}} - the reply date, already formatted in the wedding's zone. */
@@ -114,6 +117,10 @@ export type CopyBundle = {
     close: string;
     detailsHeading: string;
     replyHeading: string;
+    closeLabel: string;
+    replyBy: string;
+    optional: string;
+    chooseResponse: string;
   };
   /** The closing frame, shown the moment somebody answers. */
   ending: {
@@ -133,6 +140,7 @@ export type CopyBundle = {
     /** Shown in place of the card once a reply has just been sent. */
     attendingBody: string;
     declinedBody: string;
+    declinedFarewell: string;
     change: string;
   };
   notFound: {
@@ -180,10 +188,13 @@ const en: CopyBundle = {
     yes: 'With the greatest joy',
     no: 'With the greatest regret',
     partyCountLabel: 'How many places shall we keep?',
+    fewerPlaces: 'One fewer guest',
+    morePlaces: 'One more guest',
     partyCountHelpOne: 'This invitation was written for one.',
     partyCountHelpMany: 'Up to {{max}}, whenever you are ready to say.',
     attendeeNamesLabel: 'Who shall we be expecting?',
     attendeeNamesHelp: 'If you would like your names written at the table.',
+    attendeeNamesPlaceholder: 'Names of those attending',
     messageLabel: 'A word for us',
     messageHelp: 'Only if you would like to.',
     deadline: 'We hope to hear from you by {{date}}.',
@@ -194,7 +205,7 @@ const en: CopyBundle = {
     submitting: 'On its way...',
     saved: 'Safely received, with thanks.',
     savedAt: 'Last written {{when}}.',
-    changeAnytime: 'Nothing is set in stone. Come back and tell us otherwise whenever you like.',
+    changeAnytime: 'You can change your reply at any time.',
     error: 'That did not quite arrive. Would you try once more?',
     noResponseYet: 'We have not heard from you yet.',
     currentlyAttending: 'Expecting {{n}} of you.',
@@ -206,7 +217,7 @@ const en: CopyBundle = {
     savedDeclined: 'We know you cannot be there, and we understand.',
     change: 'Tell us otherwise',
     cancelChange: 'Leave it as it stands',
-    saveChanges: 'Write it down',
+    saveChanges: 'Save your reply',
     noScript:
       'Sending a reply from here needs JavaScript. If you would rather not turn it on, ' +
       'telephone us and we will write your answer down ourselves.',
@@ -232,7 +243,11 @@ const en: CopyBundle = {
     title: 'The day, and your place in it',
     close: 'Not just yet',
     detailsHeading: 'The day itself',
-    replyHeading: 'Your place at it',
+    replyHeading: 'Your reply',
+    closeLabel: 'Close invitation details',
+    replyBy: 'Kindly reply by {{date}}.',
+    optional: 'Optional',
+    chooseResponse: 'Choose your reply above to continue.',
   },
   ending: {
     accepted: 'We look forward to celebrating with you',
@@ -255,6 +270,7 @@ const en: CopyBundle = {
     // should not be told we can hardly wait to see them.
     declinedBody:
       'Thank you for telling us. You will be very much missed on the day, and thought of.',
+    declinedFarewell: 'With love, and our warmest wishes',
     change: 'Tell us otherwise',
   },
   notFound: {

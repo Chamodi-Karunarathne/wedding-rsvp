@@ -22,7 +22,7 @@ original exported SVG layers; inspect the guest route to review the live card.
 
 ## Realistic corner florals
 
-`public/card/rose-corner-upper.1e4c20dbac.webp` (68 KB) and `public/card/rose-corner-lower.6277f50c09.webp` (55 KB) are transparent botanical cutouts generated with the built-in imagegen tool. Their optimized 512 px WebP versions preserve alpha and use content-hashed filenames. They replace only the live card's vector corner sprays; the original SVG export remains available for print previews. Both are independently animated in the existing floral beat.
+`public/card/rose-corner-upper.1e4c20dbac.webp` (68 KB) and `public/card/rose-corner-lower.6277f50c09.webp` (55 KB) are transparent botanical cutouts generated with the built-in imagegen tool. Their optimized 512 px WebP versions preserve alpha and use content-hashed filenames. They decorate the surrounding guest experience: the intro closing message, RSVP sheet, thank-you screen, and guest notices. The invitation card uses the original card-florals.svg at its original layer offsets to match the physical card exactly; those vector clusters retain their staggered reveal. The photographic satin background remains unchanged. The small gold sprig is part of the monogram mark.
 
 Upper corner generation prompt:
 

@@ -32,16 +32,7 @@ export function Card({ children, brideName, groomName, date, time, eventName, ve
       <figure className="card" aria-hidden="true" style={{ aspectRatio: String(CARD_ASPECT_RATIO) }}>
         <svg className="card-art" xmlns="http://www.w3.org/2000/svg" viewBox={`0 0 ${CARD_VIEWBOX.width} ${CARD_VIEWBOX.height}`} focusable="false">
           {CARD_LAYERS.filter((layer) => layer.name !== 'card-text').map((layer) => (
-            layer.name === 'card-florals' ? (
-              <g key={layer.name} data-layer={layer.name} transform={layerTransform(layer)}>
-                <g id="floral-top-right">
-                  <image href="/card/rose-corner-upper.1e4c20dbac.webp" x="233" y="-8" width="190" height="190" />
-                </g>
-                <g id="floral-bottom-left">
-                  <image href="/card/rose-corner-lower.6277f50c09.webp" x="-12" y="355" width="190" height="190" />
-                </g>
-              </g>
-            ) : <g key={layer.name} data-layer={layer.name} transform={layerTransform(layer)} dangerouslySetInnerHTML={{ __html: readCardSvg(layer.name).inner }} />
+            <g key={layer.name} data-layer={layer.name} transform={layerTransform(layer)} dangerouslySetInnerHTML={{ __html: readCardSvg(layer.name).inner }} />
           ))}
         </svg>
         <div className="card-wording" data-layer="card-text">

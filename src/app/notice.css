@@ -39,13 +39,12 @@
   color: #6d6e71;
 }
 
-/* The garland, in the padding the notice reserves at its head. */
+/* The photographic spray occupies the existing title padding. */
 .notice-garland {
   position: absolute;
-  top: clamp(0.8rem, 4vw, 1.3rem);
-  left: 50%;
-  width: min(15rem, 60%);
-  translate: -50% 0;
+  top: 0;
+  right: 0;
+  width: min(6.5rem, 25%);
   pointer-events: none;
 }
 
@@ -105,6 +104,7 @@
 }
 
 .notice-corner img {
+  transform: scaleX(-1);
   display: block;
   width: 100%;
   height: auto;
@@ -118,7 +118,7 @@
 .notice-corner[data-corner='bottom-right'] {
   right: 0;
   bottom: 0;
-  transform: rotate(180deg);
+  transform: none;
 }
 
 .notice {

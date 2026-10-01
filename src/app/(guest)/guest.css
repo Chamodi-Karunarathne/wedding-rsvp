@@ -250,246 +250,140 @@
 /* -------------------------------------------------------------------------- */
 
 .sheet {
-  width: min(34rem, 92vw);
-  max-height: 88svh;
-  /* Setting a width overrides the UA's own centring for a modal dialog, so
-     this has to put it back. */
+  width: min(39rem, calc(100vw - 1.5rem));
+  max-height: min(90svh, calc(100dvh - 2rem));
   margin: auto;
   padding: 0;
   border: none;
   background: transparent;
   overflow: visible;
 }
-
-.sheet::backdrop {
-  /* Warm rather than neutral grey, and blurred, so the card behind reads as
-     paper set down on a table instead of a page dimmed by an overlay. */
-  background: rgba(74, 54, 16, 0.34);
-  backdrop-filter: blur(3px);
-}
-
+.sheet::backdrop { background: rgb(62 46 27 / .36); backdrop-filter: blur(3px); }
 .sheet-inner {
   position: relative;
-  max-height: 88svh;
-  overflow-y: auto;
-  /* The UA scrollbar is a grey slab against warm paper. Both properties: the
-     standard one, and the WebKit pair for Safari, which does not support it. */
-  scrollbar-width: thin;
-  scrollbar-color: rgba(177, 137, 6, 0.45) transparent;
-  padding: clamp(3.25rem, 12vw, 4.25rem) clamp(1.25rem, 5vw, 2.25rem)
-    clamp(1.5rem, 5vw, 2.25rem);
+  display: flex;
+  flex-direction: column;
+  max-height: inherit;
+  overflow: hidden;
+  padding: 0;
   border: 1px solid var(--gold-hairline);
-  /* Softly rounded. The 2px radius read as a browser dialog; the card it
-     belongs to has no hard corners anywhere. */
-  border-radius: 20px;
-  background:
-    radial-gradient(120% 60% at 50% 0%, rgba(247, 223, 230, 0.5), transparent 62%),
-    linear-gradient(170deg, #fffdf8 0%, #fdf6ea 100%);
-  box-shadow:
-    0 30px 70px -24px rgba(120, 90, 30, 0.5),
-    0 0 0 6px rgba(255, 253, 248, 0.55);
+  border-radius: 4px;
   color: var(--ink);
   font-family: var(--font-ui);
+  background: #faf5e9;
 }
-
-.sheet-inner::-webkit-scrollbar {
-  width: 8px;
+.sheet-header {
+  position: relative;
+  flex: none;
+  padding: 1.6rem 2rem 1.3rem;
+  border-bottom: 1px solid var(--gold-hairline);
+  background: linear-gradient(130deg, rgb(255 253 246 / .8), rgb(238 225 201 / .35));
 }
-
-.sheet-inner::-webkit-scrollbar-thumb {
-  border-radius: 999px;
-  background: rgba(177, 137, 6, 0.4);
-}
-
-.sheet-inner::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-/* The garland across the head of the sheet, under the title. */
-.sheet-garland {
+.sheet-close {
   position: absolute;
-  top: clamp(0.7rem, 3vw, 1.1rem);
-  left: 50%;
-  width: min(17rem, 62%);
-  translate: -50% 0;
-  pointer-events: none;
-}
-
-.sheet-garland img {
-  display: block;
-  width: 100%;
-  height: auto;
-  opacity: 0.85;
-}
-
-.sheet-title {
-  margin: 0 0 1.25rem;
-  font-family: var(--font-display);
-  font-size: clamp(1.6rem, 6vw, 2.1rem);
-  font-weight: 400;
-  line-height: 1.15;
-  text-align: center;
-  color: var(--gold);
-  letter-spacing: 0.01em;
-}
-
-.sheet-section + .sheet-section {
-  margin-top: 1.5rem;
-  padding-top: 1.25rem;
-  border-top: 1px solid var(--gold-hairline);
-}
-
-/* A centred small-caps label with a hairline reaching out on either side. */
-.sheet-heading {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  margin: 0 0 0.85rem;
-  font-family: var(--font-ui);
-  font-size: 0.7rem;
-  font-weight: 500;
-  letter-spacing: 0.22em;
-  text-transform: uppercase;
-  color: var(--gold);
-}
-
-.sheet-heading::after {
-  content: '';
-  flex: 1;
-  height: 1px;
-  background: linear-gradient(90deg, var(--gold-hairline), transparent);
-}
-
-/*
- * Stacked rather than a two-column grid. The label above its value reads
- * cleanly at any width and stops a long venue name from being squeezed into
- * whatever the widest label left behind.
- */
-.sheet-details {
-  margin: 0;
+  z-index: 2;
+  top: .65rem;
+  right: .65rem;
+  width: 44px;
+  height: 44px;
   display: grid;
-  gap: 0.85rem;
-}
-
-.sheet-details dt {
-  font-size: 0.68rem;
-  font-weight: 500;
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
-  opacity: 0.55;
-}
-
-.sheet-details dd {
-  margin: 0.15rem 0 0;
-  font-family: var(--font-display);
-  font-size: 1.15rem;
-  line-height: 1.35;
-}
-
-.sheet-details dd a {
-  font-family: var(--font-ui);
-  font-size: 0.85rem;
-  color: var(--gold);
-  text-underline-offset: 3px;
-}
-
-.sheet-muted {
-  margin: 0.35rem 0 0;
-  font-size: 0.85rem;
-  opacity: 0.7;
-}
-
-.sheet-form {
-  margin-top: 0.75rem;
-  display: grid;
-  gap: 1rem;
-}
-
-/* Two large targets rather than radio buttons: this is the whole question. */
-.choice {
-  display: grid;
-  gap: 0.5rem;
-}
-
-@media (min-width: 26rem) {
-  .choice {
-    grid-template-columns: 1fr 1fr;
-  }
-}
-
-.choice-btn {
-  min-height: 52px;
-  padding: 0.8rem 1.1rem;
+  place-items: center;
   border: 1px solid var(--gold-hairline);
-  border-radius: 999px;
-  background: rgba(255, 253, 248, 0.7);
-  color: var(--ink);
-  font-family: var(--font-display);
-  font-size: 1.05rem;
+  border-radius: 50%;
+  color: #77613e;
+  background: rgb(252 248 239 / .93);
   cursor: pointer;
-  transition:
-    border-color 0.2s ease,
-    background-color 0.2s ease,
-    color 0.2s ease;
 }
-
-.choice-btn:hover {
-  border-color: var(--gold);
+.sheet-close:hover { background: #f0e5d0; }
+.sheet-close svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.4; }
+.sheet :is(button, summary, a):focus-visible,
+.choice-btn:has(.choice-input:focus-visible) { outline: 2px solid #8e703f; outline-offset: 3px; }
+.sheet-garland { position: absolute; width: 7rem; top: 3.4rem; right: 0; pointer-events: none; opacity: .45; }
+.sheet-garland img { display: block; width: 100%; height: auto; }
+.sheet-kicker { margin: 0 3rem .5rem 0; font-size: .64rem; font-weight: 500; letter-spacing: .22em; text-transform: uppercase; color: #84683d; }
+.sheet-title { position: relative; max-width: 20ch; margin: 0 2rem .55rem 0; font: 400 clamp(1.65rem, 5.7vw, 2.2rem)/1.08 var(--font-card); color: #6f5834; text-wrap: balance; }
+.sheet-deadline { position: relative; margin: 0; max-width: 44ch; padding-right: 1.5rem; font-size: .78rem; line-height: 1.6; color: #71634f; }
+.sheet-scroll {
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior-y: contain;
+  scrollbar-width: thin;
+  scrollbar-color: #c7b18a transparent;
+  padding: 0 2rem 1.4rem;
+  scroll-padding-block: 1rem;
 }
-
-/*
- * The chosen one is filled, not merely tinted. These two buttons are the whole
- * question the sheet asks, and a 10% wash was easy to mistake for a hover
- * state - particularly on a phone, where there is no hover to compare it to.
- */
-.choice-btn[data-selected='true'] {
-  border-color: var(--gold);
-  background: var(--gold);
-  color: #fffdf8;
-  box-shadow: 0 8px 18px -10px rgba(177, 137, 6, 0.9);
+.sheet-scroll::-webkit-scrollbar { width: 5px; }
+.sheet-scroll::-webkit-scrollbar-thumb { background: #c7b18a; border-radius: 6px; }
+.sheet-disclosure { border-bottom: 1px solid var(--gold-hairline); }
+.sheet-disclosure summary { display: flex; align-items: center; justify-content: space-between; gap: 1rem; list-style: none; cursor: pointer; padding: 1.15rem 0; min-height: 48px; }
+.sheet-disclosure summary::-webkit-details-marker { display: none; }
+.sheet-disclosure summary > svg { flex: none; width: 20px; height: 20px; fill: none; stroke: #92703c; stroke-width: 1.4; transition: transform .2s ease; }
+.sheet-disclosure[open] > summary > svg { transform: rotate(180deg); }
+.sheet-disclosure-label { display: block; color: #84683d; font-size: .62rem; font-weight: 500; letter-spacing: .16em; text-transform: uppercase; }
+.sheet-event-preview { display: block; margin-top: .22rem; font: 400 1.12rem/1.3 var(--font-card); }
+.sheet-details { display: grid; gap: 1rem; margin: 0; padding: 0 0 1.25rem; }
+.sheet-details dt { margin-bottom: .3rem; font-size: .62rem; font-weight: 500; letter-spacing: .14em; text-transform: uppercase; color: #84683d; }
+.sheet-details dd { margin: 0; font: 400 1.25rem/1.35 var(--font-card); }
+.sheet-address { display: block; font: .8rem/1.6 var(--font-ui); color: #7b6d59; margin-top: .2rem; }
+.sheet-details .map-link { min-height: 44px; font: .8rem var(--font-ui); }
+.sheet-form { margin: 1.4rem 0 0; }
+.sheet-fields { display: grid; gap: 1.35rem; padding: 0; margin: 0; border: 0; min-width: 0; }
+.choice { display: grid; grid-template-columns: 1fr 1fr; gap: .65rem; padding: 0; margin: 0; border: 0; min-width: 0; }
+.choice legend { padding: 0; margin-bottom: .85rem; font: 400 1.4rem/1.2 var(--font-card); color: #6f5834; }
+.choice-btn { position: relative; display: flex; align-items: center; gap: .75rem; min-height: 78px; padding: 1rem; border: 1px solid #c4af83; border-radius: 3px; background: #fbf7ed; color: #735831; cursor: pointer; font: 400 1.15rem/1.15 var(--font-card); transition: background-color .2s, border-color .2s; }
+.choice-btn:hover { border-color: #8e703f; }
+.choice-btn[data-selected='true'] { color: #fffaf0; background: #806235; }
+.choice-input { position: absolute; width: 1px; height: 1px; opacity: 0; inset: 50% auto auto 12px; }
+.choice-indicator { width: 19px; height: 19px; flex: none; display: grid; place-items: center; border: 1px solid currentColor; border-radius: 50%; }
+.choice-indicator svg { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 1.6; opacity: 0; }
+.choice-input:checked + .choice-indicator svg { opacity: 1; }
+.sheet-fields:disabled .choice-btn { cursor: wait; opacity: .65; }
+.attending-fields { display: grid; gap: 1.2rem; padding: 1.1rem; border: 1px solid var(--gold-hairline); background: rgb(233 222 201 / .2); border-radius: 3px; }
+.field { display: grid; gap: .5rem; min-width: 0; }
+.field label { display: flex; align-items: baseline; justify-content: space-between; gap: .6rem; font-size: .82rem; font-weight: 500; line-height: 1.4; color: #5f543f; }
+.field-optional { font-size: .68rem; font-weight: 400; color: #76664f; white-space: nowrap; }
+.field input, .field textarea { width: 100%; min-width: 0; min-height: 48px; padding: .75rem .85rem; border: 1px solid #cebd9c; border-radius: 3px; background: #fbf7ed; color: #5c5348; font: 400 1rem/1.4 var(--font-ui); transition: border-color .2s, box-shadow .2s; }
+.field textarea { resize: vertical; min-height: 94px; max-height: 15rem; }
+.field :is(input, textarea)::placeholder { color: #786950; font-size: .87rem; }
+.sheet .field :is(input, textarea):focus-visible { outline: 2px solid #92703c; outline-offset: 2px; border-color: #92703c; }
+.sheet .field :is(input, textarea):user-invalid { border-color: #a45f49; }
+.sheet-muted { margin: 0; color: #7c6d57; font: 400 .74rem/1.55 var(--font-ui); }
+.party-field { grid-template-columns: 1fr auto; align-items: center; column-gap: .8rem; }
+.party-field .sheet-muted { grid-column: 1 / -1; }
+.party-stepper { display: grid; grid-template-columns: 44px 44px 44px; align-items: center; border: 1px solid #c7b38d; border-radius: 3px; background: #faf5ea; }
+.party-stepper button { width: 44px; min-height: 46px; border: 0; background: transparent; color: #82663b; font: 400 1.4rem var(--font-ui); cursor: pointer; }
+.party-stepper button:hover:not(:disabled) { background: #eee2cb; }
+.party-stepper button:disabled { color: #b3a58e; cursor: default; }
+.guest-ground .party-stepper input { padding: .5rem 0; text-align: center; appearance: textfield; border: 0; border-radius: 0; box-shadow: none; background: transparent; }
+.party-stepper input::-webkit-inner-spin-button, .party-stepper input::-webkit-outer-spin-button { appearance: none; margin: 0; }
+.sheet-contacts { margin-top: .85rem; border-bottom: 0; }
+.sheet-contacts summary { font: 400 1.1rem var(--font-card); color: #806741; }
+.sheet .contact-list { list-style: none; display: grid; gap: .5rem; margin: 0; padding: 0 0 .5rem; }
+.sheet .contact-list a { display: flex; justify-content: space-between; align-items: center; gap: .7rem; min-height: 48px; padding: .6rem .8rem; border: 1px solid var(--gold-hairline); background: rgb(255 253 247 / .6); color: #735831; text-decoration: none; font-size: .79rem; }
+.sheet .contact-list small { display: block; color: #897960; font-size: .68rem; }
+.sheet-actions { flex: none; display: grid; gap: .6rem; padding: 1rem 2rem 1.1rem; border-top: 1px solid var(--gold-hairline); background: linear-gradient(130deg, #fcf8ee, #f0e6d3); }
+.sheet-actions .btn-primary { width: 100%; display: flex; justify-content: center; align-items: center; gap: .6rem; min-height: 50px; }
+.sheet-action-hint { margin: 0; text-align: center; color: #74634c; font-size: .67rem; line-height: 1.5; }
+.sheet-actions .sheet-error { padding: .65rem .8rem; border-left: 2px solid #a45f49; background: #f6e9df; line-height: 1.5; }
+.sheet-spinner { display: inline-block; width: 15px; height: 15px; border: 1.5px solid rgb(96 71 32 / .2); border-top-color: currentColor; border-radius: 50%; animation: reply-wait 1s linear infinite; }
+@keyframes reply-wait { to { transform: rotate(360deg); } }
+.closing:focus { outline: none; }
+@media (max-width: 480px) {
+  .sheet { width: calc(100vw - 1rem); max-height: min(94svh, calc(100dvh - max(1rem, env(safe-area-inset-top)) - max(1rem, env(safe-area-inset-bottom)))); }
+  .sheet-header { padding: 1.25rem 1.25rem 1.1rem; }
+  .sheet-scroll { padding-inline: 1.25rem; }
+  .sheet-actions { padding: .85rem 1.25rem max(.85rem, env(safe-area-inset-bottom)); }
+  .choice-btn { flex-direction: column; justify-content: center; align-items: flex-start; gap: .55rem; min-height: 94px; padding: .85rem; }
+  .choice-btn > span:last-child { max-width: 12ch; }
+  .attending-fields { padding: .9rem; }
 }
-
-.field {
-  display: grid;
-  gap: 0.3rem;
-}
-
-.field label {
-  font-size: 0.68rem;
-  font-weight: 500;
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
-  opacity: 0.55;
-}
-
-.field input,
-.field textarea {
-  width: 100%;
-  min-height: 48px;
-  padding: 0.7rem 0.9rem;
-  border: 1px solid var(--gold-hairline);
-  border-radius: 12px;
-  background: rgba(255, 255, 255, 0.75);
-  color: var(--ink);
-  font-family: var(--font-ui);
-  font-size: 1rem;
-  transition:
-    border-color 0.2s ease,
-    box-shadow 0.2s ease;
-}
-
-.field input:focus-visible,
-.field textarea:focus-visible {
-  outline: none;
-  border-color: var(--gold);
-  box-shadow: 0 0 0 3px rgba(177, 137, 6, 0.18);
-}
-
-.sheet-actions {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 1rem;
+@media (max-height: 560px) {
+  .sheet-header { padding-block: .8rem; }
+  .sheet-kicker { display: none; }
+  .sheet-title { font-size: 1.4rem; margin-bottom: .3rem; max-width: 30ch; }
+  .sheet-deadline { font-size: .7rem; }
+  .sheet-actions { padding-block: .6rem; }
+  .sheet-action-hint { font-size: .62rem; }
 }
 
 .btn-primary {
@@ -667,16 +561,18 @@
  * well as the mark - this is the last thing anybody sees.
  */
 .closing-frame {
+  border: 1px solid var(--gold-line);
   position: absolute;
   inset: clamp(0.5rem, 4%, 2.5rem);
   pointer-events: none;
   opacity: 0.75;
 }
 
-.closing-frame img {
-  width: 100%;
-  height: 100%;
-  object-fit: fill;
+.closing-frame::after {
+  content: '';
+  position: absolute;
+  inset: 5px;
+  border: 1px solid var(--gold-hairline);
 }
 
 .closing-farewell {
@@ -771,8 +667,8 @@
  */
 .sprig {
   position: absolute;
-  width: clamp(6rem, 22vw, 12rem);
-  opacity: 0.55;
+  width: clamp(6rem, 24vw, 12rem);
+  opacity: 0.8;
   pointer-events: none;
 }
 
@@ -782,45 +678,27 @@
   height: auto;
 }
 
-/*
- * Bracketing the message, not the stage.
- *
- * .closing spans the whole card area, so percentages off its edges put these
- * in the far corners of the page where they read as more page decoration
- * rather than as a frame around the thank-you. Positioned from the centre
- * instead, which is where the monogram and the line actually are.
- */
+/* Realistic florals sit on the frame corners, clear of the thank-you text. */
 .sprig[data-side='left'] {
-  left: 50%;
-  top: 50%;
-  transform: translate(-19rem, -7rem) rotate(-8deg);
+  left: clamp(.5rem, 4%, 2.5rem);
+  bottom: clamp(.5rem, 4%, 2.5rem);
 }
-
 .sprig[data-side='right'] {
-  left: 50%;
-  top: 50%;
-  transform: translate(7rem, 1rem) rotate(172deg);
+  right: clamp(.5rem, 4%, 2.5rem);
+  top: clamp(.5rem, 4%, 2.5rem);
 }
 
-/* On a phone there is no room beside the message; they sit above and below. */
-@media (max-width: 48rem) {
-  .sprig[data-side='left'] {
-    transform: translate(-9rem, -10rem) rotate(-8deg);
-  }
-
-  .sprig[data-side='right'] {
-    transform: translate(-1rem, 5rem) rotate(172deg);
-  }
+.intro-closing-floral {
+  position: absolute;
+  width: 32%;
+  height: auto;
+  pointer-events: none;
+  opacity: .72;
 }
+.intro-closing-floral[data-corner='upper'] { top: -25%; right: -5%; }
+.intro-closing-floral[data-corner='lower'] { bottom: -26%; left: -5%; }
 
-/*
- * Only opacity is animated in.
- *
- * The resting transform now carries a translate that differs per side and per
- * breakpoint, and a keyframe that sets `transform` would replace all of it -
- * the sprigs would jump to the centre for the length of the animation and then
- * snap back into place.
- */
+/* Opacity reveals keep the realistic flowers anchored to their corners. */
 @keyframes sprig-bloom {
   from {
     opacity: 0;
@@ -1048,3 +926,11 @@
   background: linear-gradient(0deg, rgb(105 76 38 / .2), transparent 70%);
   opacity: 0;
 }
+
+/* Keep small popup labels readable on textured paper. */
+.guest-ground .sheet .field label, .guest-ground .sheet .sheet-muted { opacity: 1; }
+.guest-ground .sheet .sheet-muted { color: #76664e; }
+
+.guest-ground .sheet .sheet-details dt { opacity: 1; color: #76664e; }
+.sheet .contact-list small { color: #76664e; }
+.guest-ground .closing .btn-quiet { min-height: 44px; }

@@ -111,6 +111,8 @@ export default async function InvitationPage({ params, searchParams }: PageProps
           <Envelope name={guest.cardName} brideName={site.brideName} groomName={site.groomName} sealed />
         </div>
         <div className="intro-piece intro-closing" data-intro="closing">
+          <img className="intro-closing-floral" data-corner="upper" src="/card/rose-corner-upper.1e4c20dbac.webp" alt="" width={512} height={512} />
+          <img className="intro-closing-floral" data-corner="lower" src="/card/rose-corner-lower.6277f50c09.webp" alt="" width={512} height={512} />
           <Monogram brideName={site.brideName} groomName={site.groomName} />
           <p className="intro-farewell" data-intro-reveal="">{copy.intro.farewell}</p>
           <span className="intro-rule" data-intro-reveal="" />
@@ -135,7 +137,9 @@ export default async function InvitationPage({ params, searchParams }: PageProps
             max-width: 34rem;
             margin: 2rem auto 0;
           }
-          .sheet-form { display: none }
+          .sheet-form, .sheet-actions, .sheet-close { display: none }
+          .sheet-inner { max-height: none }
+          .sheet-scroll { overflow: visible }
         `}</style>
       </noscript>
 

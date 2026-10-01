@@ -1,5 +1,4 @@
 import { copyFor } from '@/lib/copy';
-import { cardAsset } from '@/lib/domain/card-assets';
 import './notice.css';
 
 /*
@@ -17,15 +16,15 @@ export default function NotFound() {
   return (
     <main className="notice-ground">
       <div className="notice-corner" data-corner="top-left" aria-hidden="true">
-        <img src={cardAsset('floral-corner.svg')} alt="" width={200} height={200} />
+        <img src="/card/rose-corner-upper.1e4c20dbac.webp" alt="" width={512} height={512} />
       </div>
       <div className="notice-corner" data-corner="bottom-right" aria-hidden="true">
-        <img src={cardAsset('floral-corner.svg')} alt="" width={200} height={200} />
+        <img src="/card/rose-corner-lower.6277f50c09.webp" alt="" width={512} height={512} />
       </div>
 
       <div className="notice">
         <div className="notice-garland" aria-hidden="true">
-          <img src={cardAsset('floral-garland.svg')} alt="" width={600} height={120} />
+          <img src="/card/rose-corner-upper.1e4c20dbac.webp" alt="" width={512} height={512} />
         </div>
 
         <h1 className="notice-title">{copy.notFound.heading}</h1>
