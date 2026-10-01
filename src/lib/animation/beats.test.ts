@@ -9,37 +9,24 @@ import {
 } from './beats.ts';
 
 describe('the intro sequence', () => {
-  /*
-   * Ten, not the storyboard's eleven.
-   *
-   * The eleventh was the closing monogram - "we look forward to celebrating
-   * with you" - which the boards place at the end of a film. In a sequence
-   * that hands somebody an invitation to read and answer, it landed three
-   * seconds after the card arrived, took the card away with it, and then gave
-   * the card back. A farewell belongs at the end of the exchange, so it moved
-   * to the panel that replaces the card once a guest has actually replied.
-   */
-  it('is ten beats and ends on the card, not on a farewell', () => {
-    assert.equal(BEATS.length, 10);
-    assert.ok(
-      !BEATS.some((b) => b.id === 'monogram-ending'),
-      'the closing monogram belongs after the reply, not inside the sequence',
-    );
+  it('has eleven storyboard beats including a closing dissolve', () => {
+    assert.equal(BEATS.length, 11);
+    assert.equal(BEATS.at(-1)?.id, 'monogram-ending');
   });
 
   it('has a unique id per beat, so a timeline label cannot collide', () => {
     assert.equal(new Set(BEATS.map((b) => b.id)).size, BEATS.length);
   });
 
-  it('starts at zero and runs about twenty seconds', () => {
+  it('starts at zero and runs twenty-three seconds', () => {
     assert.equal(BEATS[0]!.start, 0);
-    assert.equal(SEQUENCE_DURATION, 20);
+    assert.equal(SEQUENCE_DURATION, 23);
   });
 
-  it('leaves the card on screen once it is out of the envelope', () => {
+  it('holds the card until the closing monogram', () => {
     const card = BEATS.find((b) => b.id === 'card-slides-out');
     assert.ok(card, 'the card beat is the point of the sequence');
-    assert.equal(card.exitAt, undefined, 'the card must not be faded away again');
+    assert.equal(card.exitAt, 20);
   });
 
   it('never runs a beat backwards or for no time', () => {
@@ -81,9 +68,9 @@ describe('the intro sequence', () => {
   });
 
   it('fits every text line into the beat that reveals them', () => {
-    // 12 line groups at 0.38s apart is 4.18s of stagger; the beat is 5s.
+    // Nine wording/name lines at 0.38s apart is 3.04s of stagger; the beat is 5s.
     const lines = BEATS.find((b) => b.id === 'text-lines')!;
-    assert.ok((12 - 1) * lines.stagger! <= lines.duration, 'the last line never appears');
+    assert.ok((9 - 1) * lines.stagger! <= lines.duration, 'the last line never appears');
   });
 
   it('shows the skip control well before the first beat ends', () => {
@@ -92,7 +79,7 @@ describe('the intro sequence', () => {
   });
 
   it('caps the particle count', () => {
-    assert.equal(MAX_PARTICLES, 120);
+    assert.ok(MAX_PARTICLES <= 36);
   });
 });
 

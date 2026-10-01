@@ -1,0 +1,1 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 160"><filter id="paper-grain__noise"><feTurbulence baseFrequency=".76" numOctaves="3" stitchTiles="stitch" type="fractalNoise"/><feColorMatrix type="saturate" values="0"/></filter><path fill="#988166" d="M0 0h160v160H0z" filter="url(#paper-grain__noise)" opacity=".22"/></svg>

@@ -4,10 +4,11 @@ import type { Metadata } from 'next';
 import { copyFor } from '@/lib/copy';
 import { formatDate, formatEventDateTime } from '@/lib/format';
 import { hasAdminSession } from '@/lib/api/guard';
-import { cardAsset } from '@/lib/domain/card-assets';
+import { scriptOf } from '@/lib/domain/script';
+import { renderTemplate } from '@/lib/domain/template';
 import { loadInvitation } from '@/lib/services/invitation';
 import { recordOpen } from '@/lib/services/opens';
-import { InlineSvg } from '@/lib/svg';
+import { Monogram } from '../../_components/stationery';
 import { Card } from '../../_components/card';
 import { Envelope } from '../../_components/envelope';
 import { Intro } from '../../_components/intro';
@@ -100,20 +101,19 @@ export default async function InvitationPage({ params, searchParams }: PageProps
         `hidden` until script decides otherwise.
       */}
       <Intro token={guest.token} labels={{ skip: copy.intro.skip, replay: copy.intro.replay }}>
-        {/*
-          The mark alone. The frame, the farewell and its rule used to live
-          here too, revealed by a closing beat that no longer exists - they are
-          in the panel that replaces the card once a guest has replied, which
-          is where a goodbye belongs. Left here they would simply never be
-          shown.
-        */}
+        {/* The opening and closing marks share live, configured initials. */}
         <div className="intro-piece intro-monogram" data-intro="monogram">
-          <InlineSvg name="monogram" />
+          <Monogram brideName={site.brideName} groomName={site.groomName} />
         </div>
 
         {/* Sealed only here: beat 3 is the only thing that ever breaks it. */}
         <div className="intro-piece intro-envelope" data-intro="envelope">
-          <Envelope name={guest.cardName} sealed />
+          <Envelope name={guest.cardName} brideName={site.brideName} groomName={site.groomName} sealed />
+        </div>
+        <div className="intro-piece intro-closing" data-intro="closing">
+          <Monogram brideName={site.brideName} groomName={site.groomName} />
+          <p className="intro-farewell" data-intro-reveal="">{copy.intro.farewell}</p>
+          <span className="intro-rule" data-intro-reveal="" />
         </div>
       </Intro>
 
@@ -162,7 +162,7 @@ export default async function InvitationPage({ params, searchParams }: PageProps
           }
           existingMessage={invitation.message}
           copy={copy}
-          monogram={<InlineSvg name="monogram" />}
+          monogram={<Monogram brideName={site.brideName} groomName={site.groomName} />}
           details={{
             when: primaryEvent ? formatEventDateTime(primaryEvent.startsAt, site.timezone) : '',
             venueName: primaryEvent?.venueName ?? '',
@@ -186,9 +186,22 @@ export default async function InvitationPage({ params, searchParams }: PageProps
           */}
           <div className="invitation-hero">
             <div data-intro="card">
-              <Card>
+              <Card
+                brideName={site.brideName}
+                groomName={site.groomName}
+                date={primaryEvent ? new Intl.DateTimeFormat('en-GB', { timeZone: site.timezone, weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }).format(primaryEvent.startsAt) : ''}
+                time={primaryEvent ? new Intl.DateTimeFormat('en-GB', { timeZone: site.timezone, hour: 'numeric', minute: '2-digit', hour12: true }).format(primaryEvent.startsAt) : ''}
+                eventName={primaryEvent?.name ?? ''}
+                venueName={primaryEvent?.venueName ?? ''}
+                venueAddress={primaryEvent?.venueAddress ?? ''}
+                replyBy={renderTemplate(copy.rsvp.deadline, { date: formatDate(invitation.rsvpDeadline, site.timezone) })}
+              >
                 <RespondButton />
               </Card>
+            </div>
+            <div className="invitation-dedication">
+              <p>{copy.invitation.inviteesLabel}</p>
+              <p data-script={scriptOf(guest.cardName)}>{guest.cardName}</p>
             </div>
           </div>
         </RespondFlow>

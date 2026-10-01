@@ -78,7 +78,7 @@ export const CARD_LAYERS: readonly CardLayer[] = [
  * with real rules is exported, read the coordinates off it and change this
  * one object.
  */
-export const RSVP_REGION = { x: 78, y: 404, width: 270, height: 104 } as const;
+export const RSVP_REGION = { x: 55, y: 432, width: 316, height: 98 } as const;
 
 /**
  * The same region as CSS percentages.

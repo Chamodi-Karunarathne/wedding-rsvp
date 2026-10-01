@@ -15,7 +15,7 @@
  */
 
 export type BeatEffect =
-  | 'wipe' /* a mask sweeping across, revealing what is under it */
+  | 'wipe' /* a soft foil reveal; retained beat identity */
   | 'fade'
   | 'rise' /* fade up from slightly below */
   | 'crack' /* the seal halves rotating apart, and the flap lifting after */
@@ -77,9 +77,7 @@ export const BEATS: readonly Beat[] = [
     // mark hanging over the envelope for the rest of the sequence.
     exitAt: 2.6,
     exitDuration: 0.9,
-    // A single wipe, not a per-letter stagger: monogram.svg is one group of
-    // three anonymous paths with no mono-m / mono-amp / mono-c to stagger.
-    note: 'Single wipe. The mark has no per-letter groups to stagger.',
+    note: 'A gentle foil reveal of the configured initials.',
   },
   {
     id: 'envelope-appears',
@@ -105,17 +103,10 @@ export const BEATS: readonly Beat[] = [
     duration: 2,
     target: '[data-intro="card"]',
     effect: 'slide',
+    exitAt: 20,
+    exitDuration: .8,
     ease: 'power2.out',
-    /*
-     * No exit. Once the card is out of the envelope it stays out - it is the
-     * invitation, and the sequence exists to hand it over. It used to be faded
-     * away again at 19.9s to clear the stage for a closing monogram, so a
-     * guest watched their invitation arrive and then leave before the sequence
-     * had finished, and the card reappeared afterwards with no explanation.
-     */
-    // The slide also takes the envelope out: the card cannot appear to come
-    // out of something that is still sitting on top of it.
-    note: 'Card rises as the envelope falls away beneath it, and stays.',
+    note: 'The card rises and holds until the closing dissolve.',
   },
   {
     id: 'florals-bloom',
@@ -123,7 +114,7 @@ export const BEATS: readonly Beat[] = [
     duration: 1,
     target: '[data-layer="card-florals"] [id*="floral-"]',
     effect: 'bloom',
-    ease: 'back.out(1.4)',
+    ease: 'sine.out',
     stagger: 0.18,
     // Two clusters, so this is a two-step stagger rather than a bloom across
     // many. More clusters would need no code change, only a richer export.
@@ -133,23 +124,20 @@ export const BEATS: readonly Beat[] = [
     id: 'text-lines',
     start: 11,
     duration: 5,
-    target: '[data-layer="card-text"] [id*="line-"]',
+    target: '[data-intro-line]',
     effect: 'stagger',
     ease: 'power1.out',
     stagger: 0.38,
-    // Ordered by vertical position at build time, NOT document order:
-    // line-07-names is last in the file but seventh down the card, so source
-    // order would reveal the couple's names after the blessing.
-    note: 'Sorted top to bottom, because the export order is wrong.',
+    note: 'SVG family wording and live names sorted by rendered vertical position.',
   },
   {
     id: 'date-time-venue',
     start: 16,
     duration: 1,
-    target: '[data-layer="card-text"] [id*="line-08"], [data-layer="card-text"] [id*="line-09"], [data-layer="card-text"] [id*="line-10"], [data-layer="card-text"] [id*="line-11"]',
+    target: '[data-intro="details"]',
     effect: 'fade',
     ease: 'power1.out',
-    note: 'A settling emphasis on lines already revealed by the stagger.',
+    note: 'Event details get their own quiet reveal after the names.',
   },
   {
     id: 'rsvp-details',
@@ -175,21 +163,18 @@ export const BEATS: readonly Beat[] = [
     target: '[data-intro="canvas"]',
     effect: 'particles',
     ease: 'none',
-    note: 'One canvas, capped at 120 particles, destroyed when the beat ends.',
+    note: 'One canvas, capped at 36 particles, fades gently into the closing moment.',
   },
-  /*
-   * There is no closing monogram beat.
-   *
-   * "We look forward to celebrating with you" is a farewell, and a farewell
-   * belongs at the end of the exchange - not three seconds after a guest has
-   * been handed an invitation they have not yet read or answered. It sat in
-   * the middle of the sequence, taking the card away with it, and then the
-   * card came back.
-   *
-   * It now lives in the panel that replaces the card once somebody replies -
-   * see the closing frame in _components/respond.tsx - which is genuinely the
-   * last thing in the flow. The sequence ends on the card, where it should.
-   */
+  {
+    id: 'monogram-ending',
+    start: 20,
+    duration: 3,
+    target: '[data-intro="closing"]',
+    effect: 'wipe',
+    ease: 'sine.inOut',
+    revealChildren: '[data-intro-reveal]',
+    note: 'Closing monogram, then a dissolve onto the usable invitation.',
+  },
 ];
 
 export const SEQUENCE_DURATION = sequenceDuration(BEATS);
@@ -198,4 +183,4 @@ export const SEQUENCE_DURATION = sequenceDuration(BEATS);
 export const SKIP_VISIBLE_AT = 0.8;
 
 /** Hard cap for beat 10. DOM nodes would not survive this on a mid-range phone. */
-export const MAX_PARTICLES = 120;
+export const MAX_PARTICLES = 36;

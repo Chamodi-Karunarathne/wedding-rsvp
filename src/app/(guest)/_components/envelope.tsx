@@ -1,7 +1,7 @@
 import type { CSSProperties } from 'react';
 import { envelopeNameScale } from '@/lib/domain/names';
 import { scriptOf } from '@/lib/domain/script';
-import { InlineSvg } from '@/lib/svg';
+import { WaxSeal } from './stationery';
 
 /*
  * The envelope, built from layers rather than from envelope.svg.
@@ -35,9 +35,11 @@ type Props = {
    * closed and empty rather than showing a seal nothing will ever break.
    */
   sealed?: boolean;
+  brideName: string;
+  groomName: string;
 };
 
-export function Envelope({ name, sealed = false }: Props) {
+export function Envelope({ name, sealed = false, brideName, groomName }: Props) {
   const script = scriptOf(name);
   const scale = envelopeNameScale(name);
 
@@ -53,12 +55,12 @@ export function Envelope({ name, sealed = false }: Props) {
         one reaches the middle.
       */}
       {sealed && (
-        <div className="env-sleeve" data-intro="sleeve" aria-hidden="true">
+        <div className="env-pocket" aria-hidden="true"><div className="env-sleeve" data-intro="sleeve">
           <div className="env-sleeve-rule" />
-        </div>
+        </div></div>
       )}
 
-      <div className="env-body" />
+      <div className="env-body"><div className="env-fold env-fold-left" /><div className="env-fold env-fold-right" /><div className="env-fold env-fold-bottom" /></div>
       <div className="env-flap" data-intro="flap" />
 
       {/*
@@ -77,7 +79,7 @@ export function Envelope({ name, sealed = false }: Props) {
 
       {sealed && (
         <div className="env-seal" data-intro="seal">
-          <InlineSvg name="seal" />
+          <WaxSeal brideName={brideName} groomName={groomName} />
         </div>
       )}
     </div>

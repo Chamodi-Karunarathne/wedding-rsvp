@@ -1,6 +1,6 @@
-import type { ReactNode } from 'react';
-import { Noto_Serif_Sinhala } from 'next/font/google';
+import type { CSSProperties, ReactNode } from 'react';
 import { cardAsset } from '@/lib/domain/card-assets';
+import { Noto_Serif_Sinhala } from 'next/font/google';
 import './guest.css';
 
 /*
@@ -33,35 +33,8 @@ const notoSerifSinhala = Noto_Serif_Sinhala({
 
 export default function GuestLayout({ children }: { children: ReactNode }) {
   return (
-    <div
-      className={`${notoSerifSinhala.variable} guest-ground`}
-    >
-      {/*
-        Scenery. Referenced with <img> rather than inlined, unlike the card
-        artwork: nothing animates inside these, so they can be a cached request
-        instead of bytes in every HTML response. Decorative, so alt="".
-      */}
-      <div className="page-floral" data-corner="top-left" aria-hidden="true">
-        <img src={cardAsset('floral-corner.svg')} alt="" width={200} height={200} />
-      </div>
-      {/* Long arching branches down the two edges, behind everything. */}
-      <div className="page-bough" data-edge="left" aria-hidden="true">
-        <img src={cardAsset('floral-bough.svg')} alt="" width={320} height={900} />
-      </div>
-      <div className="page-bough" data-edge="right" aria-hidden="true">
-        <img src={cardAsset('floral-bough.svg')} alt="" width={320} height={900} />
-      </div>
-
-      <div className="page-floral" data-corner="bottom-right" aria-hidden="true">
-        <img src={cardAsset('floral-corner.svg')} alt="" width={200} height={200} />
-      </div>
-
-      {/*
-        Wider than a reading column, because the card is the hero and gets the
-        room. Text inside caps its own measure - .legible is 34rem - so
-        nothing ends up set across the full width.
-      */}
-      <div className="guest-content mx-auto max-w-5xl px-5 py-8 sm:px-6">{children}</div>
+    <div className={`${notoSerifSinhala.variable} guest-ground`} style={{ '--paper-texture': `url("${cardAsset('paper-grain.svg')}")` } as CSSProperties}>
+      <div className="guest-content mx-auto max-w-5xl">{children}</div>
     </div>
   );
 }

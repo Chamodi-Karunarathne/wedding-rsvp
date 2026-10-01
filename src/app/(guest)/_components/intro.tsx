@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
-import { SKIP_VISIBLE_AT } from '@/lib/animation/beats';
+import { SEQUENCE_DURATION, SKIP_VISIBLE_AT } from '@/lib/animation/beats';
 import { seenStorageKey, shouldPlayIntro } from '@/lib/animation/playback';
 
 /*
@@ -36,11 +36,14 @@ function stageCard(on: boolean): void {
   const card = document.querySelector<HTMLElement>('[data-intro="card"]');
   card?.classList.toggle('is-staged', on);
   document.documentElement.classList.toggle('intro-locked', on);
+  const main = document.querySelector('main');
+  if (main) main.inert = on;
 }
 
 export function Intro({ token, children, labels }: Props) {
   const overlayRef = useRef<HTMLDivElement>(null);
   const cleanupRef = useRef<(() => void) | null>(null);
+  const runRef = useRef(0);
 
   const [phase, setPhase] = useState<Phase>('deciding');
   const [skipVisible, setSkipVisible] = useState(false);
@@ -48,6 +51,7 @@ export function Intro({ token, children, labels }: Props) {
 
   /** Reveals the invitation and tears the sequence down. Idempotent. */
   const finish = useCallback(() => {
+    runRef.current += 1;
     cleanupRef.current?.();
     cleanupRef.current = null;
 
@@ -93,6 +97,7 @@ export function Intro({ token, children, labels }: Props) {
 
   const play = useCallback(
     async (replayRequested: boolean) => {
+      const run = ++runRef.current;
       const overlay = overlayRef.current;
       if (!overlay) return;
 
@@ -162,7 +167,8 @@ export function Intro({ token, children, labels }: Props) {
         // sequence actually plays. A guest on reduced-motion, a low-end
         // phone, or a second visit never downloads it.
         const { buildIntroTimeline } = await import('@/lib/animation/timeline');
-        const { timeline, cleanup } = buildIntroTimeline(document, finish);
+        if (run !== runRef.current || !overlay.isConnected) return;
+        const { timeline, cleanup } = buildIntroTimeline(document, finish, () => stageCard(false));
         cleanupRef.current = cleanup;
 
         /*
@@ -199,7 +205,7 @@ export function Intro({ token, children, labels }: Props) {
         }
       } catch {
         // A broken sequence must never cost anybody their invitation.
-        finish();
+        if (run === runRef.current) finish();
       }
     },
     [finish, token],
@@ -208,6 +214,7 @@ export function Intro({ token, children, labels }: Props) {
   useEffect(() => {
     void play(false);
     return () => {
+      runRef.current += 1;
       cleanupRef.current?.();
       // Navigating away mid-sequence must not leave the page unscrollable.
       stageCard(false);
@@ -220,6 +227,17 @@ export function Intro({ token, children, labels }: Props) {
     const timer = window.setTimeout(() => setSkipVisible(true), SKIP_VISIBLE_AT * 1000);
     return () => window.clearTimeout(timer);
   }, [phase]);
+
+  // A hung chunk or a changed motion preference must release the invitation.
+  useEffect(() => {
+    if (phase !== 'playing') return;
+    const motion = window.matchMedia('(prefers-reduced-motion: reduce)');
+    const changed = () => { if (motion.matches) finish(); };
+    motion.addEventListener('change', changed);
+    const debugHold = process.env.NODE_ENV !== 'production' && new URLSearchParams(window.location.search).has('beat');
+    const timeout = debugHold ? undefined : window.setTimeout(finish, (SEQUENCE_DURATION + 5) * 1000);
+    return () => { motion.removeEventListener('change', changed); window.clearTimeout(timeout); };
+  }, [phase, finish]);
 
   // Escape does what the button does, for anyone on a keyboard.
   useEffect(() => {
@@ -262,7 +280,7 @@ export function Intro({ token, children, labels }: Props) {
       )}
 
       {phase === 'finished' && canReplay && (
-        <p className="mt-6 text-center">
+        <p className="replay-wrap">
           <button type="button" className="replay" onClick={() => void play(true)}>
             {labels.replay}
           </button>
