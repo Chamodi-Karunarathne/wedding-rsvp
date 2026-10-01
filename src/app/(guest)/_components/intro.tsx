@@ -263,7 +263,7 @@ export function Intro({ token, children, labels }: Props) {
         aria-hidden="true"
         data-phase={phase}
       >
-        <div className="intro-veil" />
+        <div className="intro-veil"><div className="intro-bokeh" /></div>
         <div className="intro-stage">{children}</div>
         <canvas className="intro-canvas" data-intro="canvas" />
       </div>

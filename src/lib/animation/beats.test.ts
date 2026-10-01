@@ -68,9 +68,9 @@ describe('the intro sequence', () => {
   });
 
   it('fits every text line into the beat that reveals them', () => {
-    // Nine wording/name lines at 0.38s apart is 3.04s of stagger; the beat is 5s.
+    // Six supporting lines and one couple-name phrase fit within the five-second beat.
     const lines = BEATS.find((b) => b.id === 'text-lines')!;
-    assert.ok((9 - 1) * lines.stagger! <= lines.duration, 'the last line never appears');
+    assert.ok((7 - 1) * lines.stagger! <= lines.duration, 'the last line never appears');
   });
 
   it('shows the skip control well before the first beat ends', () => {

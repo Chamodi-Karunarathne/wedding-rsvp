@@ -57,6 +57,7 @@ export function Envelope({ name, sealed = false, brideName, groomName }: Props) 
       {sealed && (
         <div className="env-pocket" aria-hidden="true"><div className="env-sleeve" data-intro="sleeve">
           <div className="env-sleeve-rule" />
+          <div className="env-sleeve-shade" />
         </div></div>
       )}
 

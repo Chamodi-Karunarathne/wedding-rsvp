@@ -70,11 +70,11 @@
 .card-hosts { position: absolute; top: 14%; left: 15%; width: 70%; height: auto; overflow: visible; }
 .card-hosts path { fill: #645b50; }
 .card-names {
-  position: absolute; inset: 37.5% 10% auto; display: grid; justify-items: center;
+  position: absolute; inset: 44% 6% auto; display: flex; align-items: baseline; justify-content: center; gap: .22em; white-space: nowrap;
   font-family: var(--font-card); color: var(--gold); font-size: var(--couple-size); font-weight: 400; line-height: .96;
 }
-.card-names > span { display: block; max-width: 100%; overflow-wrap: anywhere; }
-.card-names .card-ampersand { font-size: 6.3cqw; font-style: italic; line-height: .95; color: #b49a66; margin: .1em 0; }
+.card-names > span { display: block; flex: 0 0 auto; }
+.card-names .card-ampersand { font-size: .8em; font-style: italic; line-height: 1; color: #b49a66; margin: 0; }
 .card-event { position: absolute; top: 62%; left: 12%; width: 76%; font: 2.35cqw/1.65 var(--font-ui); letter-spacing: .09em; }
 .card-event p { margin: 0; text-wrap: balance; overflow-wrap: anywhere; }
 .card-date { text-transform: uppercase; font-weight: 500; margin-bottom: .3em !important; }
@@ -132,7 +132,7 @@
 .intro { position: fixed; inset: 0; z-index: 50; display: grid; place-items: center; overflow: clip; isolation: isolate; }
 .intro[hidden] { display: none; }
 .intro-veil { position: absolute; }
-.intro-veil::after {
+.intro-bokeh {
   content: ''; position: absolute; inset: 0; opacity: .48;
   background:
     radial-gradient(circle at 10% 26%, #fff9dd 0 4px, transparent 12px),
@@ -879,7 +879,7 @@
     radial-gradient(ellipse at 50% 43%, transparent 42%, rgb(82 64 43 / .14) 100%);
 }
 .intro-veil::before { position: absolute; }
-.intro-veil::after { opacity: .28; }
+.intro-bokeh { opacity: .28; }
 
 /* The existing photographed flowers provide the soft foreground; paper stays unfiltered. */
 .card-stage::before {
@@ -1038,4 +1038,13 @@
   background: linear-gradient(125deg, rgb(254 249 236 / .92), rgb(233 220 195 / .88));
   border-color: rgb(163 137 91 / .45);
   box-shadow: inset 0 1px 0 rgb(255 253 239 / .75), 0 2px 4px rgb(83 62 32 / .08);
+}
+
+/* The sleeve loses its pocket shadow as the paper clears the envelope. */
+.env-sleeve-shade {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(0deg, rgb(105 76 38 / .2), transparent 70%);
+  opacity: 0;
 }

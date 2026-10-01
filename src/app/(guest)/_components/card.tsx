@@ -20,22 +20,38 @@ export function Card({ children, brideName, groomName, date, time, eventName, ve
   // details below are live text rather than the old outlined SVG lettering.
   const hostLines = readCardSvg('card-text').inner.match(/<path\b[^>]*id="[^"]*line-0[1-6][^"]*"[^>]*\/>/g) ?? [];
 
+  // One live phrase; conservative sizing also keeps long configured names on one line.
+  const nameWidth = Array.from(brideName + groomName).reduce((width, char) => {
+    const units = /\p{Mark}/u.test(char) ? 0 : /[MW]/u.test(char) ? 1.9 : /[mw]/u.test(char) ? 1.6 : /\p{Lu}/u.test(char) ? 1.35 : /[^\p{Script=Latin}\s'’-]/u.test(char) ? 1.6 : 1;
+    return width + units;
+  }, 0);
+  const nameSize = Math.min(8.8, 170 / Math.max(nameWidth + 3, 1));
+
   return (
     <div className="card-stage">
       <figure className="card" aria-hidden="true" style={{ aspectRatio: String(CARD_ASPECT_RATIO) }}>
         <svg className="card-art" xmlns="http://www.w3.org/2000/svg" viewBox={`0 0 ${CARD_VIEWBOX.width} ${CARD_VIEWBOX.height}`} focusable="false">
           {CARD_LAYERS.filter((layer) => layer.name !== 'card-text').map((layer) => (
-            <g key={layer.name} data-layer={layer.name} transform={layerTransform(layer)} dangerouslySetInnerHTML={{ __html: readCardSvg(layer.name).inner }} />
+            layer.name === 'card-florals' ? (
+              <g key={layer.name} data-layer={layer.name} transform={layerTransform(layer)}>
+                <g id="floral-top-right">
+                  <image href="/card/rose-corner-upper.1e4c20dbac.webp" x="233" y="-8" width="190" height="190" />
+                </g>
+                <g id="floral-bottom-left">
+                  <image href="/card/rose-corner-lower.6277f50c09.webp" x="-12" y="355" width="190" height="190" />
+                </g>
+              </g>
+            ) : <g key={layer.name} data-layer={layer.name} transform={layerTransform(layer)} dangerouslySetInnerHTML={{ __html: readCardSvg(layer.name).inner }} />
           ))}
         </svg>
         <div className="card-wording" data-layer="card-text">
           <svg className="card-hosts" viewBox="0 -2 302.51 124" focusable="false">
             {hostLines.map((line, index) => <g key={index} data-intro-line="" dangerouslySetInnerHTML={{ __html: line }} />)}
           </svg>
-          <div className="card-names" style={{ '--couple-size': `${Math.min(10.4, 100 / Math.max(Array.from(brideName).length, Array.from(groomName).length, 1))}cqw` } as CSSProperties}>
-            <span data-intro-line="" data-script={scriptOf(brideName)}>{brideName}</span>
-            <span className="card-ampersand" data-intro-line="">&amp;</span>
-            <span data-intro-line="" data-script={scriptOf(groomName)}>{groomName}</span>
+          <div className="card-names" data-intro-line="" style={{ '--couple-size': `${nameSize}cqw` } as CSSProperties}>
+            <span data-script={scriptOf(brideName)}>{brideName}</span>
+            <span className="card-ampersand">&amp;</span>
+            <span data-script={scriptOf(groomName)}>{groomName}</span>
           </div>
           <div className="card-event" data-intro="details">
             <p className="card-date">{date}</p>

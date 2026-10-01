@@ -1,10 +1,9 @@
 /**
  * The intro sequence, as data.
  *
- * Eleven beats over roughly 23 seconds. Every timing is a number in this
- * file and nowhere else - not spread through CSS, not inline in the timeline
- * builder - because these WILL be changed repeatedly, by someone who wants to
- * change a number and see what happens, not to read a timeline.
+ * Eleven beats over roughly 23 seconds. Primary beat timing lives here; the
+ * timeline builder handles anticipation, settling and the brief overlaps
+ * within each beat. There are no independent CSS animation clocks.
  *
  * `start` and `duration` are seconds on the master timeline. Targets are CSS
  * selectors resolved against the document when the timeline is built; a beat
@@ -104,18 +103,18 @@ export const BEATS: readonly Beat[] = [
     target: '[data-intro="card"]',
     effect: 'slide',
     exitAt: 20,
-    exitDuration: .8,
-    ease: 'power2.out',
+    exitDuration: .9,
+    ease: 'sine.inOut',
     note: 'The card rises and holds until the closing dissolve.',
   },
   {
     id: 'florals-bloom',
     start: 10,
-    duration: 1,
+    duration: 1.55,
     target: '[data-layer="card-florals"] [id*="floral-"]',
     effect: 'bloom',
     ease: 'sine.out',
-    stagger: 0.18,
+    stagger: 0.32,
     // Two clusters, so this is a two-step stagger rather than a bloom across
     // many. More clusters would need no code change, only a richer export.
     note: 'Two clusters: floral-top-right and floral-bottom-left.',
@@ -127,8 +126,8 @@ export const BEATS: readonly Beat[] = [
     target: '[data-intro-line]',
     effect: 'stagger',
     ease: 'power1.out',
-    stagger: 0.38,
-    note: 'SVG family wording and live names sorted by rendered vertical position.',
+    stagger: 0.5,
+    note: 'Family wording reveals top to bottom, then the couple names as one phrase.',
   },
   {
     id: 'date-time-venue',
@@ -163,7 +162,7 @@ export const BEATS: readonly Beat[] = [
     target: '[data-intro="canvas"]',
     effect: 'particles',
     ease: 'none',
-    note: 'One canvas, capped at 36 particles, fades gently into the closing moment.',
+    note: 'Four petals and sparse dust on the same canvas; a gentle tail into the closing moment.',
   },
   {
     id: 'monogram-ending',
@@ -183,4 +182,4 @@ export const SEQUENCE_DURATION = sequenceDuration(BEATS);
 export const SKIP_VISIBLE_AT = 0.8;
 
 /** Hard cap for beat 10. DOM nodes would not survive this on a mid-range phone. */
-export const MAX_PARTICLES = 36;
+export const MAX_PARTICLES = 28;
