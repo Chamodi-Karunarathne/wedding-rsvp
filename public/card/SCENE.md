@@ -15,14 +15,22 @@ Generation prompt:
 
 > Use case: photorealistic-natural. Asset type: quiet photographic environment background for a luxury wedding invitation animation, portrait 2:3 composition. Create an overhead editorial photograph of warm ivory silk satin with broad, soft, natural folds, diffuse champagne afternoon light coming from the upper left, delicately textured fabric, gentle shadow gradients. Very sparse pale ivory and barely blush garden roses and a few dried ivory baby's breath stems at extreme top left and extreme lower right edges ONLY, partially cropped. Those flowers are softly out of focus with optical depth of field, foreground lower right rose more blurred. Centre 75 percent of image must remain empty, calm, pale warm ivory silk with almost no folds, reserved for a separately rendered invitation. Muted elegant creamy palette, no strong pink, no dark brown. Real luxury wedding stationery editorial photography, tender atmosphere, subtle warm bokeh at edges. NO invitation, NO paper, NO envelope, NO wax seal, NO letters, NO monogram, NO text, NO watermark. Background asset only, not a complete invitation and not a collage.
 
-The commissioned family wording is retained from `card-text.svg`. Couple names,
-initials, event date/time/venue, reply date, and guest dedication come from the
-invitation view model. `scripts/preview-card.ts` remains a preview of the
+The printed card is reconstructed from the commissioned SVGs, including the
+original single-line couple names, blessing, ampersand, two line ornaments,
+heart and contact block. Only the printed RSVP word is replaced by Reply (or
+Edit reply). Its invisible hit area remains 44px high. The rectangular gold
+frame was removed because it does not appear on the physical card.
+
+The printed wording is documented in manifest.json's printedContent field.
+Matching configured details use the exact outlines; changed names, event details,
+reply date or contacts fall back to live text in the same positions. Guest names
+remain personalized. The opening, closing, thank-you and wax impression all use
+monogram.svg directly, without recreating initials. `scripts/preview-card.ts` remains a preview of the
 original exported SVG layers; inspect the guest route to review the live card.
 
 ## Realistic corner florals
 
-`public/card/rose-corner-upper.1e4c20dbac.webp` (68 KB) and `public/card/rose-corner-lower.6277f50c09.webp` (55 KB) are transparent botanical cutouts generated with the built-in imagegen tool. Their optimized 512 px WebP versions preserve alpha and use content-hashed filenames. They decorate the surrounding guest experience: the intro closing message, RSVP sheet, thank-you screen, and guest notices. The invitation card uses the original card-florals.svg at its original layer offsets to match the physical card exactly; those vector clusters retain their staggered reveal. The photographic satin background remains unchanged. The small gold sprig is part of the monogram mark.
+`public/card/rose-corner-upper.1e4c20dbac.webp` (68 KB) and `public/card/rose-corner-lower.6277f50c09.webp` (55 KB) are transparent botanical cutouts generated with the built-in imagegen tool. Their optimized 512 px WebP versions preserve alpha and use content-hashed filenames. They decorate the surrounding guest experience: the intro closing message, RSVP sheet, thank-you screen, and guest notices. The invitation card uses the original card-florals.svg with its full-size print clusters and the offsets in src/lib/card/layers.ts; those vector clusters retain their staggered reveal. The photographic satin background remains unchanged. The supplied monogram is used without additional sprigs.
 
 Upper corner generation prompt:
 

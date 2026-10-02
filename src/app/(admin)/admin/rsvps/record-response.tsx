@@ -54,7 +54,7 @@ function initialFields(guest: Candidate, invited: EventView[]): Record<string, F
         event.slug,
         {
           attending: existing?.attending ?? true,
-          partyCount: existing?.attending ? existing.partyCount : 1,
+          partyCount: existing?.attending ? Math.min(existing.partyCount, guest.maxPartySize) : guest.maxPartySize,
           attendeeNames: existing?.attendeeNames ?? '',
         },
       ];

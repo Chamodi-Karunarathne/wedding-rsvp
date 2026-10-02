@@ -142,7 +142,7 @@ export const BEATS: readonly Beat[] = [
     id: 'rsvp-details',
     start: 17,
     duration: 1,
-    target: '.rsvp-slot',
+    target: '.rsvp-slot, [data-intro="reply-print"]',
     effect: 'rise',
     ease: 'power2.out',
   },

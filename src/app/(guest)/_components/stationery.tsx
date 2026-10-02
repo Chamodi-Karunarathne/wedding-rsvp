@@ -1,27 +1,17 @@
 import { useId } from 'react';
-import { scriptOf } from '@/lib/domain/script';
+import { readCardSvg } from '@/lib/svg';
 
-type Names = { brideName: string; groomName: string };
-
-function initial(name: string) {
-  return Array.from(new Intl.Segmenter(undefined, { granularity: 'grapheme' }).segment(name.trim()))[0]?.segment ?? '';
-}
-
-/** Live initials keep the stationery in step with the configured couple. */
-export function Monogram({ brideName, groomName }: Names) {
-  return (
-    <div className="stationery-monogram" aria-hidden="true" data-script={scriptOf(brideName + groomName)}>
-      <span>{initial(brideName)}</span><span>{initial(groomName)}</span>
-      <svg className="monogram-sprig" viewBox="0 0 80 36" fill="none" focusable="false">
-        <path d="M12 30Q37 29 67 5M30 26Q18 16 20 13Q33 14 35 23M43 19Q32 7 35 5Q47 9 48 15M45 19Q58 21 65 16Q56 12 51 15M25 28Q32 35 42 30Q36 24 31 26" stroke="currentColor" strokeWidth=".8" />
-      </svg>
-    </div>
-  );
+/** The commissioned mark is shared by the opening, seal and thank-you. */
+export function Monogram() {
+  const id = useId();
+  const art = readCardSvg('monogram');
+  return <div className="stationery-monogram" aria-hidden="true"><svg data-svg="monogram" viewBox={art.viewBox} focusable="false" dangerouslySetInnerHTML={{ __html: art.inner.replaceAll('id="monogram__', 'id="' + id + '-monogram__') }} /></div>;
 }
 
 /** Two independently transformable wax halves, with static bevel lighting. */
-export function WaxSeal({ brideName, groomName }: Names) {
+export function WaxSeal() {
   const id = useId().replace(/:/g, '');
+  const monogram = readCardSvg('monogram');
   return (
     <svg viewBox="0 0 120 120" aria-hidden="true" focusable="false" className="wax-art">
       <defs>
@@ -54,8 +44,7 @@ export function WaxSeal({ brideName, groomName }: Names) {
           <circle cx="60" cy="59.8" r="37.5" fill={`url(#${id}-shine)`} stroke="#d9bd80" strokeWidth=".45" />
           <path d="M24 49C29 28 43 21 63 22M37 96Q58 106 82 93" fill="none" stroke="#fff0bd" strokeWidth=".8" opacity=".7" />
           <path d="M89 32Q107 57 90 85" fill="none" stroke="#86602d" strokeWidth="1" opacity=".35" />
-          <text x="60.25" y="72.75" textAnchor="middle" className="wax-initials wax-impression-light" data-script={scriptOf(brideName + groomName)}>{initial(brideName)}{initial(groomName)}</text>
-          <text x="60" y="72" textAnchor="middle" className="wax-initials" data-script={scriptOf(brideName + groomName)}>{initial(brideName)}{initial(groomName)}</text>
+          <svg className="wax-monogram" x="29" y="39" width="62" height="41.36" viewBox={monogram.viewBox} dangerouslySetInnerHTML={{ __html: monogram.inner.replaceAll('id="monogram__', `id="${id}-monogram__`) }} />
           <path d="M25 39A40 40 0 0 1 65 19" fill="none" stroke="#fff0c6" strokeWidth="1.5" strokeLinecap="round" opacity=".85" />
         </g>
       </defs>

@@ -188,15 +188,19 @@ export function GuestEditor({ events, guest, invitedSlugs = [], onDone }: Props)
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="maxPartySize">Max party size</Label>
+          <Label htmlFor="maxPartySize">Assigned headcount</Label>
           <Input
             id="maxPartySize"
+            aria-describedby="headcount-help"
+            required
+            step={1}
             type="number"
             min={1}
             max={50}
             value={form.maxPartySize}
             onChange={(e) => set('maxPartySize', Number(e.target.value))}
           />
+          <p id="headcount-help" className="text-xs text-muted-foreground">Places reserved for this invitation. The reply starts at this number; guests can reduce it but cannot exceed it.</p>
         </div>
 
         <div className="space-y-2">

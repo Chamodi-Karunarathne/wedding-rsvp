@@ -11,8 +11,9 @@
     "are served with immutable cache headers, so a re-export under the same",
     "filename would otherwise never reach anyone who had already loaded it."
   ],
-  "version": "46ef6537f140",
+  "version": "b39576f435a4",
   "assets": [
+    "&.svg",
     "card-base.svg",
     "card-florals.svg",
     "card-text.svg",
@@ -22,8 +23,33 @@
     "floral-garland.svg",
     "floral-sprig.svg",
     "frame-ornament.svg",
+    "heart.svg",
+    "line.svg",
     "monogram.svg",
     "paper-grain.svg",
+    "rsvp by & contact.svg",
     "seal.svg"
-  ]
+  ],
+  "printedContent": {
+    "brideName": "Madushani",
+    "groomName": "Charith",
+    "date": "Thursday, 3 December 2026",
+    "time": "9:15 am",
+    "eventName": "Poruwa Ceremony",
+    "venueName": "Lumina Ballroom",
+    "venueAddress": "Cinnamon Life, Colombo",
+    "replyBy": "3 November",
+    "contacts": [
+      {
+        "name": "Masha",
+        "phone": "075 9500073",
+        "side": "Bride"
+      },
+      {
+        "name": "Shirani",
+        "phone": "077 3913737",
+        "side": "Groom"
+      }
+    ]
+  }
 }

@@ -63,37 +63,23 @@
   content: ''; position: absolute; inset: 0; pointer-events: none;
   background-image: var(--paper-texture); opacity: .22; mix-blend-mode: multiply;
 }
-.card::after { content: ''; position: absolute; inset: 3%; border: 1px solid var(--gold-line); pointer-events: none; }
 .card-art { display: block; width: 100%; height: 100%; }
 .card-art [data-layer='card-base'] { opacity: 0; }
-.card-wording { position: absolute; inset: 0; text-align: center; }
-.card-hosts { position: absolute; top: 14%; left: 15%; width: 70%; height: auto; overflow: visible; }
-.card-hosts path { fill: #645b50; }
-.card-names {
-  position: absolute; inset: 44% 6% auto; display: flex; align-items: baseline; justify-content: center; gap: .22em; white-space: nowrap;
-  font-family: var(--font-card); color: var(--gold); font-size: var(--couple-size); font-weight: 400; line-height: .96;
-}
-.card-names > span { display: block; flex: 0 0 auto; }
-.card-names .card-ampersand { font-size: .8em; font-style: italic; line-height: 1; color: #b49a66; margin: 0; }
-.card-event { position: absolute; top: 62%; left: 12%; width: 76%; font: 2.35cqw/1.65 var(--font-ui); letter-spacing: .09em; }
-.card-event p { margin: 0; text-wrap: balance; overflow-wrap: anywhere; }
-.card-date { text-transform: uppercase; font-weight: 500; margin-bottom: .3em !important; }
-.card-venue { font-size: 3.4cqw; font-family: var(--font-card); letter-spacing: .04em; }
-.card-address { font-size: 2.15cqw; }
-.card-small-rule { display: block; height: 1px; width: 9%; background: var(--gold-hairline); margin: 1.2cqw auto; }
+.card-live-detail { font-family: var(--font-ui); fill: #6d6e71; letter-spacing: .4px; }
+.card-names-live { display: flex; justify-content: center; align-items: center; gap: .25em; height: 100%; white-space: nowrap; text-transform: uppercase; font: 400 var(--couple-size)/1 var(--font-card); color: #b18906; }
+.card-names-live > span { flex: none; }
+.card-names-live .card-ampersand { flex: none; width: 50.49px; height: 41.39px; }
 .rsvp-slot {
-  position: absolute; left: var(--slot-left); top: var(--slot-top); width: var(--slot-width);
-  min-height: var(--slot-height); display: grid; align-content: start; justify-items: center; gap: 2cqw;
-  text-align: center; color: var(--ink);
+  position: absolute; left: var(--slot-left); top: var(--slot-top); width: var(--slot-width); height: var(--slot-height);
+  display: grid; place-items: center; text-align: center;
 }
-.card-reply-date { margin: 0; font: italic 2.65cqw/1.35 var(--font-card); text-wrap: balance; }
 .card-sweep {
   position: absolute; inset: -10%; opacity: 0; pointer-events: none;
   background: linear-gradient(115deg, transparent 38%, rgb(255 248 217 / .08) 44%, rgb(255 246 211 / .7) 49.6%, #fff8df 50%, rgb(238 210 147 / .25) 50.4%, transparent 61%);
   mix-blend-mode: soft-light;
 }
 [data-script='sinhala'], [data-script='other'] { font-family: var(--font-card-unicode); line-height: 1.35; }
-.card-names [data-script='sinhala'], .card-names [data-script='other'] { font-size: .72em; }
+.card-names-live [data-script='sinhala'], .card-names-live [data-script='other'] { font-size: .72em; }
 
 /* The pocket, side folds, flap and seal retain their physical stacking order. */
 .env { position: relative; container-type: inline-size; width: 100%; margin-inline: auto; aspect-ratio: 1.42; perspective: 1000px; }
@@ -118,15 +104,13 @@
   background: linear-gradient(125deg, #fffaf0, #f0e6d5);
   box-shadow: 0 3px 8px rgb(61 46 24 / .16); border: 1px solid #fdf9f0;
 }
-.env-sleeve-rule { position: absolute; inset: 6%; border: 1px solid var(--gold-hairline); }
 .env-name {
   position: absolute; top: 79%; left: 10%; width: 80%; z-index: 5; margin: 0; text-align: center;
   font-size: calc(6cqw * var(--name-scale, 1)); line-height: 1.1; font-family: var(--font-card); color: #78654c; text-wrap: balance; overflow-wrap: anywhere;
 }
 .env-name[data-script='sinhala'], .env-name[data-script='other'] { font-family: var(--font-card-unicode); line-height: 1.35; }
 .env-seal { position: absolute; left: 39%; top: 46%; width: 22%; z-index: 6; filter: drop-shadow(1px 3px 2px rgb(70 46 15 / .3)); }
-.env-seal svg { display: block; width: 100%; height: auto; overflow: visible; }
-.wax-initials { font: 37px var(--font-card); letter-spacing: -6px; fill: #a07b41; stroke: #f0dca4; stroke-width: .35; paint-order: stroke fill; }
+.env-seal > svg { display: block; width: 100%; height: auto; overflow: visible; }
 
 /* The same small set of scenery layers remains in place for all eleven beats. */
 .intro { position: fixed; inset: 0; z-index: 50; display: grid; place-items: center; overflow: clip; isolation: isolate; }
@@ -145,12 +129,11 @@
 .intro-stage { position: relative; container-type: inline-size; width: min(94vw, 38rem, 90svh); aspect-ratio: 4 / 5; max-height: 85svh; }
 .intro-piece { position: absolute; inset: 0; margin: auto; height: fit-content; opacity: 0; }
 .intro-monogram { width: 62%; text-align: center; }
-.stationery-monogram { position: relative; display: flex; align-items: baseline; justify-content: center; color: #a28349; font: 400 clamp(6rem, 35cqw, 12rem)/1.1 var(--font-card); text-shadow: 0 1px 0 #fff5d7; }
-.stationery-monogram > span + span { margin-left: -.22em; padding-top: .1em; }
-.stationery-monogram .monogram-sprig { position: absolute; width: 35%; height: auto; left: 48%; bottom: -3%; }
+.stationery-monogram { width: 100%; margin-inline: auto; }
+.stationery-monogram > svg { display: block; width: 100%; height: auto; }
 .intro-envelope { width: min(91cqw, 31rem); }
 .intro-closing { width: 80%; text-align: center; }
-.intro-closing .stationery-monogram { font-size: clamp(5rem, 27cqw, 10rem); }
+.intro-closing .stationery-monogram { width: 70%; }
 .intro-farewell { margin: 2rem auto 0; max-width: 22em; font: 400 clamp(.9rem, 3.4cqw, 1.3rem)/1.65 var(--font-card); letter-spacing: .13em; text-transform: uppercase; color: #866a3b; }
 .intro-rule { display: block; width: 22%; height: 1px; margin: 1.3rem auto 0; background: linear-gradient(90deg, transparent, #b59a66, transparent); }
 .intro-canvas { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
@@ -171,8 +154,6 @@
 @media (max-height: 550px) and (min-width: 600px) {
   .guest-ground { --scene-card-width: min(50vw, 44svh); }
   .invitation-dedication { display: none; }
-  .rsvp-slot { top: 100%; padding-top: .7rem; width: 100%; left: 0; }
-  .card-reply-date { display: none; }
 }
 @media (prefers-reduced-motion: reduce) {
   .guest-ground *, .guest-ground *::before, .guest-ground *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
@@ -188,64 +169,18 @@
  * is in the sheet this opens, so the card is the invitation rather than a
  * picture of one with a transcript underneath.
  */
-/* The standing answer, above the control that changes it. */
-.respond {
-  display: grid;
-  justify-items: center;
-  gap: 0.4rem;
-  text-align: center;
-}
-
-.respond-standing {
-  margin: 0;
-  font-family: var(--font-display);
-  font-size: clamp(0.95rem, 4cqw, 1.2rem);
-  color: var(--ink);
-}
-
-/*
- * Two tones for one button. Before a household has replied this is the only
- * thing on the card to do, and it is filled; afterwards the answer above it is
- * the message and this drops back to an outline, so returning to check does
- * not look like being asked again.
- */
-.respond-btn[data-tone='primary'] {
-  background: var(--gold);
-  color: #fffdf8;
-}
-
-.respond-btn[data-tone='quiet'] {
-  font-size: clamp(0.68rem, 3cqw, 0.8rem);
-  min-height: 38px;
-  padding: 0.4rem 1.2rem;
-}
-
+/* Printed-word appearance, with a generous invisible touch target. */
+.respond { position: relative; width: 100%; height: 100%; }
 .respond-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  /* Comfortably over the 44px minimum even where the printed region is not. */
-  min-height: 44px;
-  padding: 0.55rem 1.6rem;
-  border: 1px solid var(--gold);
-  border-radius: 999px;
-  background: rgba(255, 253, 248, 0.9);
-  color: var(--gold);
-  font-family: var(--font-card);
-  font-size: clamp(0.78rem, 3.4cqw, 1rem);
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  cursor: pointer;
-  transition:
-    background-color 0.25s ease,
-    color 0.25s ease;
+  display: inline-flex; align-items: center; justify-content: center;
+  min-width: 64px; min-height: 44px; padding: 0 .5rem; border: 0; border-radius: 2px; white-space: nowrap;
+  background: transparent; color: #695330; cursor: pointer;
+  font: 500 max(8px, 2.25cqw)/1 var(--font-ui); letter-spacing: .08em; text-transform: uppercase;
+  position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
 }
-
-.respond-btn:hover,
-.respond-btn:focus-visible {
-  background: var(--gold);
-  color: #fffdf8;
-}
+.respond-btn > span { border-bottom: 1px solid #ad915e; padding-block: 2px; }
+.guest-ground .respond-btn:hover > span { border-bottom-color: #695330; color: #594321; }
+.sheet-standing { margin: 0; padding: .9rem 0 0; color: #6d5736; font: 400 .85rem/1.5 var(--font-ui); }
 
 /* -------------------------------------------------------------------------- */
 
@@ -351,7 +286,7 @@
 .party-field { grid-template-columns: 1fr auto; align-items: center; column-gap: .8rem; }
 .party-field .sheet-muted { grid-column: 1 / -1; }
 .party-stepper { display: grid; grid-template-columns: 44px 44px 44px; align-items: center; border: 1px solid #c7b38d; border-radius: 3px; background: #faf5ea; }
-.party-stepper button { width: 44px; min-height: 46px; border: 0; background: transparent; color: #82663b; font: 400 1.4rem var(--font-ui); cursor: pointer; }
+.party-stepper button { user-select: none; width: 44px; min-height: 46px; border: 0; background: transparent; color: #82663b; font: 400 1.4rem var(--font-ui); cursor: pointer; }
 .party-stepper button:hover:not(:disabled) { background: #eee2cb; }
 .party-stepper button:disabled { color: #b3a58e; cursor: default; }
 .guest-ground .party-stepper input { padding: .5rem 0; text-align: center; appearance: textfield; border: 0; border-radius: 0; box-shadow: none; background: transparent; }
@@ -706,10 +641,6 @@
 }
 
 /* Restrained stationery controls; the accessible form retains its structure. */
-.guest-ground .respond-btn { min-height: 44px; border-radius: 2px; padding: .55rem 1.25rem; font: 500 clamp(.6rem, 2.7cqw, .78rem) var(--font-ui); letter-spacing: .16em; }
-.guest-ground .respond-btn[data-tone='primary'] { background: linear-gradient(120deg, #896b3c, #75572e); color: #fffaf0; border-color: #8c6d38; box-shadow: inset 0 1px 0 #c7b280; }
-.guest-ground .respond-btn[data-tone='quiet'] { min-height: 44px; }
-.guest-ground .respond-standing { font-size: clamp(.8rem, 3.4cqw, 1rem); }
 .guest-ground .replay { min-height: 44px; border: 0; background: transparent; font-size: 9px; letter-spacing: .18em; opacity: .8; padding: .5rem 1rem; }
 .guest-ground .sheet-inner { border-radius: 4px; background: linear-gradient(150deg, #fffaf0, #f0e6d6); }
 .guest-ground .choice-btn, .guest-ground .btn-primary { border-radius: 3px; }
@@ -718,25 +649,13 @@
 .guest-ground .sheet-details dt, .guest-ground .field label { opacity: .85; }
 .guest-ground .sheet-muted { opacity: .85; }
 .guest-ground .closing-monogram { container-type: inline-size; }
-.guest-ground .closing-monogram .stationery-monogram { font-size: 70cqw; }
 
-.guest-ground .respond { gap: .18rem; }
-.guest-ground .respond-standing { line-height: 1.1; font-size: clamp(.75rem, 3.3cqw, .95rem); }
-.guest-ground .rsvp-slot { gap: 1.2cqw; }
-.guest-ground .card-reply-date { line-height: 1.2; }
-.stationery-monogram[data-script='sinhala'], .stationery-monogram[data-script='other'],
-.wax-initials[data-script='sinhala'], .wax-initials[data-script='other'] { font-family: var(--font-card-unicode); }
-
-.card-event { top: 60.5%; line-height: 1.55; }
 .intro-envelope { width: min(100cqw, 34rem); }
 .env-pocket { position: absolute; inset: 0; z-index: 2; clip-path: inset(-250% -15% 0); }
 .env-sleeve { width: var(--scene-card-width); left: calc((100% - var(--scene-card-width)) / 2); top: 6%; height: auto; aspect-ratio: 426.2 / 553.76; background: radial-gradient(ellipse at 10% 0%, #fffdf6, transparent 72%), linear-gradient(120deg, #faf6ec, #f0e7d7); }
-.env-sleeve-rule { inset: 3%; }
 
 .guest-ground .sheet { --gold: #896b3c; }
-.guest-ground .respond-btn[data-tone='quiet'] { color: #896b3c; }
 .invitation-dedication p:last-child { max-width: 90vw; overflow-wrap: anywhere; text-wrap: balance; margin-inline: auto; }
-
 
 /* Stationery materials: fixed lighting from the upper left. No layout or motion changes. */
 .guest-ground {
@@ -793,11 +712,7 @@
   background-size: 144px 144px;
   opacity: .48;
 }
-.card::after {
-  border-color: #c4af80 #aa8e57 #bda470 #cfbb8d;
-  box-shadow: inset 0 .7px .6px rgb(255 254 237 / .8), 0 .6px .5px rgb(105 79 38 / .1);
-}
-.card-names { text-shadow: 0 .6px 0 rgb(255 254 235 / .8); }
+
 .env::before {
   inset: 9% 1% -4%;
   border-radius: 5%;
@@ -861,20 +776,12 @@
   opacity: .48;
   pointer-events: none;
 }
-.env-sleeve-rule { border-color: #c4af80 #aa8e57 #bda470 #cfbb8d; }
 .env-name { text-shadow: 0 .7px 0 rgb(255 253 239 / .9); }
 .env-seal {
   filter: drop-shadow(0 1px .6px rgb(68 46 18 / .52)) drop-shadow(2px 4px 2.8px rgb(68 46 18 / .24));
 }
-.wax-initials {
-  fill: #88632e;
-  stroke: #c6a466;
-  stroke-width: .2;
-}
-.wax-initials.wax-impression-light { fill: #f4dfa6; stroke: none; }
 
 /* The controls borrow the paper, foil and pressed edges of the physical invitation. */
-.guest-ground .respond-btn[data-tone='primary'],
 .guest-ground .btn-primary {
   background: var(--champagne-metal);
   color: #604720;
@@ -882,12 +789,10 @@
   text-shadow: 0 1px 0 rgb(255 251 229 / .6);
   box-shadow: inset 0 1px 0 #fff4d8, inset 0 -1px 0 rgb(133 99 43 / .15), 0 2px 3px rgb(84 59 24 / .12);
 }
-.guest-ground .respond-btn[data-tone='primary']:hover,
 .guest-ground .btn-primary:hover:not(:disabled) {
   border-color: #927340;
   box-shadow: inset 0 1px 0 #fff8e8, inset 0 -1px 0 rgb(133 99 43 / .2), 0 3px 5px rgb(84 59 24 / .16);
 }
-.guest-ground .respond-btn[data-tone='quiet'],
 .guest-ground .choice-btn:not([data-selected='true']),
 .guest-ground .btn-quiet {
   background: linear-gradient(130deg, #fdf9ef, #eee4d2);
@@ -934,3 +839,7 @@
 .guest-ground .sheet .sheet-details dt { opacity: 1; color: #76664e; }
 .sheet .contact-list small { color: #76664e; }
 .guest-ground .closing .btn-quiet { min-height: 44px; }
+
+/* Emboss the supplied monogram; its path geometry remains untouched. */
+.wax-monogram { color: #806030; filter: drop-shadow(.35px .65px 0 #f2dca4); }
+.wax-monogram path { fill: currentColor; }

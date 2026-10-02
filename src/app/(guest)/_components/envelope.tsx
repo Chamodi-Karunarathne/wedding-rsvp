@@ -35,11 +35,9 @@ type Props = {
    * closed and empty rather than showing a seal nothing will ever break.
    */
   sealed?: boolean;
-  brideName: string;
-  groomName: string;
 };
 
-export function Envelope({ name, sealed = false, brideName, groomName }: Props) {
+export function Envelope({ name, sealed = false }: Props) {
   const script = scriptOf(name);
   const scale = envelopeNameScale(name);
 
@@ -56,7 +54,6 @@ export function Envelope({ name, sealed = false, brideName, groomName }: Props) 
       */}
       {sealed && (
         <div className="env-pocket" aria-hidden="true"><div className="env-sleeve" data-intro="sleeve">
-          <div className="env-sleeve-rule" />
           <div className="env-sleeve-shade" />
         </div></div>
       )}
@@ -80,7 +77,7 @@ export function Envelope({ name, sealed = false, brideName, groomName }: Props) 
 
       {sealed && (
         <div className="env-seal" data-intro="seal">
-          <WaxSeal brideName={brideName} groomName={groomName} />
+          <WaxSeal />
         </div>
       )}
     </div>

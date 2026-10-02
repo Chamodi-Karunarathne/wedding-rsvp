@@ -101,19 +101,19 @@ export default async function InvitationPage({ params, searchParams }: PageProps
         `hidden` until script decides otherwise.
       */}
       <Intro token={guest.token} labels={{ skip: copy.intro.skip, replay: copy.intro.replay }}>
-        {/* The opening and closing marks share live, configured initials. */}
+        {/* The opening and closing share the commissioned monogram asset. */}
         <div className="intro-piece intro-monogram" data-intro="monogram">
-          <Monogram brideName={site.brideName} groomName={site.groomName} />
+          <Monogram />
         </div>
 
         {/* Sealed only here: beat 3 is the only thing that ever breaks it. */}
         <div className="intro-piece intro-envelope" data-intro="envelope">
-          <Envelope name={guest.cardName} brideName={site.brideName} groomName={site.groomName} sealed />
+          <Envelope name={guest.cardName} sealed />
         </div>
         <div className="intro-piece intro-closing" data-intro="closing">
           <img className="intro-closing-floral" data-corner="upper" src="/card/rose-corner-upper.1e4c20dbac.webp" alt="" width={512} height={512} />
           <img className="intro-closing-floral" data-corner="lower" src="/card/rose-corner-lower.6277f50c09.webp" alt="" width={512} height={512} />
-          <Monogram brideName={site.brideName} groomName={site.groomName} />
+          <Monogram />
           <p className="intro-farewell" data-intro-reveal="">{copy.intro.farewell}</p>
           <span className="intro-rule" data-intro-reveal="" />
         </div>
@@ -166,7 +166,7 @@ export default async function InvitationPage({ params, searchParams }: PageProps
           }
           existingMessage={invitation.message}
           copy={copy}
-          monogram={<Monogram brideName={site.brideName} groomName={site.groomName} />}
+          monogram={<Monogram />}
           details={{
             when: primaryEvent ? formatEventDateTime(primaryEvent.startsAt, site.timezone) : '',
             venueName: primaryEvent?.venueName ?? '',
@@ -198,7 +198,8 @@ export default async function InvitationPage({ params, searchParams }: PageProps
                 eventName={primaryEvent?.name ?? ''}
                 venueName={primaryEvent?.venueName ?? ''}
                 venueAddress={primaryEvent?.venueAddress ?? ''}
-                replyBy={renderTemplate(copy.rsvp.deadline, { date: formatDate(invitation.rsvpDeadline, site.timezone) })}
+                replyBy={new Intl.DateTimeFormat('en-GB', { timeZone: site.timezone, day: 'numeric', month: 'long' }).format(invitation.rsvpDeadline)}
+                contacts={site.rsvpContacts}
               >
                 <RespondButton />
               </Card>

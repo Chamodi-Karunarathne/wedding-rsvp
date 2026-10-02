@@ -380,8 +380,8 @@ async function main(): Promise<void> {
           // The numbers printed on the card. A real fraction of the answers
           // arrive on these rather than through the form.
           rsvpContacts: [
-            { name: 'Masan', phone: '077 5007091', side: 'Bride' },
-            { name: 'Shirani', phone: '077 3131797', side: 'Groom' },
+            { name: 'Masha', phone: '075 9500073', side: 'Bride' },
+            { name: 'Shirani', phone: '077 3913737', side: 'Groom' },
           ],
           timezone: DEFAULT_TIMEZONE,
         },

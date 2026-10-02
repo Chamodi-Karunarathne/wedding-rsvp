@@ -48,37 +48,27 @@ export const CARD_LAYERS: readonly CardLayer[] = [
   },
   {
     name: 'card-florals',
-    x: -6.76,
-    y: 0,
-    scale: 1.0381,
-    // Scaled to cover the card's full height and centred, so the two clusters
-    // bleed off the corners the way they were drawn to. Fitting them INSIDE
-    // the card instead pulls both inwards and the top-right cluster lands on
-    // the first two lines of text.
-    note: 'Bleeds to the corners. Fitting it inside collides with the text.',
+    x: 1.3,
+    y: 7,
+    scale: 1,
+    note: 'Original print-scale clusters, with the narrow paper margin in the photograph.',
   },
   {
     name: 'card-text',
     x: 61.85,
-    y: 84,
+    y: 125,
     scale: 1,
-    // Centred horizontally: (426.2 - 302.51) / 2. Vertically placed so the
-    // block clears the top-right florals and leaves room beneath the blessing
-    // for the RSVP region.
-    note: 'Horizontally centred; vertical position leaves room for the RSVP.',
+    note: 'Printed text centred horizontally, starting 125 units below the paper edge.',
   },
 ];
 
 /**
  * Where the RSVP sits on the card, in card-base coordinates.
  *
- * NOT derived from the artwork: card-base.svg is a single stroked rectangle
- * with no gold rules and no RSVP region to measure. These bounds are chosen
- * to sit below the blessing and clear of the bottom-left floral. When a base
- * with real rules is exported, read the coordinates off it and change this
- * one object.
+ * Replaces only the RSVP word at the top of the supplied contact block.
+ * The button has a 44px transparent hit area centred on these printed bounds.
  */
-export const RSVP_REGION = { x: 55, y: 432, width: 316, height: 98 } as const;
+export const RSVP_REGION = { x: 166.1, y: 466, width: 94, height: 16 } as const;
 
 /**
  * The same region as CSS percentages.

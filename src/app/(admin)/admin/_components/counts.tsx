@@ -15,7 +15,7 @@ export function CountsBlock({ counts, named }: { counts: EventCounts; named: boo
     { label: 'Attending', value: counts.attending },
     { label: 'Declined', value: counts.declined },
     { label: 'No response', value: counts.noResponse },
-    { label: 'Headcount', value: counts.headcount, hint: 'the catering number' },
+    { label: 'Final headcount', value: counts.headcount, hint: 'people confirmed attending' },
   ];
 
   return (

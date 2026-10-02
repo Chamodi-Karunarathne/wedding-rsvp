@@ -14,7 +14,7 @@ import { GuestEditor } from './guest-editor';
 
 export const dynamic = 'force-dynamic';
 
-const COLUMNS = ['Name', 'Side', 'Party', 'Events', 'Responses', 'Channels', ''];
+const COLUMNS = ['Name', 'Side', 'Assigned headcount', 'Events', 'Responses', 'Channels', ''];
 
 export default async function AdminGuestsPage() {
   const [guests, events] = await Promise.all([listGuests(), listEvents()]);

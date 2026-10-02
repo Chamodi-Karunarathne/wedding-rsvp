@@ -47,23 +47,10 @@ export type SavedAnswer = {
 type RespondControl = {
   open: () => void;
   label: string;
-  /** What this household has already told us, in one line. Null before they
-   *  have said anything. */
-  standing: string | null;
 };
 const RespondContext = createContext<RespondControl | null>(null);
 
-/**
- * The single control printed on the card, with the standing answer above it.
- *
- * The button used to read "Tell us otherwise" for anybody who had replied,
- * which is only half a sentence: it offers to change an answer without ever
- * saying what the answer was. A household that accepted three weeks ago
- * returns to their invitation and cannot tell from the card whether we have
- * them down as coming. The state is now stated, and changing it is the
- * quieter, secondary thing - which is the right emphasis, because most people
- * open it again to check, not to change their mind.
- */
+/** Only the RSVP word is interactive; saved status lives inside the dialog. */
 export function RespondButton() {
   const control = useContext(RespondContext);
   // Rendered by the server inside <Card> before the provider mounts on the
@@ -72,14 +59,13 @@ export function RespondButton() {
 
   return (
     <div className="respond">
-      {control.standing && <p className="respond-standing">{control.standing}</p>}
       <button
         type="button"
         className="respond-btn"
-        data-tone={control.standing ? 'quiet' : 'primary'}
+        aria-haspopup="dialog"
         onClick={control.open}
       >
-        {control.label}
+        <span>{control.label}</span>
       </button>
     </div>
   );
@@ -127,7 +113,7 @@ export function RespondFlow({
 
   const [attending, setAttending] = useState<boolean | null>(existing?.attending ?? null);
   const [partyCount, setPartyCount] = useState(
-    existing?.attending ? existing.partyCount : maxPartySize,
+    existing?.attending ? Math.min(existing.partyCount, maxPartySize) : maxPartySize,
   );
   const [names, setNames] = useState(existing?.attendeeNames ?? '');
   const [note, setNote] = useState(existingMessage ?? '');
@@ -236,17 +222,6 @@ export function RespondFlow({
       value={{
         open,
         label: answer ? copy.card.respondAgain : copy.card.respond,
-        /*
-         * savedAttending and savedDeclined were written for exactly this and
-         * had stopped being used anywhere. A declining household is told they
-         * will be missed, never a count - "Expecting 0 of you" is not a
-         * sentence anybody should read about themselves.
-         */
-        standing: !answer
-          ? null
-          : answer.attending
-            ? renderTemplate(copy.card.savedAttending, { n: answer.partyCount })
-            : copy.card.savedDeclined,
       }}
     >
       {/*
@@ -313,6 +288,7 @@ export function RespondFlow({
           </header>
 
           <div className="sheet-scroll">
+            {answer && <p className="sheet-standing">{answer.attending ? renderTemplate(copy.rsvp.savedAttending, { n: answer.partyCount }) : copy.rsvp.savedDeclined}</p>}
             <details className="sheet-disclosure sheet-event">
               <summary>
                 <span><span className="sheet-disclosure-label">{copy.dialog.detailsHeading}</span><span className="sheet-event-preview">{details.when}</span></span>
@@ -350,17 +326,15 @@ export function RespondFlow({
 
                 {attending === true && (
                   <div className="attending-fields">
-                    {maxPartySize > 1 && (
-                      <div className="field party-field">
-                        <label htmlFor="party">{copy.rsvp.partyCountLabel}</label>
-                        <div className="party-stepper">
-                          <button type="button" aria-label={copy.rsvp.fewerPlaces} disabled={Number.isFinite(partyCount) && partyCount <= 1} onClick={() => setPartyCount(Math.min(maxPartySize, Math.max(1, (Number.isFinite(partyCount) ? partyCount : 2) - 1)))}>−</button>
-                          <input id="party" type="number" inputMode="numeric" min={1} max={maxPartySize} step={1} required aria-describedby="party-help" value={Number.isNaN(partyCount) ? '' : partyCount} onChange={e => setPartyCount(e.currentTarget.valueAsNumber)} />
-                          <button type="button" aria-label={copy.rsvp.morePlaces} disabled={Number.isFinite(partyCount) && partyCount >= maxPartySize} onClick={() => setPartyCount(Math.max(1, Math.min(maxPartySize, (Number.isFinite(partyCount) ? partyCount : 0) + 1)))}>+</button>
-                        </div>
-                        <p id="party-help" className="sheet-muted">{partyHelp}</p>
+                    <div className="field party-field">
+                      <label htmlFor="party">{copy.rsvp.partyCountLabel}</label>
+                      <div className="party-stepper">
+                        <button type="button" aria-label={copy.rsvp.fewerPlaces} disabled={Number.isFinite(partyCount) && partyCount <= 1} onClick={() => setPartyCount(Math.min(maxPartySize, Math.max(1, (Number.isFinite(partyCount) ? partyCount : 2) - 1)))}>−</button>
+                        <input id="party" type="number" inputMode="numeric" min={1} max={maxPartySize} step={1} required aria-describedby="party-help" value={Number.isNaN(partyCount) ? '' : partyCount} onChange={e => setPartyCount(Number.isNaN(e.currentTarget.valueAsNumber) ? NaN : Math.min(maxPartySize, Math.max(1, Math.trunc(e.currentTarget.valueAsNumber))))} />
+                        <button type="button" aria-label={copy.rsvp.morePlaces} disabled={Number.isFinite(partyCount) && partyCount >= maxPartySize} onClick={() => setPartyCount(Math.max(1, Math.min(maxPartySize, (Number.isFinite(partyCount) ? partyCount : 0) + 1)))}>+</button>
                       </div>
-                    )}
+                      <p id="party-help" className="sheet-muted">{partyHelp}</p>
+                    </div>
                     <div className="field">
                       <label htmlFor="names">{copy.rsvp.attendeeNamesLabel}<span className="field-optional">{copy.dialog.optional}</span></label>
                       <input id="names" type="text" autoComplete="off" autoCapitalize="words" aria-describedby="names-help" placeholder={copy.rsvp.attendeeNamesPlaceholder} value={names} onChange={e => setNames(e.target.value)} />
