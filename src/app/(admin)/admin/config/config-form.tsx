@@ -1,21 +1,16 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { useState } from 'react';
-import { Alert, AlertDescription } from '@/components/ui/alert';
+import { useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { PHASES, type Phase } from '@/lib/domain/phase';
+import { renderTemplate } from '@/lib/domain/template';
+import { PHASE_LABELS } from '../_components/presentation';
+import { Feedback } from '../_components/ui';
 import { postJson } from '../_components/api';
 
 type Props = {
@@ -34,245 +29,434 @@ type Props = {
   };
   messaging: { whatsappTemplate: string };
   derivedPhase: Phase;
+  previewVars: { date: string; rsvpBy: string };
 };
-
-const PHASE_FIELDS = [
-  ['detailsOpenAt', 'Details open'],
-  ['rsvpDeadline', 'Reply by'],
-  ['dayOfStartAt', 'Day of'],
-  ['thankYouAt', 'Thank you'],
+type Key = 'phase' | 'site' | 'messaging';
+type State = { busy: boolean; error: string | null; success: string | null };
+const automatic = 'automatic';
+const scheduleFields = [
+  [
+    'detailsOpenAt',
+    'Show wedding information from',
+    'Venue and event information take the lead on the invitation.',
+  ],
+  [
+    'dayOfStartAt',
+    'Wedding-day view starts',
+    'Directions and timing take the lead on the wedding day.',
+  ],
+  [
+    'thankYouAt',
+    'Thank-you view starts',
+    'A thank-you message takes the lead after the celebration.',
+  ],
+] as const;
+const inserts = [
+  ['Guest name', '{{name}}'],
+  ['Invitation link', '{{url}}'],
+  ['Bride’s name', '{{brideName}}'],
+  ['Groom’s name', '{{groomName}}'],
+  ['Wedding date', '{{date}}'],
+  ['Reply-by date', '{{rsvpBy}}'],
 ] as const;
 
-const SITE_FIELDS = [
-  ['brideName', "Bride's name"],
-  ['groomName', "Groom's name"],
-  ['timezone', 'Timezone'],
-] as const;
-
-const PLACEHOLDERS = ['{{name}}', '{{url}}', '{{brideName}}', '{{groomName}}', '{{date}}', '{{rsvpBy}}'];
-
-/**
- * Contacts are edited as text, one per line: `Name, Phone, Side`.
- *
- * A repeatable sub-form for at most four rows that change once a year would
- * be more code than the problem deserves, and this pastes straight out of a
- * message.
- */
-function contactsToText(contacts: { name: string; phone: string; side: string }[]): string {
-  return contacts.map((c) => [c.name, c.phone, c.side].filter(Boolean).join(', ')).join('\n');
-}
-
-function textToContacts(text: string): { name: string; phone: string; side: string }[] {
-  return text
-    .split('\n')
-    .map((line) => line.trim())
-    .filter((line) => line !== '')
-    .slice(0, 4)
-    .map((line) => {
-      const [name = '', phone = '', side = ''] = line.split(',').map((part) => part.trim());
-      return { name, phone, side };
-    })
-    .filter((contact) => contact.name !== '' && contact.phone !== '');
-}
-
-/** No override chosen. Base UI needs a real value, not an empty string. */
-const NO_OVERRIDE = 'derive';
-
-export function ConfigForm({ phase, site, messaging, derivedPhase }: Props) {
+export function ConfigForm({ phase, site, messaging, derivedPhase, previewVars }: Props) {
   const router = useRouter();
+  const messageRef = useRef<HTMLTextAreaElement>(null);
   const [phaseForm, setPhaseForm] = useState(phase);
   const [siteForm, setSiteForm] = useState(site);
-  const [contactsText, setContactsText] = useState(() => contactsToText(site.rsvpContacts));
   const [messagingForm, setMessagingForm] = useState(messaging);
-  const [status, setStatus] = useState<Record<string, string>>({});
-
-  async function save(key: 'phase' | 'site' | 'messaging', value: unknown) {
-    setStatus((prev) => ({ ...prev, [key]: 'saving...' }));
+  const [states, setStates] = useState<Record<Key, State>>({
+    phase: { busy: false, error: null, success: null },
+    site: { busy: false, error: null, success: null },
+    messaging: { busy: false, error: null, success: null },
+  });
+  function changed(key: Key) {
+    setStates((prev) => ({ ...prev, [key]: { ...prev[key], error: null, success: null } }));
+  }
+  async function save(key: Key, value: unknown) {
+    if (
+      key === 'phase' &&
+      phaseForm.phaseOverride &&
+      phaseForm.phaseOverride !== phase.phaseOverride &&
+      !window.confirm(
+        'Use a manual website stage?\n\nGuests will see the ' +
+          PHASE_LABELS[phaseForm.phaseOverride] +
+          ' view regardless of the schedule. Return to Automatic when you have finished testing.',
+      )
+    )
+      return;
+    setStates((prev) => ({ ...prev, [key]: { busy: true, error: null, success: null } }));
     const result = await postJson('/api/admin/config', { key, value });
-    setStatus((prev) => ({ ...prev, [key]: result.ok ? 'saved' : result.message }));
+    setStates((prev) => ({
+      ...prev,
+      [key]: {
+        busy: false,
+        error: result.ok ? null : result.message,
+        success: result.ok
+          ? key === 'messaging'
+            ? 'Invitation message updated.'
+            : key === 'site'
+              ? 'Wedding details updated.'
+              : 'Reply date and website schedule updated.'
+          : null,
+      },
+    }));
     if (result.ok) router.refresh();
   }
-
+  function contact(index: number, field: 'name' | 'phone' | 'side', value: string) {
+    setSiteForm((prev) => ({
+      ...prev,
+      rsvpContacts: prev.rsvpContacts.map((entry, i) =>
+        i === index ? { ...entry, [field]: value } : entry,
+      ),
+    }));
+    changed('site');
+  }
+  function insert(value: string) {
+    const start = messageRef.current?.selectionStart ?? messagingForm.whatsappTemplate.length;
+    const end = messageRef.current?.selectionEnd ?? start;
+    setMessagingForm({
+      whatsappTemplate:
+        messagingForm.whatsappTemplate.slice(0, start) +
+        value +
+        messagingForm.whatsappTemplate.slice(end),
+    });
+    changed('messaging');
+    requestAnimationFrame(() => {
+      messageRef.current?.focus();
+      messageRef.current?.setSelectionRange(start + value.length, start + value.length);
+    });
+  }
+  const preview = renderTemplate(messagingForm.whatsappTemplate, {
+    ...previewVars,
+    brideName: siteForm.brideName,
+    groomName: siteForm.groomName,
+    name: 'Your guest',
+    url: '[their personal invitation link]',
+  });
   return (
     <div className="space-y-6">
       <Card>
         <CardHeader>
-          <CardTitle>Phase</CardTitle>
+          <CardTitle>The couple and reply contacts</CardTitle>
+          <CardDescription>Names and telephone contacts shown to your guests.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <form
+            onSubmit={(event) => {
+              event.preventDefault();
+              void save('site', siteForm);
+            }}
+            className="space-y-5"
+          >
+            <fieldset disabled={states.site.busy} className="space-y-6">
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="space-y-2">
+                  <Label htmlFor="brideName">Bride’s name</Label>
+                  <Input
+                    id="brideName"
+                    value={siteForm.brideName}
+                    onChange={(e) => {
+                      setSiteForm((prev) => ({ ...prev, brideName: e.target.value }));
+                      changed('site');
+                    }}
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="groomName">Groom’s name</Label>
+                  <Input
+                    id="groomName"
+                    value={siteForm.groomName}
+                    onChange={(e) => {
+                      setSiteForm((prev) => ({ ...prev, groomName: e.target.value }));
+                      changed('site');
+                    }}
+                    required
+                  />
+                </div>
+              </div>
+              <section className="space-y-4 border-t pt-5">
+                <h3 className="font-semibold">Who can guests call to reply?</h3>
+                {siteForm.rsvpContacts.map((entry, index) => (
+                  <div key={index} className="space-y-4 rounded-xl border border-border p-4">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-medium text-muted-foreground">
+                        Contact {index + 1}
+                      </span>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        onClick={() => {
+                          setSiteForm((prev) => ({
+                            ...prev,
+                            rsvpContacts: prev.rsvpContacts.filter((_, i) => i !== index),
+                          }));
+                          changed('site');
+                        }}
+                      >
+                        Remove contact
+                      </Button>
+                    </div>
+                    <div className="grid gap-4 sm:grid-cols-3">
+                      <div className="space-y-2">
+                        <Label htmlFor={'contact-name-' + index}>Name</Label>
+                        <Input
+                          id={'contact-name-' + index}
+                          value={entry.name}
+                          onChange={(e) => contact(index, 'name', e.target.value)}
+                          maxLength={80}
+                          required
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor={'contact-phone-' + index}>Phone number</Label>
+                        <Input
+                          id={'contact-phone-' + index}
+                          type="tel"
+                          value={entry.phone}
+                          onChange={(e) => contact(index, 'phone', e.target.value)}
+                          maxLength={40}
+                          required
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor={'contact-side-' + index}>Label, if needed</Label>
+                        <Input
+                          id={'contact-side-' + index}
+                          value={entry.side}
+                          onChange={(e) => contact(index, 'side', e.target.value)}
+                          maxLength={40}
+                          placeholder="e.g. Bride or Groom"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                ))}
+                {siteForm.rsvpContacts.length === 0 && (
+                  <p className="text-muted-foreground">No telephone contacts added yet.</p>
+                )}
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={siteForm.rsvpContacts.length >= 4}
+                  onClick={() => {
+                    setSiteForm((prev) => ({
+                      ...prev,
+                      rsvpContacts: [...prev.rsvpContacts, { name: '', phone: '', side: '' }],
+                    }));
+                    changed('site');
+                  }}
+                >
+                  Add a reply contact
+                </Button>
+                <p className="text-xs text-muted-foreground">
+                  Up to four contacts. Guests can tap these phone numbers to call.
+                </p>
+              </section>
+              <details className="admin-disclosure">
+                <summary>Advanced settings · Local time</summary>
+                <div className="admin-disclosure-body space-y-2">
+                  <Label htmlFor="timezone">Wedding timezone</Label>
+                  <Input
+                    id="timezone"
+                    value={siteForm.timezone}
+                    onChange={(e) => {
+                      setSiteForm((prev) => ({ ...prev, timezone: e.target.value }));
+                      changed('site');
+                    }}
+                    required
+                  />
+                  <p className="text-sm text-muted-foreground">
+                    Keeps the wedding time the same for guests abroad. Use a timezone name such as
+                    Asia/Colombo. Ask the person who set up the website before changing this.
+                  </p>
+                </div>
+              </details>
+            </fieldset>
+            <Feedback error={states.site.error} success={states.site.success} />
+            <Button type="submit" disabled={states.site.busy}>
+              {states.site.busy ? 'Saving details…' : 'Save wedding details'}
+            </Button>
+          </form>
+        </CardContent>
+      </Card>
+      <Card>
+        <CardHeader>
+          <CardTitle>Reply-by date</CardTitle>
           <CardDescription>
-            Derived from the clock this phase would be <strong>{derivedPhase}</strong>. An override
-            forces a phase regardless of the dates &mdash; useful for checking the day-of layout,
-            and easy to leave switched on by mistake.
+            The date guests are asked to reply. Late replies are still accepted.
           </CardDescription>
         </CardHeader>
         <CardContent>
           <form
-            onSubmit={(e) => {
-              e.preventDefault();
+            onSubmit={(event) => {
+              event.preventDefault();
               void save('phase', phaseForm);
             }}
-            className="space-y-4"
+            className="space-y-5"
           >
-            <div className="grid gap-4 sm:grid-cols-2">
-              {PHASE_FIELDS.map(([field, label]) => (
-                <div key={field} className="space-y-2">
-                  <Label htmlFor={field}>{label}</Label>
-                  <Input
-                    id={field}
-                    type="datetime-local"
-                    value={phaseForm[field]}
-                    onChange={(e) =>
-                      setPhaseForm((prev) => ({ ...prev, [field]: e.target.value }))
-                    }
-                    required
-                  />
+            <fieldset disabled={states.phase.busy} className="space-y-5">
+              <div className="max-w-md space-y-2">
+                <Label htmlFor="rsvpDeadline">Please reply by</Label>
+                <Input
+                  id="rsvpDeadline"
+                  type="datetime-local"
+                  value={phaseForm.rsvpDeadline}
+                  onChange={(e) => {
+                    setPhaseForm((prev) => ({ ...prev, rsvpDeadline: e.target.value }));
+                    changed('phase');
+                  }}
+                  required
+                />
+                <p className="text-xs text-muted-foreground">
+                  Currently shown to guests: {previewVars.rsvpBy}. Dates and times use{' '}
+                  {site.timezone.replaceAll('_', ' ')}.
+                </p>
+              </div>
+              <details className="admin-disclosure" id="advanced-settings">
+                <summary>Advanced settings · Website schedule</summary>
+                <div className="admin-disclosure-body space-y-5">
+                  <p className="text-sm text-muted-foreground">
+                    The website changes emphasis automatically as the wedding approaches. Your
+                    guests can still find their invitation, event information and reply form at
+                    every stage.
+                  </p>
+                  <div className="space-y-2">
+                    <Label htmlFor="phaseOverride">Website stage</Label>
+                    <select
+                      id="phaseOverride"
+                      className="admin-select"
+                      value={phaseForm.phaseOverride ?? automatic}
+                      onChange={(e) => {
+                        setPhaseForm((prev) => ({
+                          ...prev,
+                          phaseOverride:
+                            e.target.value === automatic ? null : (e.target.value as Phase),
+                        }));
+                        changed('phase');
+                      }}
+                    >
+                      <option value={automatic}>Automatic — recommended</option>
+                      {PHASES.map((value) => (
+                        <option key={value} value={value}>
+                          {PHASE_LABELS[value]} — manual
+                        </option>
+                      ))}
+                    </select>
+                    <p className="text-sm text-muted-foreground">
+                      Automatic currently shows: {PHASE_LABELS[derivedPhase]}. Manual settings are
+                      for testing or emergencies.
+                    </p>
+                  </div>
+                  {phaseForm.phaseOverride && (
+                    <p className="admin-error">
+                      Manual mode is selected. The schedule below will be ignored until you choose
+                      Automatic and save.
+                    </p>
+                  )}
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    {scheduleFields.map(([field, label, hint]) => (
+                      <div className="space-y-2" key={field}>
+                        <Label htmlFor={field}>{label}</Label>
+                        <Input
+                          id={field}
+                          type="datetime-local"
+                          value={phaseForm[field]}
+                          onChange={(e) => {
+                            setPhaseForm((prev) => ({ ...prev, [field]: e.target.value }));
+                            changed('phase');
+                          }}
+                          required
+                        />
+                        <p className="text-xs text-muted-foreground">{hint}</p>
+                      </div>
+                    ))}
+                  </div>
                 </div>
-              ))}
-            </div>
-
-            <p className="text-sm text-muted-foreground">
-              The reply date is shown to guests and never enforced. A late answer is still accepted
-              and saved; the form shows a gentle note rather than an error, and submitted_at
-              already records who was late.
-            </p>
-
-            <div className="space-y-2">
-              <Label htmlFor="phaseOverride">Override</Label>
-              <Select
-                value={phaseForm.phaseOverride ?? NO_OVERRIDE}
-                onValueChange={(value) =>
-                  setPhaseForm((prev) => ({
-                    ...prev,
-                    phaseOverride: value === NO_OVERRIDE ? null : (value as Phase),
-                  }))
-                }
-              >
-                <SelectTrigger id="phaseOverride" className="w-full sm:w-64">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value={NO_OVERRIDE}>none (derive from dates)</SelectItem>
-                  {PHASES.map((p) => (
-                    <SelectItem key={p} value={p}>
-                      {p}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            {phaseForm.phaseOverride && (
-              <Alert variant="destructive">
-                <AlertDescription>
-                  Override is set. The site will ignore the dates above until this is cleared.
-                </AlertDescription>
-              </Alert>
-            )}
-
-            <div className="flex items-center gap-3">
-              <Button type="submit">Save phase</Button>
-              {status.phase && (
-                <span className="text-sm text-muted-foreground">{status.phase}</span>
-              )}
-            </div>
+              </details>
+            </fieldset>
+            <Feedback error={states.phase.error} success={states.phase.success} />
+            <Button type="submit" disabled={states.phase.busy}>
+              {states.phase.busy ? 'Saving dates…' : 'Save dates'}
+            </Button>
           </form>
         </CardContent>
       </Card>
-
-      <Card>
+      <Card id="invitation-message" className="scroll-mt-28">
         <CardHeader>
-          <CardTitle>Site</CardTitle>
+          <CardTitle>WhatsApp invitation message</CardTitle>
           <CardDescription>
-            Timezone is an IANA name. Every guest-facing time is formatted in it, so a guest abroad
-            sees the local time of the wedding rather than their own.
+            The message you prepare when sending an invitation. Each guest’s name and link are
+            filled in automatically.
           </CardDescription>
         </CardHeader>
         <CardContent>
           <form
-            onSubmit={(e) => {
-              e.preventDefault();
-              void save('site', { ...siteForm, rsvpContacts: textToContacts(contactsText) });
-            }}
-            className="space-y-4"
-          >
-            <div className="grid gap-4 sm:grid-cols-3">
-              {SITE_FIELDS.map(([field, label]) => (
-                <div key={field} className="space-y-2">
-                  <Label htmlFor={field}>{label}</Label>
-                  <Input
-                    id={field}
-                    value={siteForm[field]}
-                    onChange={(e) => setSiteForm((prev) => ({ ...prev, [field]: e.target.value }))}
-                    required
-                  />
-                </div>
-              ))}
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="rsvpContacts">RSVP contacts</Label>
-              <Textarea
-                id="rsvpContacts"
-                rows={3}
-                value={contactsText}
-                onChange={(e) => setContactsText(e.target.value)}
-                placeholder="Masan, 077 5007091, Bride"
-              />
-              <p className="text-sm text-muted-foreground">
-                One per line: name, phone, side. These are printed on the card and shown on the
-                invitation as tel: links, so they are what a guest taps to call. Up to four.
-              </p>
-            </div>
-
-            <div className="flex items-center gap-3">
-              <Button type="submit">Save site</Button>
-              {status.site && <span className="text-sm text-muted-foreground">{status.site}</span>}
-            </div>
-          </form>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>WhatsApp template</CardTitle>
-          <CardDescription>
-            The name used is the card name, so a household with a shorter fallback set is addressed
-            by it here too.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <form
-            onSubmit={(e) => {
-              e.preventDefault();
+            onSubmit={(event) => {
+              event.preventDefault();
               void save('messaging', messagingForm);
             }}
-            className="space-y-4"
+            className="space-y-5"
           >
-            <Textarea
-              rows={8}
-              value={messagingForm.whatsappTemplate}
-              onChange={(e) => setMessagingForm({ whatsappTemplate: e.target.value })}
-              className="font-mono text-xs"
-              required
-            />
-
-            <p className="flex flex-wrap items-center gap-1.5 text-sm">
-              <span className="text-muted-foreground">Placeholders:</span>
-              {PLACEHOLDERS.map((placeholder) => (
-                <code
-                  key={placeholder}
-                  className="rounded bg-muted px-1.5 py-0.5 font-mono text-xs text-muted-foreground"
-                >
-                  {placeholder}
-                </code>
-              ))}
-            </p>
-
-            <div className="flex items-center gap-3">
-              <Button type="submit">Save template</Button>
-              {status.messaging && (
-                <span className="text-sm text-muted-foreground">{status.messaging}</span>
-              )}
-            </div>
+            <fieldset disabled={states.messaging.busy} className="space-y-4">
+              <div className="grid gap-5 lg:grid-cols-2">
+                <div className="space-y-3">
+                  <Label htmlFor="whatsapp-message">Your message</Label>
+                  <Textarea
+                    ref={messageRef}
+                    id="whatsapp-message"
+                    rows={10}
+                    value={messagingForm.whatsappTemplate}
+                    onChange={(e) => {
+                      setMessagingForm({ whatsappTemplate: e.target.value });
+                      changed('messaging');
+                    }}
+                    required
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Insert a personal detail at the cursor:
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    {inserts.map(([label, value]) => (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        key={value}
+                        onClick={() => insert(value)}
+                      >
+                        {label}
+                      </Button>
+                    ))}
+                  </div>
+                  <details>
+                    <summary className="min-h-11 cursor-pointer py-3 text-xs text-muted-foreground">
+                      How automatic details work
+                    </summary>
+                    <p className="text-sm text-muted-foreground">
+                      Keep the words inside double braces, such as {'{{name}}'} and {'{{url}}'},
+                      where you want the guest’s name and link to appear. These are replaced in each
+                      message.
+                    </p>
+                  </details>
+                </div>
+                <div className="space-y-3">
+                  <p className="font-medium">Message preview</p>
+                  <p className="whitespace-pre-wrap rounded-xl border border-border bg-[#f4f5ee] p-5">
+                    {preview}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    The preview uses the saved wedding and reply dates. Existing messages already
+                    sent in WhatsApp stay as they are.
+                  </p>
+                </div>
+              </div>
+            </fieldset>
+            <Feedback error={states.messaging.error} success={states.messaging.success} />
+            <Button type="submit" disabled={states.messaging.busy}>
+              {states.messaging.busy ? 'Saving message…' : 'Save invitation message'}
+            </Button>
           </form>
         </CardContent>
       </Card>

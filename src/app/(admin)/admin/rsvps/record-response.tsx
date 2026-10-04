@@ -1,60 +1,39 @@
 'use client';
 
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useMemo, useState } from 'react';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Badge } from '@/components/ui/badge';
+import { RiPhoneLine } from '@remixicon/react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import type { EventView, RsvpView } from '@/lib/services/types';
 import { postJson } from '../_components/api';
-
-/**
- * Records a response on a guest's behalf.
- *
- * The printed cards tell their recipients to phone Masha or Shirani, so a
- * real fraction of the answers arrive as calls that someone has to key in
- * while the guest is still on the line. That is why this is search-first and
- * sits at the top of the page, rather than one form per guest buried under
- * five hundred others.
- *
- * It goes through the same endpoint, and therefore the same invariants, as a
- * guest's own submission. Only source and recordedBy differ.
- */
+import { SOURCE_LABELS } from '../_components/presentation';
+import { Feedback } from '../_components/ui';
 
 export type Candidate = {
   id: string;
   displayName: string;
   sortName: string;
+  phone: string | null;
   maxPartySize: number;
   invitedSlugs: string[];
   rsvps: RsvpView[];
 };
-
-type Props = { guests: Candidate[]; events: EventView[] };
-
 type Field = { attending: boolean; partyCount: number; attendeeNames: string };
-
-const MAX_RESULTS = 8;
-
 function initialFields(guest: Candidate, invited: EventView[]): Record<string, Field> {
   return Object.fromEntries(
     invited.map((event) => {
-      const existing = guest.rsvps.find((r) => r.eventSlug === event.slug);
+      const existing = guest.rsvps.find((reply) => reply.eventSlug === event.slug);
       return [
         event.slug,
         {
           attending: existing?.attending ?? true,
-          partyCount: existing?.attending ? Math.min(existing.partyCount, guest.maxPartySize) : guest.maxPartySize,
+          partyCount: existing?.attending
+            ? Math.min(existing.partyCount, guest.maxPartySize)
+            : guest.maxPartySize,
           attendeeNames: existing?.attendeeNames ?? '',
         },
       ];
@@ -62,58 +41,67 @@ function initialFields(guest: Candidate, invited: EventView[]): Record<string, F
   );
 }
 
-function describe(rsvp: RsvpView): string {
-  const answer = rsvp.attending ? `attending, party of ${rsvp.partyCount}` : 'declined';
-  return `already ${answer}, via ${rsvp.source}`;
-}
-
-export function RecordResponse({ guests, events }: Props) {
+export function RecordResponse({
+  guests,
+  events,
+  initialGuestId,
+}: {
+  guests: Candidate[];
+  events: EventView[];
+  initialGuestId?: string;
+}) {
   const router = useRouter();
+  const initialGuest = guests.find((guest) => guest.id === initialGuestId) ?? null;
   const [query, setQuery] = useState('');
-  const [selected, setSelected] = useState<Candidate | null>(null);
-  const [fields, setFields] = useState<Record<string, Field>>({});
+  const [selected, setSelected] = useState<Candidate | null>(initialGuest);
+  const [fields, setFields] = useState<Record<string, Field>>(() =>
+    initialGuest
+      ? initialFields(
+          initialGuest,
+          events.filter((event) => initialGuest.invitedSlugs.includes(event.slug)),
+        )
+      : {},
+  );
   const [recordedBy, setRecordedBy] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-
   const matches = useMemo(() => {
-    const needle = query.trim().toLowerCase();
-    if (needle === '') return [];
-    return guests
-      .filter(
-        (guest) =>
-          guest.displayName.toLowerCase().includes(needle) ||
-          guest.sortName.toLowerCase().includes(needle),
-      )
-      .slice(0, MAX_RESULTS);
+    const needle = query.trim().toLocaleLowerCase();
+    return !needle
+      ? []
+      : guests
+          .filter((guest) =>
+            [guest.displayName, guest.sortName, guest.phone ?? ''].some((value) =>
+              value.toLocaleLowerCase().includes(needle),
+            ),
+          )
+          .slice(0, 8);
   }, [guests, query]);
-
   const invited = selected
     ? events.filter((event) => selected.invitedSlugs.includes(event.slug))
     : [];
-
   function choose(guest: Candidate) {
-    const theirEvents = events.filter((event) => guest.invitedSlugs.includes(event.slug));
     setSelected(guest);
-    setFields(initialFields(guest, theirEvents));
+    setFields(
+      initialFields(
+        guest,
+        events.filter((event) => guest.invitedSlugs.includes(event.slug)),
+      ),
+    );
     setError(null);
     setSaved(null);
   }
-
   function cancel() {
     setSelected(null);
     setQuery('');
     setError(null);
   }
-
-  async function submit(formEvent: React.FormEvent) {
-    formEvent.preventDefault();
+  async function submit(event: React.FormEvent) {
+    event.preventDefault();
     if (!selected) return;
-
     setBusy(true);
     setError(null);
-
     const responses = invited.map((event) => {
       const field = fields[event.slug]!;
       return {
@@ -123,191 +111,235 @@ export function RecordResponse({ guests, events }: Props) {
         attendeeNames: field.attendeeNames.trim() || null,
       };
     });
-
     const result = await postJson('/api/admin/rsvp', {
       guestId: selected.id,
       responses,
       recordedBy: recordedBy.trim(),
       source: 'phone',
     });
-
     setBusy(false);
     if (!result.ok) {
       setError(result.message);
       return;
     }
-
-    // recordedBy is deliberately kept: whoever is working through the
-    // callbacks is about to record several in a row.
     setSaved(selected.displayName);
     setSelected(null);
     setQuery('');
+    requestAnimationFrame(() =>
+      document.getElementById('record-reply')?.scrollIntoView({ block: 'start' }),
+    );
     router.refresh();
   }
-
   return (
-    <Card className="border-primary/30">
+    <Card id="record-reply" className="scroll-mt-28 !border-[#d9cdae]">
       <CardHeader>
-        <CardTitle>Record a response</CardTitle>
+        <CardTitle className="flex items-center gap-2">
+          <RiPhoneLine size={19} className="text-primary" aria-hidden="true" />
+          Record a phone reply
+        </CardTitle>
         <CardDescription>
-          For answers that arrive by telephone. Saved with source &ldquo;phone&rdquo; and your
-          name, so they stay distinguishable from a guest&apos;s own answer later.
+          For an answer received by phone. Find the family, record their reply, then save.
         </CardDescription>
       </CardHeader>
-
-      <CardContent className="space-y-4">
-        {saved && (
-          <Alert>
-            <AlertDescription>Saved {saved}. Search again for the next one.</AlertDescription>
-          </Alert>
-        )}
-
+      <CardContent className="space-y-5">
+        <Feedback
+          success={
+            saved ? 'Response saved for ' + saved + '. Ready to record another reply.' : null
+          }
+        />
         {!selected && (
           <div className="space-y-3">
             <div className="space-y-2">
-              <Label htmlFor="guest-search">Search by name</Label>
+              <Label htmlFor="phone-guest-search">
+                <span className="admin-step" aria-hidden="true">
+                  1
+                </span>
+                Find the guest or family
+              </Label>
               <Input
-                id="guest-search"
+                id="phone-guest-search"
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
-                placeholder="Start typing a name..."
+                placeholder="Search by name or phone number"
                 autoComplete="off"
+                type="search"
               />
             </div>
-
-            {query.trim() !== '' && matches.length === 0 && (
-              <p className="text-sm text-muted-foreground">No guest matches that.</p>
+            {query.trim() && matches.length === 0 && (
+              <p role="status" className="text-muted-foreground">
+                No guests found for “{query}”. Try another name or phone number.
+              </p>
             )}
-
             {matches.length > 0 && (
-              <ul className="divide-y rounded-xl border">
-                {matches.map((guest) => {
-                  const existing = guest.rsvps[0];
-                  return (
-                    <li key={guest.id}>
-                      <button
-                        type="button"
-                        onClick={() => choose(guest)}
-                        className="flex w-full flex-wrap items-center justify-between gap-2 px-3 py-2 text-left text-sm hover:bg-muted"
-                      >
-                        <span className="font-medium">{guest.displayName}</span>
-                        <span className="flex items-center gap-2 text-xs text-muted-foreground">
-                          up to {guest.maxPartySize}
-                          <Badge variant={existing ? 'secondary' : 'outline'}>
-                            {existing ? describe(existing) : 'no response yet'}
-                          </Badge>
-                        </span>
-                      </button>
-                    </li>
-                  );
-                })}
+              <ul className="divide-y rounded-xl border border-border">
+                {matches.map((guest) => (
+                  <li key={guest.id}>
+                    <button
+                      type="button"
+                      onClick={() => choose(guest)}
+                      className="flex min-h-16 w-full flex-wrap items-center justify-between gap-2 px-4 py-3 text-left hover:bg-muted"
+                    >
+                      <span className="min-w-0">
+                        <strong className="block font-medium">{guest.displayName}</strong>
+                        {guest.phone && <span className="admin-row-subtext">{guest.phone}</span>}
+                      </span>
+                      <span className="text-xs text-muted-foreground">
+                        {guest.maxPartySize} places reserved
+                        {guest.rsvps.length > 0 && (
+                          <span className="block">Reply already recorded</span>
+                        )}
+                      </span>
+                    </button>
+                  </li>
+                ))}
               </ul>
             )}
           </div>
         )}
-
         {selected && (
-          <form onSubmit={submit} className="space-y-4">
-            <div>
-              <p className="font-medium">{selected.displayName}</p>
-              {selected.rsvps.length > 0 && (
+          <form onSubmit={submit} className="space-y-5">
+            <div className="admin-phone-selected flex items-start justify-between gap-3 rounded-xl bg-muted p-4">
+              <div className="min-w-0 break-words">
+                <p className="font-semibold">{selected.displayName}</p>
                 <p className="text-sm text-muted-foreground">
-                  This overwrites their current answer. The previous one is kept in the RSVP
-                  history.
+                  {selected.maxPartySize} places reserved
+                  {selected.phone ? ' · ' + selected.phone : ''}
                 </p>
-              )}
+                {selected.rsvps.map((reply) => (
+                  <p key={reply.eventSlug} className="mt-1 text-xs text-muted-foreground">
+                    Current reply
+                    {events.length > 1
+                      ? ' for ' + events.find((event) => event.slug === reply.eventSlug)?.name
+                      : ''}
+                    :{' '}
+                    {reply.attending
+                      ? 'Coming · ' + reply.partyCount + ' guests'
+                      : 'Unable to attend'}{' '}
+                    · {SOURCE_LABELS[reply.source]}
+                  </p>
+                ))}
+              </div>
+              <Button type="button" variant="ghost" onClick={cancel} disabled={busy}>
+                Change guest
+              </Button>
             </div>
-
-            {invited.length === 0 && (
-              <Alert variant="destructive">
-                <AlertDescription>
-                  This guest holds no invitation, so there is nothing to answer for.
-                </AlertDescription>
-              </Alert>
+            {selected.rsvps.length > 0 && (
+              <p className="text-sm text-muted-foreground">
+                Saving will update their current reply. The previous answer will be kept.
+              </p>
             )}
-
-            {invited.map((event) => {
-              const field = fields[event.slug]!;
-              const patch = (next: Partial<Field>) =>
-                setFields((prev) => ({ ...prev, [event.slug]: { ...prev[event.slug]!, ...next } }));
-
-              return (
-                <div key={event.slug} className="space-y-3 rounded-xl border p-3">
-                  {events.length > 1 && <p className="font-medium">{event.name}</p>}
-
-                  <div className="flex flex-wrap items-end gap-3">
-                    <div className="space-y-2">
-                      <Label htmlFor={`answer-${event.slug}`}>Answer</Label>
-                      <Select
-                        value={field.attending ? 'yes' : 'no'}
-                        onValueChange={(value) => patch({ attending: value === 'yes' })}
-                      >
-                        <SelectTrigger id={`answer-${event.slug}`}>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="yes">attending</SelectItem>
-                          <SelectItem value="no">declined</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                    {field.attending && (
-                      <div className="space-y-2">
-                        <Label htmlFor={`party-${event.slug}`}>Party count</Label>
-                        <Input
-                          id={`party-${event.slug}`}
-                          type="number"
-                          min={1}
-                          max={selected.maxPartySize}
-                          value={field.partyCount}
-                          onChange={(e) => patch({ partyCount: Number(e.target.value) })}
-                          className="w-24"
+            {invited.length === 0 && (
+              <p role="alert" className="admin-error">
+                This guest is not assigned to a celebration yet.{' '}
+                <Link
+                  className="underline"
+                  href={'/admin/guests?q=' + encodeURIComponent(selected.displayName)}
+                >
+                  Update their invitation
+                </Link>{' '}
+                first.
+              </p>
+            )}
+            <fieldset disabled={busy} className="space-y-5">
+              {invited.map((event) => {
+                const field = fields[event.slug]!;
+                const patch = (next: Partial<Field>) =>
+                  setFields((prev) => ({
+                    ...prev,
+                    [event.slug]: { ...prev[event.slug]!, ...next },
+                  }));
+                return (
+                  <fieldset
+                    key={event.slug}
+                    className="space-y-4 rounded-xl border border-border p-4"
+                  >
+                    <legend className="px-1 font-medium">
+                      <span className="admin-step" aria-hidden="true">
+                        2
+                      </span>
+                      {events.length > 1 ? event.name : 'Their reply'}
+                    </legend>
+                    <div className="grid gap-2 sm:grid-cols-2">
+                      <Label className="admin-choice">
+                        <input
+                          type="radio"
+                          name={'answer-' + event.slug}
+                          checked={field.attending}
+                          onChange={() => patch({ attending: true })}
                         />
+                        Coming
+                      </Label>
+                      <Label className="admin-choice">
+                        <input
+                          type="radio"
+                          name={'answer-' + event.slug}
+                          checked={!field.attending}
+                          onChange={() => patch({ attending: false })}
+                        />
+                        Unable to attend
+                      </Label>
+                    </div>
+                    {field.attending && (
+                      <div className="grid gap-4 sm:grid-cols-[170px_1fr]">
+                        <div className="space-y-2">
+                          <Label htmlFor={'party-' + event.slug}>Number attending</Label>
+                          <Input
+                            id={'party-' + event.slug}
+                            type="number"
+                            min={1}
+                            max={selected.maxPartySize}
+                            step={1}
+                            required
+                            value={field.partyCount}
+                            onChange={(e) => patch({ partyCount: Number(e.target.value) })}
+                          />
+                          <p className="text-xs text-muted-foreground">
+                            Up to {selected.maxPartySize}{' '}
+                            {selected.maxPartySize === 1 ? 'person' : 'people'}
+                          </p>
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor={'names-' + event.slug}>Names of people attending</Label>
+                          <Input
+                            id={'names-' + event.slug}
+                            value={field.attendeeNames}
+                            onChange={(e) => patch({ attendeeNames: e.target.value })}
+                            placeholder="Optional"
+                          />
+                        </div>
                       </div>
                     )}
-                  </div>
-
-                  {field.attending && (
-                    <div className="space-y-2">
-                      <Label htmlFor={`names-${event.slug}`}>Who is coming?</Label>
-                      <Input
-                        id={`names-${event.slug}`}
-                        value={field.attendeeNames}
-                        onChange={(e) => patch({ attendeeNames: e.target.value })}
-                        placeholder="Optional"
-                      />
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-
-            <div className="space-y-2">
-              <Label htmlFor="recorded-by">Recorded by</Label>
-              <Input
-                id="recorded-by"
-                value={recordedBy}
-                onChange={(e) => setRecordedBy(e.target.value)}
-                placeholder="Your name - there is no per-person login"
-                required
-              />
-            </div>
-
+                  </fieldset>
+                );
+              })}
+              <div className="space-y-2">
+                <Label htmlFor="recorded-by">
+                  <span className="admin-step" aria-hidden="true">
+                    3
+                  </span>
+                  Your name
+                </Label>
+                <Input
+                  id="recorded-by"
+                  value={recordedBy}
+                  onChange={(e) => setRecordedBy(e.target.value)}
+                  placeholder="Who is recording this reply?"
+                  required
+                />
+                <p className="text-xs text-muted-foreground">
+                  Helps the family know who took the call.
+                </p>
+              </div>
+            </fieldset>
+            <Feedback error={error} />
             <div className="flex flex-wrap gap-2">
               <Button type="submit" disabled={busy || invited.length === 0}>
-                {busy ? 'Saving...' : 'Save response'}
+                {busy ? 'Saving reply…' : 'Save response'}
               </Button>
-              <Button type="button" variant="outline" onClick={cancel}>
+              <Button type="button" variant="outline" onClick={cancel} disabled={busy}>
                 Cancel
               </Button>
             </div>
-
-            {error && (
-              <Alert variant="destructive">
-                <AlertDescription>{error}</AlertDescription>
-              </Alert>
-            )}
           </form>
         )}
       </CardContent>

@@ -2,25 +2,28 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { LoginForm } from './login-form';
 
 export const dynamic = 'force-dynamic';
-
 type PageProps = { searchParams: Promise<{ next?: string }> };
 
 export default async function AdminLoginPage({ searchParams }: PageProps) {
   const { next } = await searchParams;
-
-  // Only ever redirect to a path on this site: an absolute URL here would be
-  // an open redirect.
   const target = next && next.startsWith('/') && !next.startsWith('//') ? next : '/admin';
-
   return (
-    <div className="mx-auto max-w-sm pt-8">
+    <div className="admin-login">
       <Card>
         <CardHeader>
-          <CardTitle className="font-heading text-xl">Admin sign in</CardTitle>
-          <CardDescription>One shared password. There is no account to recover.</CardDescription>
+          <p className="admin-eyebrow">Welcome, family</p>
+          <CardTitle>
+            <h1 className="text-2xl">Your wedding, together</h1>
+          </CardTitle>
+          <CardDescription>
+            Sign in to send invitations, record replies and help with the guest list.
+          </CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent className="space-y-5">
           <LoginForm next={target} />
+          <p className="text-center text-xs text-muted-foreground">
+            Use the family’s shared password. If you need it, ask the couple.
+          </p>
         </CardContent>
       </Card>
     </div>

@@ -1,7 +1,6 @@
 import Link from 'next/link';
-import { Badge } from '@/components/ui/badge';
 import { buttonVariants } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
   Table,
   TableBody,
@@ -10,207 +9,341 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { cn } from '@/lib/utils';
 import { DELIVERY_CHANNELS, RSVP_SOURCES, SIDES } from '@/db/schema';
 import { applyFilters, getDashboardSummary } from '@/lib/services/dashboard';
 import { listEvents } from '@/lib/services/events';
 import { listGuests } from '@/lib/services/guests';
+import { getConfig } from '@/lib/services/config';
+import { formatDateTimeShort } from '@/lib/format';
 import type { DeliveryChannelName, RsvpSource, Side } from '@/lib/services/types';
 import { CountsBlock } from '../_components/counts';
+import { AdminPageHeader, EmptyState, SearchFilters, StatusBadge } from '../_components/ui';
+import {
+  CHANNEL_LABELS,
+  matchesReply,
+  matchesSearch,
+  SIDE_LABELS,
+  SOURCE_LABELS,
+} from '../_components/presentation';
 import { RecordResponse, type Candidate } from './record-response';
 
 export const dynamic = 'force-dynamic';
-
-type PageProps = {
-  searchParams: Promise<{ side?: string; channel?: string; source?: string }>;
+type Props = {
+  searchParams: Promise<{
+    side?: string;
+    channel?: string;
+    source?: string;
+    q?: string;
+    status?: string;
+    guest?: string;
+  }>;
 };
 
-function asSide(value: string | undefined): Side | 'all' {
-  return value && (SIDES as readonly string[]).includes(value) ? (value as Side) : 'all';
-}
-
-function asChannel(value: string | undefined): DeliveryChannelName | 'all' {
-  return value && (DELIVERY_CHANNELS as readonly string[]).includes(value)
-    ? (value as DeliveryChannelName)
-    : 'all';
-}
-
-function asSource(value: string | undefined): RsvpSource | 'all' {
-  return value && (RSVP_SOURCES as readonly string[]).includes(value)
-    ? (value as RsvpSource)
-    : 'all';
-}
-
-export default async function AdminRsvpsPage({ searchParams }: PageProps) {
+export default async function AdminRsvpsPage({ searchParams }: Props) {
   const params = await searchParams;
   const filters = {
-    side: asSide(params.side),
-    channel: asChannel(params.channel),
-    source: asSource(params.source),
+    side: (SIDES as readonly string[]).includes(params.side ?? '')
+      ? (params.side as Side)
+      : ('all' as const),
+    channel: (DELIVERY_CHANNELS as readonly string[]).includes(params.channel ?? '')
+      ? (params.channel as DeliveryChannelName)
+      : ('all' as const),
+    source: (RSVP_SOURCES as readonly string[]).includes(params.source ?? '')
+      ? (params.source as RsvpSource)
+      : ('all' as const),
   };
-
-  const [summary, allGuests, events] = await Promise.all([
+  const [summary, allGuests, events, config] = await Promise.all([
     getDashboardSummary(filters),
     listGuests(),
     listEvents(),
+    getConfig(),
   ]);
-
-  const guests = applyFilters(allGuests, filters);
-
-  const query = new URLSearchParams();
-  if (filters.side !== 'all') query.set('side', filters.side);
-  if (filters.channel !== 'all') query.set('channel', filters.channel);
-  if (filters.source !== 'all') query.set('source', filters.source);
-
-  /** A filter link that keeps the other two where they are. */
-  function href(patch: Partial<typeof filters>): string {
-    const next = new URLSearchParams();
-    const merged = { ...filters, ...patch };
-    if (merged.side !== 'all') next.set('side', merged.side);
-    if (merged.channel !== 'all') next.set('channel', merged.channel);
-    if (merged.source !== 'all') next.set('source', merged.source);
-    return `/admin/rsvps?${next}`;
-  }
-
-  const filterGroups = [
-    { label: 'Side', key: 'side' as const, options: ['all', ...SIDES] as const },
-    { label: 'Channel', key: 'channel' as const, options: ['all', ...DELIVERY_CHANNELS] as const },
-    { label: 'Source', key: 'source' as const, options: ['all', ...RSVP_SOURCES] as const },
-  ];
-
-  // Only what the search box and the form need. The full listing is far more
-  // than this and all of it would cross to the client.
+  const query = params.q ?? '';
+  const status = params.status ?? 'all';
+  const guests = applyFilters(allGuests, filters).filter(
+    (row) => matchesSearch(row, query) && matchesReply(row, status),
+  );
+  const exportQuery = new URLSearchParams();
+  if (filters.side !== 'all') exportQuery.set('side', filters.side);
+  if (filters.channel !== 'all') exportQuery.set('channel', filters.channel);
+  if (filters.source !== 'all') exportQuery.set('source', filters.source);
   const candidates: Candidate[] = allGuests.map((row) => ({
     id: row.guest.id,
     displayName: row.guest.displayName,
     sortName: row.guest.sortName,
+    phone: row.guest.phone,
     maxPartySize: row.guest.maxPartySize,
     invitedSlugs: row.eventSlugs,
     rsvps: row.rsvps,
   }));
-
   return (
-    <div className="space-y-8">
-      <div>
-        <h1 className="font-heading text-2xl font-semibold tracking-tight">RSVPs</h1>
-        <p className="text-sm text-muted-foreground">
-          Answers arrive here from the site and over the telephone alike.
-        </p>
-      </div>
-
-      <RecordResponse guests={candidates} events={events} />
-
-      <section className="space-y-3">
-        <div>
-          <h2 className="font-heading text-lg font-medium">Where we stand</h2>
-          <p className="text-sm text-muted-foreground">
-            These counts follow the side and channel filters but never the source filter: an
-            invitation with no answer has no source, so narrowing by it would understate every
-            column.
-          </p>
-        </div>
-        {summary.perEvent.map((row) => (
-          <CountsBlock key={row.event.slug} counts={row} named={summary.perEvent.length > 1} />
+    <div className="space-y-6">
+      <AdminPageHeader
+        title="Responses"
+        description="See who is coming, how many people to expect, and who still needs to reply."
+      >
+        <Link href="#record-reply" className={buttonVariants({ className: 'admin-button' })}>
+          Record a phone reply
+        </Link>
+      </AdminPageHeader>
+      <section aria-label="Response totals" className="space-y-3">
+        {summary.perEvent.map((counts) => (
+          <CountsBlock
+            key={counts.event.slug}
+            counts={counts}
+            named={summary.perEvent.length > 1}
+          />
         ))}
+        <p className="text-xs text-muted-foreground">
+          Totals include all reply statuses and reply methods for the selected family and sending
+          method. The guest search only narrows the list below.
+        </p>
       </section>
-
+      <RecordResponse
+        key={params.guest ?? 'record'}
+        guests={candidates}
+        events={events}
+        initialGuestId={params.guest}
+      />
       <Card>
-        <CardHeader>
-          <CardTitle>Filter</CardTitle>
-          <CardDescription>
-            Narrows the list below and the CSV. Source never narrows the counts above.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          {filterGroups.map((group) => (
-            <div key={group.key} className="flex flex-wrap items-center gap-2">
-              <span className="w-16 text-sm text-muted-foreground">{group.label}</span>
-              {group.options.map((option) => (
-                <Link
-                  key={option}
-                  href={href({ [group.key]: option } as Partial<typeof filters>)}
-                  className={cn(
-                    buttonVariants({
-                      variant: option === filters[group.key] ? 'secondary' : 'ghost',
-                      size: 'sm',
-                    }),
-                  )}
-                >
-                  {option}
-                </Link>
-              ))}
-            </div>
-          ))}
-
-          <a
-            href={`/api/admin/export/rsvps?${query}`}
-            className={buttonVariants({ variant: 'outline' })}
+        <CardContent>
+          <SearchFilters
+            key={query + status + JSON.stringify(filters)}
+            action="/admin/rsvps"
+            query={query}
+            filters={[
+              {
+                name: 'status',
+                label: 'Response',
+                value: status,
+                options: [
+                  { value: 'all', label: 'All responses' },
+                  { value: 'coming', label: 'Coming' },
+                  { value: 'declined', label: 'Unable to attend' },
+                  { value: 'waiting', label: 'Waiting for reply' },
+                ],
+              },
+              {
+                name: 'side',
+                label: 'Family',
+                value: filters.side,
+                options: [
+                  { value: 'all', label: 'Both sides' },
+                  ...SIDES.map((value) => ({ value, label: SIDE_LABELS[value] })),
+                ],
+              },
+            ]}
           >
-            Download filtered CSV
-          </a>
+            <input type="hidden" name="channel" value={filters.channel} />
+            <input type="hidden" name="source" value={filters.source} />
+          </SearchFilters>
         </CardContent>
       </Card>
-
+      <details className="admin-disclosure">
+        <summary>More filters and download</summary>
+        <div className="admin-disclosure-body space-y-4">
+          <form action="/admin/rsvps" className="admin-filters">
+            <input type="hidden" name="q" value={query} />
+            <input type="hidden" name="status" value={status} />
+            <input type="hidden" name="side" value={filters.side} />
+            <div className="admin-filter">
+              <label htmlFor="reply-method">Reply received</label>
+              <select
+                className="admin-select"
+                id="reply-method"
+                name="source"
+                defaultValue={filters.source}
+              >
+                <option value="all">Online or by phone</option>
+                {RSVP_SOURCES.map((value) => (
+                  <option key={value} value={value}>
+                    {SOURCE_LABELS[value]}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="admin-filter">
+              <label htmlFor="sending-method">Invitation sent by</label>
+              <select
+                className="admin-select"
+                id="sending-method"
+                name="channel"
+                defaultValue={filters.channel}
+              >
+                <option value="all">Any sending method</option>
+                {DELIVERY_CHANNELS.map((value) => (
+                  <option key={value} value={value}>
+                    {CHANNEL_LABELS[value]}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <button
+              type="submit"
+              className={buttonVariants({ variant: 'outline', className: 'admin-button' })}
+            >
+              Apply filters
+            </button>
+          </form>
+          <div className="space-y-2">
+            <a
+              href={'/api/admin/export/rsvps?' + exportQuery}
+              className={buttonVariants({ variant: 'outline', className: 'admin-button' })}
+            >
+              Download responses
+            </a>
+            <p className="text-xs text-muted-foreground">
+              Includes all guest names and reply statuses for the selected family, sending method
+              and reply method. Search and response status do not narrow this download.
+            </p>
+          </div>
+        </div>
+      </details>
       <Card>
         <CardHeader>
           <CardTitle>
-            Responses{' '}
-            <span className="text-muted-foreground">
-              ({guests.length} {guests.length === 1 ? 'invitation' : 'invitations'} in filter)
-            </span>
+            {guests.length} {guests.length === 1 ? 'household' : 'households'} shown
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="overflow-x-auto">
-            <Table>
+          {guests.length === 0 ? (
+            <EmptyState
+              title={
+                query
+                  ? 'No guests found for “' + query + '”'
+                  : status === 'waiting' &&
+                      filters.side === 'all' &&
+                      filters.channel === 'all' &&
+                      filters.source === 'all'
+                    ? 'No guests waiting for a reply'
+                    : 'No replies match these filters'
+              }
+              description={
+                status === 'waiting' &&
+                !query &&
+                filters.side === 'all' &&
+                filters.channel === 'all' &&
+                filters.source === 'all'
+                  ? 'Every invited household has replied.'
+                  : 'Try another search, response or family.'
+              }
+            />
+          ) : (
+            <Table className="admin-table">
               <TableHeader>
                 <TableRow>
-                  {['Name', 'Side', 'Answer', 'Party', 'How it arrived', 'Recorded by'].map((h) => (
-                    <TableHead key={h}>{h}</TableHead>
+                  {[
+                    'Guest / Family',
+                    'Response',
+                    'Guests attending',
+                    'Last updated',
+                    'Reply received',
+                    '',
+                  ].map((heading) => (
+                    <TableHead key={heading}>{heading}</TableHead>
                   ))}
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {guests.map((row) => {
-                  const rsvp = row.rsvps[0];
-                  return (
-                    <TableRow key={row.guest.id}>
-                      <TableCell className="font-medium">
-                        <span className="admin-name">{row.guest.displayName}</span>
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant="outline">{row.guest.side}</Badge>
-                      </TableCell>
-                      <TableCell>
-                        {!rsvp ? (
-                          <span className="text-muted-foreground">no response</span>
-                        ) : rsvp.attending ? (
-                          <Badge>attending</Badge>
-                        ) : (
-                          <Badge variant="secondary">declined</Badge>
-                        )}
-                      </TableCell>
-                      <TableCell className="tabular-nums">
-                        {rsvp?.attending ? rsvp.partyCount : '-'}
-                      </TableCell>
-                      <TableCell>
-                        {rsvp ? (
-                          <Badge variant={rsvp.source === 'self' ? 'outline' : 'secondary'}>
-                            {rsvp.source}
-                          </Badge>
-                        ) : (
-                          <span className="text-muted-foreground">-</span>
-                        )}
-                      </TableCell>
-                      <TableCell className="text-muted-foreground">
-                        {rsvp?.recordedBy ?? '-'}
-                      </TableCell>
-                    </TableRow>
-                  );
-                })}
+                {guests.map((row) => (
+                  <TableRow key={row.guest.id}>
+                    <TableCell data-label="Guest / Family">
+                      <span className="admin-name">{row.guest.displayName}</span>
+                      <span className="admin-row-subtext">{SIDE_LABELS[row.guest.side]}</span>
+                      {row.guest.phone && (
+                        <a href={'tel:' + row.guest.phone} className="admin-row-subtext">
+                          {row.guest.phone}
+                        </a>
+                      )}
+                    </TableCell>
+                    <TableCell data-label="Response">
+                      {row.eventSlugs.length === 0 ? (
+                        <span className="text-muted-foreground">No celebration selected</span>
+                      ) : (
+                        events
+                          .filter((event) => row.eventSlugs.includes(event.slug))
+                          .map((event) => {
+                            const reply = row.rsvps.find((r) => r.eventSlug === event.slug);
+                            return (
+                              <div key={event.slug} className="mb-2">
+                                {events.length > 1 && (
+                                  <span className="admin-row-subtext">{event.name}</span>
+                                )}
+                                <StatusBadge
+                                  tone={!reply ? 'warm' : reply.attending ? 'positive' : 'quiet'}
+                                >
+                                  {!reply
+                                    ? 'Waiting for reply'
+                                    : reply.attending
+                                      ? 'Coming'
+                                      : 'Unable to attend'}
+                                </StatusBadge>
+                              </div>
+                            );
+                          })
+                      )}
+                    </TableCell>
+                    <TableCell data-label="Guests attending">
+                      {row.rsvps.length ? (
+                        row.rsvps.map((reply) => (
+                          <div key={reply.eventSlug} className="mb-2">
+                            {events.length > 1 && (
+                              <span className="admin-row-subtext">
+                                {events.find((event) => event.slug === reply.eventSlug)?.name}
+                              </span>
+                            )}
+                            <strong className="font-medium tabular-nums">
+                              {reply.attending ? reply.partyCount : '—'}
+                            </strong>
+                            {reply.attendeeNames && (
+                              <span className="admin-row-subtext">{reply.attendeeNames}</span>
+                            )}
+                          </div>
+                        ))
+                      ) : (
+                        <span className="text-muted-foreground">Awaiting reply</span>
+                      )}
+                    </TableCell>
+                    <TableCell data-label="Last updated">
+                      {row.rsvps.length ? (
+                        row.rsvps.map((reply) => (
+                          <p key={reply.eventSlug} className="mb-2 text-xs text-muted-foreground">
+                            {formatDateTimeShort(new Date(reply.updatedAt), config.site.timezone)}
+                          </p>
+                        ))
+                      ) : (
+                        <span className="text-muted-foreground">—</span>
+                      )}
+                    </TableCell>
+                    <TableCell data-label="Reply received">
+                      {row.rsvps.length === 0 && <span className="text-muted-foreground">—</span>}
+                      {row.rsvps.map((reply) => (
+                        <div key={reply.eventSlug} className="mb-2">
+                          {SOURCE_LABELS[reply.source]}
+                          {reply.recordedBy && (
+                            <span className="admin-row-subtext">
+                              Recorded by {reply.recordedBy}
+                            </span>
+                          )}
+                        </div>
+                      ))}
+                    </TableCell>
+                    <TableCell data-label="Actions">
+                      <Link
+                        href={'/admin/rsvps?guest=' + row.guest.id + '#record-reply'}
+                        className={buttonVariants({
+                          variant: 'outline',
+                          className: 'admin-button',
+                        })}
+                      >
+                        Record reply
+                      </Link>
+                    </TableCell>
+                  </TableRow>
+                ))}
               </TableBody>
             </Table>
-          </div>
+          )}
         </CardContent>
       </Card>
     </div>
