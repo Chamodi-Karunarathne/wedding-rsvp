@@ -79,7 +79,6 @@ export const guests = pgTable(
     language: text('language', { enum: LOCALES }).notNull().default('en'),
     maxPartySize: integer('max_party_size').notNull().default(2),
     phone: text('phone'),
-    personalNote: text('personal_note'),
     // Free-text, admin-only. Anything ad hoc the family wants recorded
     // against a household - dietary needs, "calls the landline", anything.
     notes: text('notes'),

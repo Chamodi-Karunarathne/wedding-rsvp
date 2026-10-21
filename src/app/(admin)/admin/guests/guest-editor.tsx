@@ -34,7 +34,6 @@ export function GuestEditor({ events, guest, invitedSlugs = [], onDone }: Props)
     side: guest?.side ?? ('bride' as Side),
     maxPartySize: guest?.maxPartySize ?? 2,
     phone: guest?.phone ?? '',
-    personalNote: guest?.personalNote ?? '',
     notes: guest?.notes ?? '',
   };
   const [form, setForm] = useState(initialForm);
@@ -59,7 +58,6 @@ export function GuestEditor({ events, guest, invitedSlugs = [], onDone }: Props)
       side: form.side,
       maxPartySize: Number(form.maxPartySize),
       phone: form.phone.trim() || null,
-      personalNote: form.personalNote.trim() || null,
       notes: form.notes.trim() || null,
       eventSlugs: slugs,
     };
@@ -81,7 +79,6 @@ export function GuestEditor({ events, guest, invitedSlugs = [], onDone }: Props)
         side: 'bride',
         maxPartySize: 2,
         phone: '',
-        personalNote: '',
         notes: '',
       });
       setSlugs([]);
@@ -205,16 +202,6 @@ export function GuestEditor({ events, guest, invitedSlugs = [], onDone }: Props)
               <p className="text-muted-foreground">No celebration has been added yet.</p>
             )}
           </fieldset>
-          <div className="mt-4 space-y-2">
-            <Label htmlFor={id + '-note'}>A personal note for this guest</Label>
-            <Textarea
-              id={id + '-note'}
-              rows={2}
-              value={form.personalNote}
-              onChange={(e) => set('personalNote', e.target.value)}
-              placeholder="Optional. Only this guest will see it."
-            />
-          </div>
         </section>
         <details className="admin-disclosure">
           <summary>More details</summary>

@@ -23,7 +23,6 @@ export function toGuestView(row: GuestRow): GuestView {
     language: row.language,
     maxPartySize: row.maxPartySize,
     phone: row.phone,
-    personalNote: row.personalNote,
     notes: row.notes,
   };
 }

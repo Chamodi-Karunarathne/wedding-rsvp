@@ -44,7 +44,6 @@ export const guestInputSchema = z.object({
   language: z.enum(LOCALES).optional(),
   maxPartySize: z.number().int().min(1).max(50),
   phone: z.string().max(40).nullable().optional(),
-  personalNote: z.string().max(2000).nullable().optional(),
   notes: z.string().max(4000).nullable().optional(),
   eventSlugs: z.array(z.string().min(1)).max(20).optional(),
 });

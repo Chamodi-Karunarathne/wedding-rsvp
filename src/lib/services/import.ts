@@ -40,7 +40,7 @@ export type ImportSummary = {
 const HEADER_HELP =
   'Expected columns: display_name (required), side (bride|groom|both, required), ' +
   'display_name_fallback, sort_name, language, max_party_size, phone, ' +
-  'personal_note, notes, events, channels.';
+  'notes, events, channels.';
 
 /** Accepts "display_name", "display name" and "displayname". */
 function pick(record: Record<string, string>, name: string): string {
@@ -173,7 +173,6 @@ export async function importGuestsCsv(
       maxPartySize,
       phone: normalizePhone(phone),
       displayNameFallback: pick(record, 'display_name_fallback') || null,
-      personalNote: pick(record, 'personal_note') || null,
       notes: pick(record, 'notes') || null,
       ...(eventSlugs.length ? { eventSlugs } : {}),
     };

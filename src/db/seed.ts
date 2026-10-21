@@ -71,7 +71,6 @@ type SeedGuest = {
   language?: Locale;
   maxPartySize: number;
   phone?: string;
-  personalNote?: string;
   notes?: string;
   displayNameFallback?: string;
   events: EventSlug[];
@@ -121,18 +120,6 @@ const GUEST_FIXTURES: SeedGuest[] = [
     phone: '0763219876',
     events: INVITED,
     channels: [{ channel: 'whatsapp', status: 'pending' }],
-  },
-  {
-    covers: 'personal_note',
-    displayName: 'Mrs. Kamala Silva',
-    sortName: 'Silva, Kamala',
-    side: 'bride',
-    maxPartySize: 2,
-    phone: '0771112223',
-    personalNote:
-      'Kamala aunty - you taught me to cook, and I still burn the rice. It would not be a wedding without you there.',
-    events: INVITED,
-    channels: [{ channel: 'in_person', status: 'delivered' }],
   },
   {
     covers: 'has already DECLINED',
@@ -411,7 +398,6 @@ async function main(): Promise<void> {
           language: fixture.language ?? 'en',
           maxPartySize: fixture.maxPartySize,
           phone: fixture.phone ?? null,
-          personalNote: fixture.personalNote ?? null,
           notes: fixture.notes ?? null,
         })
         .returning();

@@ -40,7 +40,6 @@ export type GuestView = {
   language: Locale;
   maxPartySize: number;
   phone: string | null;
-  personalNote: string | null;
   /** Free-text, admin-only. Never rendered to the guest. */
   notes: string | null;
 };

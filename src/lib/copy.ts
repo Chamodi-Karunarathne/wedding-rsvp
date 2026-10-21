@@ -82,9 +82,6 @@ export type CopyBundle = {
     /** Shown only when the form cannot work, i.e. no JavaScript. */
     noScript: string;
   };
-  note: {
-    heading: string;
-  };
   /* The card itself: the RSVP region printed on it, and the opening sequence. */
   card: {
     /* The two buttons in the RSVP region printed on the card. */
@@ -221,9 +218,6 @@ const en: CopyBundle = {
     noScript:
       'Sending a reply from here needs JavaScript. If you would rather not turn it on, ' +
       'telephone us and we will write your answer down ourselves.',
-  },
-  note: {
-    heading: 'A word meant only for you',
   },
   card: {
     accept: 'With the greatest joy',

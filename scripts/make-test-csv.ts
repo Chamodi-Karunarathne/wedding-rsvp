@@ -74,7 +74,6 @@ const header = [
   'max_party_size',
   'phone',
   'notes',
-  'personal_note',
   ...(withEvents ? ['events'] : []),
   'channels',
 ];
@@ -102,7 +101,6 @@ for (let i = 1; i <= 50; i += 1) {
     // is exactly the case that breaks a naive (sort_name, phone) dedupe key.
     isPrint ? '' : `07${String(10000000 + i).slice(0, 8)}`,
     isPrint ? `Card posted to No. ${i}, Temple Road, Kandy 20000` : '',
-    i === 3 ? 'We are so glad you can make it.' : '',
     ...(withEvents ? [events.join('|')] : []),
     isPrint ? 'print' : 'whatsapp',
   ]);

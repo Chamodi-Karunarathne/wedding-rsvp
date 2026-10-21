@@ -128,7 +128,6 @@ export type GuestInput = {
   language?: 'en' | 'si';
   maxPartySize?: number;
   phone?: string | null;
-  personalNote?: string | null;
   notes?: string | null;
   /** Event slugs this guest is invited to. Replaces the existing set. */
   eventSlugs?: string[];
@@ -152,7 +151,6 @@ export async function createGuest(
       language: input.language ?? 'en',
       maxPartySize: input.maxPartySize ?? 2,
       phone: input.phone ?? null,
-      personalNote: input.personalNote ?? null,
       notes: input.notes ?? null,
     })
     .returning();
@@ -184,7 +182,6 @@ export async function updateGuest(
       ...(input.language !== undefined && { language: input.language }),
       ...(input.maxPartySize !== undefined && { maxPartySize: input.maxPartySize }),
       ...(input.phone !== undefined && { phone: input.phone }),
-      ...(input.personalNote !== undefined && { personalNote: input.personalNote }),
       ...(input.notes !== undefined && { notes: input.notes }),
       updatedAt: new Date(),
     })

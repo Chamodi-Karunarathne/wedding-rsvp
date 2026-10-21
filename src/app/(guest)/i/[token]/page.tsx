@@ -226,12 +226,6 @@ export default async function InvitationPage({ params, searchParams }: PageProps
           <p>{copy.invitation.youAreInvited}</p>
           <p>{copy.invitation.inviteesLabel}</p>
           <p>{guest.displayName}</p>
-          {guest.personalNote && (
-            <>
-              <h3>{copy.note.heading}</h3>
-              <p>{guest.personalNote}</p>
-            </>
-          )}
         </div>
       </main>
     </>

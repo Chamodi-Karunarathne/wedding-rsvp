@@ -36,7 +36,6 @@ const columns = [
   ['display_name_fallback', 'Shorter invitation name'],
   ['sort_name', 'Name to sort by'],
   ['language', 'en for English, si for Sinhala'],
-  ['personal_note', 'A note shown to this guest'],
   ['notes', 'Private family notes'],
 ];
 
