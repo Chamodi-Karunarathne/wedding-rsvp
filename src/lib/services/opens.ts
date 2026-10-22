@@ -1,6 +1,6 @@
 import { sql } from 'drizzle-orm';
 import { getDb, type DbLike } from '@/db/client';
-import { guestOpens } from '@/db/schema';
+import { guestOpens, guests } from '@/db/schema';
 import { isCrawler } from '@/lib/domain/crawler';
 
 export type OpenContext = {
@@ -18,29 +18,32 @@ export type OpenContext = {
 };
 
 /**
- * PERMANENT. The only analytics write in the system.
+ * PERMANENT. A best-effort signal that an invitation link was viewed, not
+ * proof of the identity of the person holding that link.
  *
  * Skips link-preview crawlers: WhatsApp fetches every link the moment it is
  * sent, which would otherwise mark all ~500 guests as having opened their
  * invitation before a single person had seen it.
  */
-export async function recordOpen(
-  guestId: string,
+export async function recordOpenByToken(
+  token: string,
   context: OpenContext,
-  db: DbLike = getDb(),
+  db?: DbLike,
 ): Promise<void> {
   if (context.preview) return;
   if (isCrawler(context.userAgent)) return;
 
-  const now = new Date();
-  await db
-    .insert(guestOpens)
-    .values({ guestId, firstOpen: now, lastOpen: now })
-    .onConflictDoUpdate({
-      target: guestOpens.guestId,
-      // COALESCE keeps the original first_open; only last_open moves.
-      set: { lastOpen: now, firstOpen: sql`COALESCE(${guestOpens.firstOpen}, ${now})` },
-    });
+  // Resolve the token and upsert in one statement. Unknown/deleted links add
+  // nothing. The database clock and min/max also preserve both ends when
+  // requests on separate app instances finish in a different order.
+  await (db ?? getDb()).execute(sql`
+    INSERT INTO ${guestOpens} (guest_id, first_open, last_open)
+    SELECT ${guests.id}, statement_timestamp(), statement_timestamp()
+    FROM ${guests} WHERE ${guests.token} = ${token}
+    ON CONFLICT (guest_id) DO UPDATE SET
+      first_open = LEAST(${guestOpens.firstOpen}, excluded.first_open),
+      last_open = GREATEST(${guestOpens.lastOpen}, excluded.last_open)
+  `);
 }
 
 export type GuestOpen = { firstOpen: Date | null; lastOpen: Date | null };

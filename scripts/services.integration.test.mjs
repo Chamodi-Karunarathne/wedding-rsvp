@@ -28,6 +28,7 @@ const schema = await import('../src/db/schema.ts');
 const { createGuest, deleteGuest, setInvitations, updateGuest } = await import('../src/lib/services/guests.ts');
 const { importGuestsCsv } = await import('../src/lib/services/import.ts');
 const { submitRsvpByGuestId } = await import('../src/lib/services/rsvps.ts');
+const { listOpens, recordOpenByToken } = await import('../src/lib/services/opens.ts');
 const { lockGuest, withTransaction } = await import('../src/lib/services/transactions.ts');
 const { ok, serviceError } = await import('../src/lib/domain/result.ts');
 const db = drizzle(pool, { schema });
@@ -133,6 +134,68 @@ async function race(guestId, first, second) {
 }
 
 describe('PostgreSQL service transactions in a disposable schema', () => {
+  it('records visible-link opens by token while ignoring previews, crawlers and deleted links', async () => {
+    const f = await fixture();
+    const context = { userAgent: 'Mozilla/5.0 Mobile Safari/604.1' };
+    await recordOpenByToken(f.guest.token, { ...context, preview: true }, db);
+    await recordOpenByToken(f.guest.token, { userAgent: 'WhatsApp/2.24' }, db);
+    await recordOpenByToken(`missing-${randomUUID()}`, context, db);
+    assert.equal((await listOpens(db)).has(f.guest.id), false);
+    await recordOpenByToken(f.guest.token, context, db);
+    const first = (await listOpens(db)).get(f.guest.id);
+    assert.ok(first?.firstOpen instanceof Date);
+    assert.equal(first.firstOpen.toISOString(), first.lastOpen.toISOString());
+    await delay(5);
+    await recordOpenByToken(f.guest.token, context, db);
+    const second = (await listOpens(db)).get(f.guest.id);
+    assert.equal(second.firstOpen.toISOString(), first.firstOpen.toISOString());
+    assert.ok(second.lastOpen > first.lastOpen);
+    assert.equal((await pool.query('SELECT count(*) FROM guest_opens WHERE guest_id=$1', [f.guest.id])).rows[0].count, '1');
+    await deleteGuest(f.guest.id, db);
+    await recordOpenByToken(f.guest.token, context, db);
+    assert.equal((await listOpens(db)).has(f.guest.id), false);
+  });
+
+  it('retains the earliest and latest database-clock opens when a delayed request finishes last', async () => {
+    const f = await fixture();
+    const context = { userAgent: 'Mozilla/5.0 Mobile Safari/604.1' };
+    const left = await pool.connect();
+    const right = await pool.connect();
+    let pending;
+    try {
+      await left.query('BEGIN');
+      const leftDb = drizzle(left, { schema });
+      await recordOpenByToken(f.guest.token, context, leftDb);
+      const initial = (await left.query('SELECT first_open FROM guest_opens WHERE guest_id=$1', [f.guest.id])).rows[0].first_open;
+      const pid = (await right.query('SELECT pg_backend_pid() AS pid')).rows[0].pid;
+      pending = recordOpenByToken(f.guest.token, context, drizzle(right, { schema }));
+      await waitForLock(pid);
+      await delay(5);
+      // This newer statement commits before the waiting, older statement.
+      await recordOpenByToken(f.guest.token, context, leftDb);
+      const latest = (await left.query('SELECT last_open FROM guest_opens WHERE guest_id=$1', [f.guest.id])).rows[0].last_open;
+      await left.query('COMMIT');
+      await pending;
+      const actual = (await listOpens(db)).get(f.guest.id);
+      assert.equal(actual.firstOpen.toISOString(), initial.toISOString());
+      assert.equal(actual.lastOpen.toISOString(), latest.toISOString());
+    } finally {
+      await left.query('ROLLBACK');
+      await Promise.allSettled([pending].filter(Boolean));
+      left.release();
+      right.release();
+    }
+  });
+
+  it('repairs nullable historical open timestamps on the next actual visit', async () => {
+    const f = await fixture();
+    await pool.query('INSERT INTO guest_opens(guest_id,first_open,last_open) VALUES ($1,NULL,NULL)', [f.guest.id]);
+    await recordOpenByToken(f.guest.token, { userAgent: 'Mozilla/5.0 Mobile Safari/604.1' }, db);
+    const open = (await listOpens(db)).get(f.guest.id);
+    assert.ok(open.firstOpen instanceof Date);
+    assert.equal(open.firstOpen.toISOString(), open.lastOpen.toISOString());
+  });
+
   it('creates fresh schema from every migration and rejects unknown events without partial guests', async () => {
     const f = await fixture();
     const before = Number((await pool.query('SELECT count(*) FROM guests')).rows[0].count);

@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 import type { Metadata } from 'next';
 import { AdminNavigation } from './_components/navigation';
+import { AdminAutoRefresh } from './_components/auto-refresh';
 import './admin.css';
 
 export const metadata: Metadata = {
@@ -15,6 +16,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
         Skip to main content
       </a>
       <AdminNavigation />
+      <AdminAutoRefresh />
       <main id="admin-main">{children}</main>
     </div>
   );

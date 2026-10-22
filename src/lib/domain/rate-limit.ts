@@ -17,6 +17,9 @@ export const PUBLIC_RATE_LIMITS = {
   rsvpGlobal: { scope: 'rsvp-global', limit: 300, windowSeconds: 60 },
   rsvpIp: { scope: 'rsvp-ip', limit: 60, windowSeconds: 60 },
   rsvpToken: { scope: 'rsvp-token', limit: 10, windowSeconds: 10 * 60 },
+  openGlobal: { scope: 'open-global', limit: 600, windowSeconds: 60 },
+  openIp: { scope: 'open-ip', limit: 120, windowSeconds: 60 },
+  openToken: { scope: 'open-token', limit: 30, windowSeconds: 10 * 60 },
 } as const satisfies Record<string, RateLimitPolicy>;
 
 /** Persist neither a password, an invitation token, nor an IP address. */

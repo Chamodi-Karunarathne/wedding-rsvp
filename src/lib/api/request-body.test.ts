@@ -111,6 +111,7 @@ describe('bounded JSON requests', () => {
 
   it('assigns distinct byte budgets to login, import, and ordinary JSON requests', () => {
     assert.equal(requestBodyLimit(new Request('https://wedding.example/api/admin/login')), LOGIN_BODY_LIMIT_BYTES);
+    assert.equal(requestBodyLimit(new Request('https://wedding.example/api/open')), LOGIN_BODY_LIMIT_BYTES);
     assert.equal(requestBodyLimit(new Request('https://wedding.example/api/admin/import/')), CSV_IMPORT_BODY_LIMIT_BYTES);
     assert.equal(requestBodyLimit(new Request('https://wedding.example/api/rsvp')), JSON_BODY_LIMIT_BYTES);
   });

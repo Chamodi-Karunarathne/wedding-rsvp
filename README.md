@@ -133,10 +133,19 @@ The dashboard filters by source, so it stays visible which numbers came from gue
 Every guest arrives through a link somebody sent them, which makes `guest_opens` the only signal separating "has not seen it" from "seen it and not replied" — the difference between resending a link and picking up the phone. `/admin/send` shows all three as distinct states:
 
 - **sent** — a delivery channel is marked `sent` or `delivered`
-- **opened** — somebody actually loaded the invitation; link-preview crawlers are excluded, so WhatsApp fetching the URL to build its preview does not count
+- **opened** — the invitation mounted in a visible browser tab; link previews, background prefetches, admin sessions and explicit previews do not count
 - **responded** — an answer exists, however it arrived
 
 `deliveryState()` in `lib/domain/delivery.ts` is pure and tested. Each household shows the furthest point it has reached, so someone who telephoned without ever opening their link still reads as responded.
+
+The invitations list also shows link-open status separately from replies, with
+first/last visit times in the household details. `OpenTracker` reports a visible
+visit to `/api/open`; rendering HTML or copying a message/link records nothing.
+The endpoint resolves the invitation token and updates `guest_opens` atomically,
+using database-clock earliest/latest timestamps. Tracking is best effort: a
+blocked script or failed request can miss a visit, and a forwarded link cannot
+prove which person opened it. No identity verification or extra personal data is
+collected.
 
 ## The admin console
 
@@ -156,6 +165,16 @@ MCP/server dependency tree; component generation still uses `pnpm dlx` as above.
 Two things it touches outside `/admin`, both in `src/app/globals.css` and both from the preset's own base layer: `body` gets `bg-background text-foreground`, and `html` gets `font-serif` with Noto Serif and Public Sans loaded in the root layout. The guest UI is disposable and unstyled, so it inherits those and is otherwise untouched.
 
 The root layout no longer sets a width. Guest pages get their reading column from `(guest)/layout.tsx` and `not-found.tsx` sets its own; the console needs the full width for its tables.
+
+Invitations keeps each household's WhatsApp, **Copy message**, and **Copy link**
+actions together; sending records expand under **Sending details**. Copy message
+uses the same personalized text as WhatsApp and works without a phone number.
+If clipboard access is unavailable, a selected text field supports manual copying.
+
+Admin list data refreshes every 30 seconds while the tab is visible and online.
+Refresh pauses for open editors, focused fields, text selection and pending writes,
+and catches up when returning to the tab. Login and the Wedding Details editor do
+not poll while being edited.
 
 ## The card, and why there are offsets
 

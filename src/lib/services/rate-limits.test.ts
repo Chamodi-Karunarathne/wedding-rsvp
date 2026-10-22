@@ -29,7 +29,7 @@ describe('PostgreSQL rate-limit adapter', () => {
     const global = dialect.sqlToQuery(rateLimitQuery(PUBLIC_RATE_LIMITS.rsvpGlobal, hashRateLimitKey('rsvp-global', 'all')));
     assert.match(global.sql, /LIMIT 32 FOR UPDATE SKIP LOCKED/);
     assert.match(global.sql, /interval '1 day'/);
-    assert.match(global.sql, /NOT IN \('login-global', 'rsvp-global'\)/);
+    assert.match(global.sql, /NOT LIKE '%-global'/);
     const token = dialect.sqlToQuery(rateLimitQuery(PUBLIC_RATE_LIMITS.rsvpToken, hashRateLimitKey('rsvp-token', 'abc123XYZ0')));
     assert.ok(!token.sql.includes('DELETE FROM'));
   });

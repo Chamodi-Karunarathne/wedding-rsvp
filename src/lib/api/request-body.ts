@@ -35,6 +35,7 @@ export function requestOriginError(request: Request, trustedOrigin?: string): Re
 export function requestBodyLimit(request: Request): number {
   const path = new URL(request.url).pathname.replace(/\/$/, '');
   if (path === '/api/admin/login') return LOGIN_BODY_LIMIT_BYTES;
+  if (path === '/api/open') return LOGIN_BODY_LIMIT_BYTES;
   if (path === '/api/admin/import') return CSV_IMPORT_BODY_LIMIT_BYTES;
   return JSON_BODY_LIMIT_BYTES;
 }

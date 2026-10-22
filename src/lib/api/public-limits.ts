@@ -43,15 +43,15 @@ async function consume(
 /** Run before reading a public request body, including malformed submissions. */
 export async function limitPublicRequest(
   request: Request,
-  endpoint: 'login' | 'rsvp',
+  endpoint: 'login' | 'rsvp' | 'open',
   options: Options = {},
 ): Promise<Response | null> {
   const identity = clientRateLimitIdentity(
     request.headers,
     options.trustedIpHeader ?? process.env.RATE_LIMIT_TRUSTED_IP_HEADER,
   );
-  const global = endpoint === 'login' ? PUBLIC_RATE_LIMITS.loginGlobal : PUBLIC_RATE_LIMITS.rsvpGlobal;
-  const ip = endpoint === 'login' ? PUBLIC_RATE_LIMITS.loginIp : PUBLIC_RATE_LIMITS.rsvpIp;
+  const global = PUBLIC_RATE_LIMITS[`${endpoint}Global`];
+  const ip = PUBLIC_RATE_LIMITS[`${endpoint}Ip`];
   return consume([
     { policy: ip, identifier: identity },
     { policy: global, identifier: 'all' },
@@ -61,4 +61,8 @@ export async function limitPublicRequest(
 /** Only call after validating the token field; the IP gate has already run. */
 export function limitRsvpToken(token: string, options: Options = {}): Promise<Response | null> {
   return consume([{ policy: PUBLIC_RATE_LIMITS.rsvpToken, identifier: token }], options);
+}
+
+export function limitOpenToken(token: string, options: Options = {}): Promise<Response | null> {
+  return consume([{ policy: PUBLIC_RATE_LIMITS.openToken, identifier: token }], options);
 }

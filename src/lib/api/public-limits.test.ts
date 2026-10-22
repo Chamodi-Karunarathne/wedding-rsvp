@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import { PUBLIC_RATE_LIMITS, type RateLimitDecision, type RateLimitStore } from '../domain/rate-limit.ts';
-import { limitPublicRequest, limitRsvpToken } from './public-limits.ts';
+import { limitOpenToken, limitPublicRequest, limitRsvpToken } from './public-limits.ts';
 
 /** Deterministic storage test double. Production uses the atomic PostgreSQL adapter. */
 function windowStore(now: () => number): RateLimitStore {
@@ -38,6 +38,21 @@ const request = (address = '192.0.2.1') => new Request('https://wedding.example/
 });
 
 describe('public endpoint rate-limit guards', () => {
+  it('keeps link-open request and token budgets separate from RSVP submission budgets', async () => {
+    const store = windowStore(() => 1);
+    const options = { store, trustedIpHeader: 'x-real-ip' };
+    for (let i = 0; i < PUBLIC_RATE_LIMITS.openIp.limit; i++) {
+      assert.equal(await limitPublicRequest(request(), 'open', options), null);
+    }
+    assert.equal((await limitPublicRequest(request(), 'open', options))?.status, 429);
+    assert.equal(await limitPublicRequest(request(), 'rsvp', options), null);
+    for (let i = 0; i < PUBLIC_RATE_LIMITS.openToken.limit; i++) {
+      assert.equal(await limitOpenToken('opened-token', { store }), null);
+    }
+    assert.equal((await limitOpenToken('opened-token', { store }))?.status, 429);
+    assert.equal(await limitRsvpToken('opened-token', { store }), null);
+  });
+
   it('allows exactly the login allowance, denies the next attempt, and resets at the window boundary', async () => {
     let time = 0;
     const store = windowStore(() => time);

@@ -5,7 +5,7 @@ import { Table, TableBody, TableHead, TableHeader, TableRow } from '@/components
 import { DELIVERY_STATES } from '@/lib/domain/delivery';
 import { renderTemplate } from '@/lib/domain/template';
 import { invitationUrl, whatsappSendUrl } from '@/lib/domain/urls';
-import { formatDate, formatEventDateTime } from '@/lib/format';
+import { formatDate, formatDateTimeShort, formatEventDateTime } from '@/lib/format';
 import { getConfig } from '@/lib/services/config';
 import { getPrimaryEvent } from '@/lib/services/events';
 import { listGuests } from '@/lib/services/guests';
@@ -130,10 +130,10 @@ export default async function AdminSendPage({ searchParams }: Props) {
               }
             />
           ) : (
-            <Table className="admin-table">
+            <Table className="admin-table admin-invitations">
               <TableHeader>
                 <TableRow>
-                  {['Guest / Family', 'Progress', 'Actions', 'Sending record'].map((heading) => (
+                  {['Guest / Family', 'Progress', 'Actions'].map((heading) => (
                     <TableHead key={heading}>{heading}</TableHead>
                   ))}
                 </TableRow>
@@ -153,10 +153,13 @@ export default async function AdminSendPage({ searchParams }: Props) {
                       displayName={row.guest.displayName}
                       phone={row.guest.phone}
                       invitationUrl={url}
+                      message={message}
                       whatsappUrl={
                         row.guest.phone ? whatsappSendUrl(row.guest.phone, message) : null
                       }
                       state={state}
+                      firstOpenedAt={row.firstOpen ? formatDateTimeShort(row.firstOpen, config.site.timezone) : null}
+                      lastOpenedAt={row.lastOpen ? formatDateTimeShort(row.lastOpen, config.site.timezone) : null}
                       channels={row.channels.map((channel) => ({
                         channel: channel.channel,
                         status: channel.status,

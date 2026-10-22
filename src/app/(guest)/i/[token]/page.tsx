@@ -1,4 +1,3 @@
-import { headers } from 'next/headers';
 import { notFound } from 'next/navigation';
 import type { Metadata } from 'next';
 import { copyFor } from '@/lib/copy';
@@ -7,11 +6,11 @@ import { hasAdminSession } from '@/lib/api/guard';
 import { scriptOf } from '@/lib/domain/script';
 import { renderTemplate } from '@/lib/domain/template';
 import { loadInvitation } from '@/lib/services/invitation';
-import { recordOpen } from '@/lib/services/opens';
 import { Monogram } from '../../_components/stationery';
 import { Card } from '../../_components/card';
 import { Envelope } from '../../_components/envelope';
 import { Intro } from '../../_components/intro';
+import { OpenTracker } from '../../_components/open-tracker';
 import { RespondButton, RespondFlow } from '../../_components/respond';
 
 /*
@@ -66,20 +65,9 @@ export default async function InvitationPage({ params, searchParams }: PageProps
 
   const invitation = result.data;
 
-  /*
-   * The only analytics write in the system.
-   *
-   * Skips link-preview crawlers, so WhatsApp fetching the URL to build its
-   * preview does not count as an open - and skips anyone signed in to the
-   * admin console, because someone checking what was sent is not the household
-   * reading it. 'opened' versus 'sent' is what decides between resending a
-   * link and telephoning, so it has to mean what it says.
-   */
-  const headerList = await headers();
-  await recordOpen(invitation.guest.id, {
-    userAgent: headerList.get('user-agent'),
-    preview: query.preview === '1' || (await hasAdminSession()),
-  });
+  // Analytics starts only when a guest actually mounts the visible page.
+  // Rendering, prefetching, and checking a link from admin never count.
+  const trackOpen = query.preview !== '1' && !(await hasAdminSession());
 
   const copy = copyFor(invitation.guest.language);
   const { guest, site } = invitation;
@@ -95,6 +83,7 @@ export default async function InvitationPage({ params, searchParams }: PageProps
 
   return (
     <>
+      {trackOpen && <OpenTracker token={guest.token} />}
       {/*
         The three pieces the opening sequence moves. Server-rendered so they
         are ready the moment the timeline starts, inside an overlay that is
@@ -182,7 +171,7 @@ export default async function InvitationPage({ params, searchParams }: PageProps
             </div>
             <div className="invitation-dedication">
               <p>{copy.invitation.inviteesLabel}</p>
-              <p data-script={scriptOf(guest.cardName)}>{guest.cardName}</p>
+              <p data-script={scriptOf(guest.cardName)} lang={scriptOf(guest.cardName) === 'sinhala' ? 'si' : undefined}>{guest.cardName}</p>
             </div>
           </div>
         </RespondFlow>

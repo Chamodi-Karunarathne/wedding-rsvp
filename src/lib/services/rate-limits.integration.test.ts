@@ -145,9 +145,17 @@ it('enforces durable concurrent windows and bounded cleanup in disposable Postgr
         expiredScope, hashRateLimitKey(expiredScope, String(i)), new Date(0),
       ]);
     }
+    const reservedScopes = ['login-global', 'rsvp-global', 'open-global', 'future-global'];
+    for (const scope of reservedScopes) {
+      await pool.query('INSERT INTO api_rate_limits (scope, key_hash, requests, window_ends_at) VALUES ($1, $2, 1, $3)', [
+        scope, hashRateLimitKey(scope, 'all'), new Date(0),
+      ]);
+    }
     await stores[0]!.consume({ scope: globalScope, limit: 1, windowSeconds: 60 }, 'all');
     const remaining = await pool.query('SELECT count(*)::integer AS count FROM api_rate_limits WHERE scope = $1', [expiredScope]);
     assert.equal(remaining.rows[0]!.count, 8, 'One global attempt cleans at most 32 expired rows.');
+    const reserved = await pool.query('SELECT scope FROM api_rate_limits WHERE scope = ANY($1::text[]) ORDER BY scope', [reservedScopes]);
+    assert.deepEqual(reserved.rows.map((row) => row.scope), [...reservedScopes].sort(), 'Cleanup must never lock or delete a global bucket, including new endpoint scopes.');
   } finally {
     await pool.end();
     try {

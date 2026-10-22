@@ -86,6 +86,9 @@ IP spends no shared capacity, and a globally denied request creates no new IP ro
 | RSVP, per trusted IP | 60 requests per minute |
 | RSVP, entire endpoint | 300 requests per minute |
 | RSVP, per invitation token | 10 requests per 10 minutes |
+| Link opens, per trusted IP | 120 requests per minute |
+| Link opens, entire endpoint | 600 requests per minute |
+| Link opens, per invitation token | 30 requests per 10 minutes |
 
 The app ignores forwarded IP headers by default. If your hosting ingress overwrites
 a header with exactly one verified IP and direct app access is blocked, set
@@ -95,7 +98,7 @@ documentation and an actual request. Without a trusted header, per-IP buckets ar
 shared across visitors, providing a secure fallback with lower throughput.
 
 Denied requests return 429 and Retry-After. JSON is streamed with byte ceilings:
-2 KiB for login, 64 KiB for normal APIs, 1 MiB for CSV import. Imports accept at
+2 KiB for login/link opens, 64 KiB for normal APIs, 1 MiB for CSV import. Imports accept at
 most 1,000 data rows. Browser write requests must provide JSON and match the
 configured Origin; Origin-less non-browser clients remain supported.
 
@@ -110,6 +113,10 @@ configured Origin; Origin-less non-browser clients remain supported.
   Confirm ordinary duplicate submissions do not manufacture history.
 - Confirm late replies remain accepted, failed submissions remain retryable,
   keyboard focus stays visible, and telephone details survive script failure.
+- Open a synthetic invitation in a visible guest browser and verify the first/
+  last link-open times in admin. Admin previews, WhatsApp previews and background
+  prefetches must leave those times unchanged. Tracking failures must not block
+  the invitation or replies.
 - Check logs for limiter-storage failures and database/5xx errors. Ensure logs
   redact invitation tokens, passwords, session cookies and database credentials.
 

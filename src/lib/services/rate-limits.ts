@@ -42,7 +42,7 @@ export function rateLimitQuery(policy: RateLimitPolicy, keyHash: string): SQL {
     WITH expired_keys AS MATERIALIZED (
       SELECT ${apiRateLimits.scope}, ${apiRateLimits.keyHash} FROM ${apiRateLimits}
       WHERE ${apiRateLimits.windowEndsAt} < statement_timestamp() - interval '1 day'
-        AND ${apiRateLimits.scope} NOT IN ('login-global', 'rsvp-global')
+        AND ${apiRateLimits.scope} NOT LIKE '%-global'
       ORDER BY ${apiRateLimits.windowEndsAt}
       LIMIT 32 FOR UPDATE SKIP LOCKED
     ), expired AS (

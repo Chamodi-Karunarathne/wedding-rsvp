@@ -1,11 +1,18 @@
 'use client';
 
+let pendingWrites = 0;
+
+export function hasPendingAdminWrites(): boolean {
+  return pendingWrites > 0;
+}
+
 /** Existing endpoints remain the source of validation; this helper presents their results. */
 export async function postJson(
   url: string,
   body: unknown,
   method: 'POST' | 'PATCH' | 'DELETE' = 'POST',
 ): Promise<{ ok: true; data: Record<string, unknown> } | { ok: false; message: string }> {
+  pendingWrites += 1;
   try {
     const response = await fetch(url, {
       method,
@@ -48,5 +55,7 @@ export async function postJson(
       ok: false,
       message: 'We couldn’t reach the website. Check your connection and try again.',
     };
+  } finally {
+    pendingWrites -= 1;
   }
 }

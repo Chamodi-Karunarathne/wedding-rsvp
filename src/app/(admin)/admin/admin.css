@@ -510,3 +510,102 @@
     margin: 0 -8px;
   }
 }
+
+/* Invitations keep frequent actions visible; detailed sending records expand on demand. */
+.admin-shell .admin-invitations th:first-child {
+  width: 30%;
+}
+.admin-shell .admin-invitations th:nth-child(2) {
+  width: 22%;
+}
+.admin-shell .admin-invitations td {
+  padding: 10px 12px;
+}
+.admin-invitations .admin-row-subtext {
+  margin-top: 3px;
+}
+.admin-opened-at {
+  display: block;
+  font-variant-numeric: tabular-nums;
+}
+.admin-invitation-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.admin-shell .admin-invitations [data-slot='button'],
+.admin-shell .admin-invitations .admin-button {
+  min-height: 36px;
+  padding: 6px 10px;
+  font-size: 12px;
+}
+.admin-invitation-details > summary {
+  width: fit-content;
+  min-height: 28px;
+  padding: 4px 0;
+  color: var(--muted-foreground);
+  font-size: 12px;
+  cursor: pointer;
+}
+.admin-invitation-detail-body {
+  display: grid;
+  gap: 10px;
+  padding: 10px 0 4px;
+}
+.admin-invitation-channel {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  font-size: 12px;
+}
+.admin-invitation-channel > span,
+.admin-invitation-channel > select {
+  flex: 1 1 130px;
+}
+.admin-invitation-method label {
+  display: block;
+  margin-bottom: 5px;
+}
+.admin-invitation-copy {
+  display: grid;
+  gap: 8px;
+  margin: 10px 0;
+}
+.admin-invitation-copy label {
+  color: var(--muted-foreground);
+  font-size: 12px;
+}
+.admin-invitation-copy > button {
+  justify-self: start;
+}
+.admin-invitations .admin-error,
+.admin-invitations .admin-success {
+  margin-top: 8px;
+}
+@media (max-width: 1100px) {
+  .admin-shell .admin-invitations tr {
+    grid-template-columns: minmax(0, 1fr) minmax(100px, 0.65fr);
+    gap: 10px 16px;
+    padding: 14px 0;
+  }
+  .admin-shell .admin-invitations td {
+    padding: 0;
+  }
+  .admin-shell .admin-invitations td:first-child {
+    grid-column: auto;
+  }
+  .admin-shell .admin-invitations td[data-label='Progress']::before {
+    display: none;
+  }
+  .admin-shell .admin-invitations [data-slot='button'],
+  .admin-shell .admin-invitations .admin-button {
+    min-height: 44px;
+    padding: 8px;
+  }
+  .admin-invitation-details > summary {
+    min-height: 44px;
+    padding: 12px 0;
+  }
+}
