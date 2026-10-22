@@ -21,6 +21,18 @@ describe('invitation URL', () => {
   it('agrees with the path helper, so the link and the route cannot drift', () => {
     assert.equal(invitationUrl('abc123XYZ0', ORIGIN), `${ORIGIN}${invitationPath('abc123XYZ0')}`);
   });
+
+  it('allows loopback HTTP for local production smoke tests', () => {
+    assert.equal(invitationUrl('token', 'http://localhost:3026'), 'http://localhost:3026/i/token');
+  });
+
+  it('rejects origins that would generate unsafe or misdirected invitations and metadata', () => {
+    for (const origin of ['javascript:alert(1)', '//example.com', 'http://example.com',
+      'https://user:password@example.com', 'https://example.com/path',
+      'https://example.com?x=1', 'https://example.com/#fragment']) {
+      assert.throws(() => invitationUrl('token', origin), /NEXT_PUBLIC_SITE_URL/, origin);
+    }
+  });
 });
 
 describe('whatsappSendUrl', () => {

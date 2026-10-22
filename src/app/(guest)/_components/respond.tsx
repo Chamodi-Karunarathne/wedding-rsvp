@@ -13,10 +13,9 @@ import { renderTemplate } from '@/lib/domain/template';
  * page under the card is empty and the card is the whole invitation.
  *
  * PROGRESSIVE ENHANCEMENT. The dialog's contents are ordinary server-rendered
- * HTML inside a <dialog>. With no JavaScript a <dialog> is display:none, which
- * would leave a guest with an invitation and no way to read it or answer it -
- * so guest.css has a <noscript> rule that lays the same markup out inline
- * instead. Nothing here is the only copy of anything.
+ * HTML inside a <dialog>, displayed inline until this component mounts and
+ * can open a modal. Disabled scripting, failed chunks and unsupported dialogs
+ * all leave the readable details and telephone contacts available.
  */
 
 export type ResponseDetails = {
@@ -47,6 +46,7 @@ export type SavedAnswer = {
 type RespondControl = {
   open: () => void;
   label: string;
+  enhanced: boolean;
 };
 const RespondContext = createContext<RespondControl | null>(null);
 
@@ -63,6 +63,7 @@ export function RespondButton() {
         type="button"
         className="respond-btn"
         aria-haspopup="dialog"
+        hidden={!control.enhanced}
         onClick={control.open}
       >
         <span>{control.label}</span>
@@ -100,6 +101,7 @@ export function RespondFlow({
   const stageRef = useRef<HTMLDivElement>(null);
   const closingRef = useRef<HTMLDivElement>(null);
 
+  const [enhanced, setEnhanced] = useState(false);
   const [answer, setAnswer] = useState<SavedAnswer>(existing);
   /**
    * Whether a reply was sent in THIS visit.
@@ -124,10 +126,9 @@ export function RespondFlow({
   function open() {
     setError(null);
     const dialog = dialogRef.current;
-    if (!dialog) return;
+    if (!dialog || !enhanced) return;
     // showModal gives the focus trap, the backdrop and Escape for nothing.
-    if (typeof dialog.showModal === 'function') dialog.showModal();
-    else dialog.setAttribute('open', '');
+    dialog.showModal();
     document.documentElement.classList.add('dialog-open');
   }
 
@@ -139,6 +140,8 @@ export function RespondFlow({
   useEffect(() => {
     const dialog = dialogRef.current;
     if (!dialog) return;
+
+    setEnhanced(typeof dialog.showModal === 'function' && typeof dialog.close === 'function');
 
     const sync = () => document.documentElement.classList.toggle('dialog-open', dialog.open);
     sync();
@@ -152,7 +155,7 @@ export function RespondFlow({
 
   async function submit(event: React.FormEvent) {
     event.preventDefault();
-    if (attending === null || sending) return;
+    if (!enhanced || attending === null || sending) return;
 
     setSending(true);
     setError(null);
@@ -222,6 +225,7 @@ export function RespondFlow({
       value={{
         open,
         label: answer ? copy.card.respondAgain : copy.card.respond,
+        enhanced,
       }}
     >
       {/*
@@ -230,7 +234,7 @@ export function RespondFlow({
         and remounting it to answer a question would throw it all away.
       */}
       <div ref={stageRef} className="stage" data-replied={justReplied ? 'true' : 'false'}>
-        <div className="stage-card">{children}</div>
+        <div className="stage-card" inert={justReplied} aria-hidden={justReplied || undefined}>{children}</div>
 
         {justReplied && answer && (
           <div ref={closingRef} className="closing" role="status" tabIndex={-1}>
@@ -271,7 +275,7 @@ export function RespondFlow({
         )}
       </div>
 
-      <dialog ref={dialogRef} className="sheet" aria-labelledby="sheet-title" aria-describedby="sheet-deadline">
+      <dialog ref={dialogRef} className="sheet" data-enhanced={enhanced ? 'true' : 'false'} aria-labelledby="sheet-title" aria-describedby="sheet-deadline">
         <div className="sheet-inner">
           <header className="sheet-header">
             <div className="sheet-garland" aria-hidden="true">
@@ -289,7 +293,7 @@ export function RespondFlow({
 
           <div className="sheet-scroll">
             {answer && <p className="sheet-standing">{answer.attending ? renderTemplate(copy.rsvp.savedAttending, { n: answer.partyCount }) : copy.rsvp.savedDeclined}</p>}
-            <details className="sheet-disclosure sheet-event">
+            <details className="sheet-disclosure sheet-event" open={!enhanced}>
               <summary>
                 <span><span className="sheet-disclosure-label">{copy.dialog.detailsHeading}</span><span className="sheet-event-preview">{details.when}</span></span>
                 <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="m7 10 5 5 5-5" /></svg>
@@ -311,7 +315,7 @@ export function RespondFlow({
             </details>
 
             <form id="reply-form" onSubmit={submit} className="sheet-form" aria-busy={sending}>
-              <fieldset className="sheet-fields" disabled={sending}>
+              <fieldset className="sheet-fields" disabled={sending || !enhanced}>
                 <legend className="sr-only">{copy.dialog.replyHeading}</legend>
                 <fieldset className="choice">
                   <legend>{copy.rsvp.attendingQuestionSingle}</legend>
@@ -351,7 +355,7 @@ export function RespondFlow({
             </form>
 
             {details.contacts.length > 0 && (
-              <details className="sheet-disclosure sheet-contacts">
+              <details className="sheet-disclosure sheet-contacts" open={!enhanced}>
                 <summary><span>{copy.card.contactsHeading}</span><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="m7 10 5 5 5-5" /></svg></summary>
                 <ul className="contact-list">
                   {details.contacts.map(contact => (

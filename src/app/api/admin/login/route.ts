@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { jsonError, readJson, zodError } from '@/lib/api/respond';
 import { createSessionCookie, SESSION_COOKIE, SESSION_TTL_MS, verifyAdminPassword } from '@/lib/auth';
+import { limitPublicRequest } from '@/lib/api/public-limits';
 
 /**
  * PERMANENT. Exchanges the shared password for a signed session cookie.
@@ -15,7 +16,10 @@ export const dynamic = 'force-dynamic';
 
 const schema = z.object({ password: z.string().min(1).max(500) });
 
-export async function POST(request: Request): Promise<NextResponse> {
+export async function POST(request: Request): Promise<Response> {
+  const limited = await limitPublicRequest(request, 'login');
+  if (limited) return limited;
+
   const body = await readJson(request);
   if (!body.ok) return jsonError(body.error);
 

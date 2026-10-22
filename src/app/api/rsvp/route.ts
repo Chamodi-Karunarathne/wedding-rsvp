@@ -1,5 +1,5 @@
-import type { NextResponse } from 'next/server';
 import { jsonError, jsonOk, readJson, zodError } from '@/lib/api/respond';
+import { limitPublicRequest, limitRsvpToken } from '@/lib/api/public-limits';
 import { rsvpRequestSchema } from '@/lib/api/schemas';
 import { submitRsvpByToken } from '@/lib/services/rsvps';
 
@@ -17,7 +17,10 @@ import { submitRsvpByToken } from '@/lib/services/rsvps';
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-export async function POST(request: Request): Promise<NextResponse> {
+export async function POST(request: Request): Promise<Response> {
+  const limited = await limitPublicRequest(request, 'rsvp');
+  if (limited) return limited;
+
   const body = await readJson(request);
   if (!body.ok) return jsonError(body.error);
 
@@ -25,6 +28,8 @@ export async function POST(request: Request): Promise<NextResponse> {
   if (!parsed.success) return zodError(parsed.error);
 
   const { token, responses, message } = parsed.data;
+  const tokenLimited = await limitRsvpToken(token);
+  if (tokenLimited) return tokenLimited;
 
   const result = await submitRsvpByToken(token, {
     responses,

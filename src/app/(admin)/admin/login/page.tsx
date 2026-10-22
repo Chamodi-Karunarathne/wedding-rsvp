@@ -1,12 +1,13 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { LoginForm } from './login-form';
+import { adminReturnPath } from '@/lib/domain/redirect';
 
 export const dynamic = 'force-dynamic';
-type PageProps = { searchParams: Promise<{ next?: string }> };
+type PageProps = { searchParams: Promise<{ next?: string | string[] }> };
 
 export default async function AdminLoginPage({ searchParams }: PageProps) {
   const { next } = await searchParams;
-  const target = next && next.startsWith('/') && !next.startsWith('//') ? next : '/admin';
+  const target = adminReturnPath(next);
   return (
     <div className="admin-login">
       <Card>

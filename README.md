@@ -16,6 +16,10 @@ pnpm dev
 
 `pnpm db:seed` prints sample invitation links to open.
 
+Use Node 24.x and the pinned pnpm version. See [the deployment runbook](docs/deployment.md)
+before deploying or migrating an existing guest database. Production requires the
+rate-limiter migration and the final HTTPS origin configured at build time.
+
 ## Scripts
 
 | Command                        | What it does                                                                     |
@@ -86,7 +90,7 @@ All in `lib/domain`, none in the UI:
 
 - One `guests` row per **invitation** — never per person, never per delivery channel.
 - RSVP is per `(guest, event)`, even with a single event.
-- `party_count <= max_party_size`, validated server-side from the guest's own record. Also pinned by a database CHECK constraint.
+- `party_count <= max_party_size`, validated from the locked guest row inside the RSVP transaction. Allowance reductions use the same lock and reject changes below confirmed attendance. Database CHECK constraints separately enforce positive allowance and attendance/count shape.
 - Declining always normalizes to a party of zero with attendee names cleared, whatever the client sent.
 - RSVPs are upserts. `submitted_at` records the first answer; `updated_at` moves on every change. Nothing is ever hard-deleted or duplicated.
 - Every overwrite copies the previous answer into `rsvp_history` first, carrying `source`, `recorded_by` and `attendee_names`. A guest submitting over a response transcribed from a phone call must not erase it silently — when the counts look wrong in November, this is the audit trail.
@@ -140,6 +144,10 @@ pnpm dlx shadcn@latest apply --preset b2gRh45yxF
 ```
 
 Components live in `src/components/ui/` and are ordinary source files - generated once, then edited like anything else. This preset is built on Base UI rather than Radix, so `Select` takes `value`/`onValueChange` on the root.
+
+The used Tailwind variants are preserved locally in `src/components/ui/shadcn-variants.css`
+with their MIT license. The application no longer depends on the shadcn CLI or its
+MCP/server dependency tree; component generation still uses `pnpm dlx` as above.
 
 Two things it touches outside `/admin`, both in `src/app/globals.css` and both from the preset's own base layer: `body` gets `bg-background text-foreground`, and `html` gets `font-serif` with Noto Serif and Public Sans loaded in the root layout. The guest UI is disposable and unstyled, so it inherits those and is otherwise untouched.
 

@@ -1,5 +1,5 @@
 import { and, eq, inArray } from 'drizzle-orm';
-import { getDb } from '@/db/client';
+import { getDb, type DbLike } from '@/db/client';
 import { events, guestMessages, invitations, rsvpHistory, rsvps } from '@/db/schema';
 import { ok, serviceError, type Result } from '@/lib/domain/result';
 import {
@@ -9,9 +9,9 @@ import {
   type NormalizedRsvp,
   type RsvpIntent,
 } from '@/lib/domain/rsvp';
-import { findGuestByToken, getGuestById } from './guests';
 import { toRsvpView } from './mappers';
-import type { GuestView, RsvpSource, RsvpView } from './types';
+import { lockGuest, withTransaction } from './transactions';
+import type { RsvpSource, RsvpView } from './types';
 
 /** PERMANENT. The RSVP write path. */
 
@@ -23,177 +23,137 @@ export type SubmitRsvpInput = {
   recordedBy?: string | null;
 };
 
-/**
- * Validates and persists a set of responses for one guest.
- *
- * Every rule is re-checked here against the guest's own record, whatever the
- * request claimed. Writes happen in a single transaction, so a request that
- * fails validation on its second event leaves nothing behind from its first.
- */
+/** Validation, history and replacement all hold the household's row lock. */
 async function saveResponses(
-  guest: GuestView,
+  lookup: { id: string } | { token: string },
   input: SubmitRsvpInput,
+  db: DbLike,
 ): Promise<Result<RsvpView[]>> {
-  const db = getDb();
-
-  // Which events is this guest actually invited to?
-  const invited = await db
-    .select({ event: events })
-    .from(invitations)
-    .innerJoin(events, eq(invitations.eventId, events.id))
-    .where(eq(invitations.guestId, guest.id));
-
-  const eventBySlug = new Map(invited.map((row) => [row.event.slug, row.event]));
-
-  // A repeated slug in one payload would mean two conflicting upserts against
-  // the same row in a single transaction.
-  const seen = new Set<string>();
-  for (const response of input.responses) {
-    if (seen.has(response.eventSlug)) {
-      return serviceError(
-        'validation',
-        `Duplicate response for '${response.eventSlug}'.`,
-        'responses',
-      );
+  return withTransaction(db, async (tx) => {
+    const guest = await lockGuest(tx, lookup);
+    if (!guest) {
+      return 'token' in lookup
+        ? serviceError('not_found', 'No invitation matches that link.', 'token')
+        : serviceError('not_found', 'No such guest.', 'guestId');
     }
-    seen.add(response.eventSlug);
-  }
 
-  // Invariant 5: only events the guest holds an invitation for. 403, not 404 -
-  // the event exists, this guest simply may not answer for it.
-  for (const response of input.responses) {
-    if (!eventBySlug.has(response.eventSlug)) {
-      return serviceError(
-        'forbidden',
-        `You are not invited to '${response.eventSlug}'.`,
-        'eventSlug',
-      );
+    const invited = await tx
+      .select({ event: events })
+      .from(invitations)
+      .innerJoin(events, eq(invitations.eventId, events.id))
+      .where(eq(invitations.guestId, guest.id));
+    const eventBySlug = new Map(invited.map((row) => [row.event.slug, row.event]));
+
+    const seen = new Set<string>();
+    const normalized: { eventId: string; slug: string; values: NormalizedRsvp }[] = [];
+    for (const response of input.responses) {
+      if (seen.has(response.eventSlug)) {
+        return serviceError('validation', `Duplicate response for '${response.eventSlug}'.`, 'responses');
+      }
+      seen.add(response.eventSlug);
+      const event = eventBySlug.get(response.eventSlug);
+      if (!event) {
+        return serviceError('forbidden', `You are not invited to '${response.eventSlug}'.`, 'eventSlug');
+      }
+      const result = normalizeRsvp(response, partyAllowanceFor(guest, event), event.name);
+      if (!result.ok) return result;
+      normalized.push({ eventId: event.id, slug: event.slug, values: result.data });
     }
-  }
 
-  // Invariant 3: party size, validated server side.
-  const normalized: { eventId: string; slug: string; values: NormalizedRsvp }[] = [];
-  for (const response of input.responses) {
-    const event = eventBySlug.get(response.eventSlug)!;
-    const allowance = partyAllowanceFor(guest, event);
-    const result = normalizeRsvp(response, allowance, event.name);
-    if (!result.ok) return result;
-    normalized.push({ eventId: event.id, slug: event.slug, values: result.data });
-  }
-
-  const action = messageAction(input.message);
-  const source = input.source ?? 'self';
-  const recordedBy = input.recordedBy ?? null;
-  const now = new Date();
-
-  // Invariant 4: upsert. Never a duplicate row, never a hard delete.
-  const saved = await db.transaction(async (tx) => {
-    const results: RsvpView[] = [];
-
-    /*
-     * Read the current answers before overwriting them, and keep whatever is
-     * about to be replaced.
-     *
-     * rsvps holds only the latest answer, so without this a guest submitting
-     * over a response someone transcribed from a phone call would erase it
-     * silently. Every replacement is recorded, including one that changes
-     * nothing: "changed" would need a definition, and a rule with an
-     * exception is the one that loses the row that mattered.
-     */
     const eventIds = normalized.map((entry) => entry.eventId);
-    const superseded = eventIds.length
-      ? await tx
-          .select()
-          .from(rsvps)
+    const previous = eventIds.length
+      ? await tx.select().from(rsvps)
           .where(and(eq(rsvps.guestId, guest.id), inArray(rsvps.eventId, eventIds)))
       : [];
-
-    if (superseded.length) {
-      await tx.insert(rsvpHistory).values(
-        superseded.map((row) => ({
-          guestId: row.guestId,
-          eventId: row.eventId,
-          attending: row.attending,
-          partyCount: row.partyCount,
-          attendeeNames: row.attendeeNames,
-          source: row.source,
-          recordedBy: row.recordedBy,
-          supersededAt: now,
-        })),
-      );
-    }
+    const byEvent = new Map(previous.map((row) => [row.eventId, row]));
+    const action = messageAction(input.message);
+    const source = input.source ?? 'self';
+    const recordedBy = input.recordedBy ?? null;
+    const now = new Date();
+    const results: RsvpView[] = [];
 
     for (const entry of normalized) {
-      const [row] = await tx
-        .insert(rsvps)
-        .values({
-          guestId: guest.id,
-          eventId: entry.eventId,
+      const before = byEvent.get(entry.eventId);
+      const attendeeNames = entry.values.attendeeNames === undefined
+        ? before?.attendeeNames ?? null
+        : entry.values.attendeeNames;
+
+      // Retrying the same answer must not manufacture history or move dates.
+      // A provenance change is meaningful even when the headcount is unchanged.
+      if (before && before.attending === entry.values.attending &&
+          before.partyCount === entry.values.partyCount && before.attendeeNames === attendeeNames &&
+          before.source === source && before.recordedBy === recordedBy) {
+        results.push(toRsvpView(before, entry.slug));
+        continue;
+      }
+
+      if (before) {
+        await tx.insert(rsvpHistory).values({
+          guestId: before.guestId,
+          eventId: before.eventId,
+          attending: before.attending,
+          partyCount: before.partyCount,
+          attendeeNames: before.attendeeNames,
+          source: before.source,
+          recordedBy: before.recordedBy,
+          supersededAt: now,
+        });
+      }
+
+      const [row] = await tx.insert(rsvps).values({
+        guestId: guest.id,
+        eventId: entry.eventId,
+        attending: entry.values.attending,
+        partyCount: entry.values.partyCount,
+        attendeeNames,
+        source,
+        recordedBy,
+      }).onConflictDoUpdate({
+        target: [rsvps.guestId, rsvps.eventId],
+        set: {
           attending: entry.values.attending,
           partyCount: entry.values.partyCount,
-          // A brand new row has nothing to preserve, so "unchanged" is null.
-          attendeeNames: entry.values.attendeeNames ?? null,
+          attendeeNames,
           source,
           recordedBy,
-        })
-        .onConflictDoUpdate({
-          target: [rsvps.guestId, rsvps.eventId],
-          set: {
-            attending: entry.values.attending,
-            partyCount: entry.values.partyCount,
-            /*
-             * Only written when the payload actually carried the field. The
-             * card's two-button RSVP has no names input and sends none;
-             * overwriting here would wipe names the guest entered in the
-             * fuller form just because they later corrected their headcount.
-             */
-            ...(entry.values.attendeeNames !== undefined && {
-              attendeeNames: entry.values.attendeeNames,
-            }),
-            source,
-            recordedBy,
-            // submittedAt deliberately untouched: it records the FIRST answer.
-            updatedAt: now,
-          },
-        })
-        .returning();
-
-      if (row) results.push(toRsvpView(row, entry.slug));
+          // submittedAt records the first answer; only updatedAt moves.
+          updatedAt: now,
+        },
+      }).returning();
+      if (!row) return serviceError('internal', 'RSVP upsert returned no row.');
+      results.push(toRsvpView(row, entry.slug));
     }
 
     if (action.kind === 'upsert') {
-      await tx
-        .insert(guestMessages)
-        .values({ guestId: guest.id, body: action.body })
-        .onConflictDoUpdate({
-          target: guestMessages.guestId,
-          set: { body: action.body, updatedAt: now },
-        });
+      const [existing] = await tx.select().from(guestMessages)
+        .where(eq(guestMessages.guestId, guest.id)).limit(1);
+      if (existing?.body !== action.body) {
+        await tx.insert(guestMessages).values({ guestId: guest.id, body: action.body })
+          .onConflictDoUpdate({
+            target: guestMessages.guestId,
+            set: { body: action.body, updatedAt: now },
+          });
+      }
     } else if (action.kind === 'delete') {
       await tx.delete(guestMessages).where(eq(guestMessages.guestId, guest.id));
     }
-
-    return results;
+    return ok(results);
   });
-
-  return ok(saved);
 }
 
 export async function submitRsvpByToken(
   token: string,
   input: SubmitRsvpInput,
+  db: DbLike = getDb(),
 ): Promise<Result<RsvpView[]>> {
-  const guest = await findGuestByToken(token);
-  if (!guest) return serviceError('not_found', 'No invitation matches that link.', 'token');
-  return saveResponses(guest, input);
+  return saveResponses({ token }, input, db);
 }
 
 /** Proxy entry from /admin/rsvps. Callers set source to 'phone' or 'admin'. */
 export async function submitRsvpByGuestId(
   guestId: string,
   input: SubmitRsvpInput,
+  db: DbLike = getDb(),
 ): Promise<Result<RsvpView[]>> {
-  const guest = await getGuestById(guestId);
-  if (!guest) return serviceError('not_found', 'No such guest.', 'guestId');
-  return saveResponses(guest, input);
+  return saveResponses({ id: guestId }, input, db);
 }

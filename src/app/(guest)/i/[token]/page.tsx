@@ -119,30 +119,6 @@ export default async function InvitationPage({ params, searchParams }: PageProps
         </div>
       </Intro>
 
-      {/*
-        With no JavaScript a <dialog> is display:none, which would leave a
-        guest holding an invitation with no way to read the details or reply.
-        The dialog's contents are ordinary server-rendered HTML, so this lays
-        the same markup out inline instead and hides the button that would
-        have opened it. The form cannot submit without script - the telephone
-        numbers inside it are the answer, and they are in there too.
-      */}
-      <noscript>
-        <style>{`
-          .respond-btn { display: none }
-          .sheet {
-            display: block;
-            position: static;
-            width: 100%;
-            max-width: 34rem;
-            margin: 2rem auto 0;
-          }
-          .sheet-form, .sheet-actions, .sheet-close { display: none }
-          .sheet-inner { max-height: none }
-          .sheet-scroll { overflow: visible }
-        `}</style>
-      </noscript>
-
       <main>
         {/*
           The card is the invitation. Everything that used to be set out in a

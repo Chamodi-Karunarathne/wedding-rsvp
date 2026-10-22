@@ -1,5 +1,5 @@
 import { and, asc, eq, inArray } from 'drizzle-orm';
-import { getDb, type DbLike } from '@/db/client';
+import { getDb, type DbLike, type Tx } from '@/db/client';
 import {
   deliveryChannels,
   events,
@@ -12,6 +12,7 @@ import { generateToken } from '@/lib/domain/ids';
 import { ok, serviceError, type Result } from '@/lib/domain/result';
 import { toDeliveryChannelView, toEventView, toGuestView, toRsvpView } from './mappers';
 import { listOpens } from './opens';
+import { lockGuest, withTransaction } from './transactions';
 import type { DeliveryChannelView, EventView, GuestView, RsvpView, Side } from './types';
 
 /** PERMANENT. Guest reads and writes. */
@@ -137,32 +138,34 @@ export async function createGuest(
   input: GuestInput,
   db: DbLike = getDb(),
 ): Promise<Result<GuestView>> {
-  const ids = await allocateToken(db);
-  if (!ids.ok) return ids;
+  return withTransaction(db, async (tx) => {
+    const planned = input.eventSlugs !== undefined
+      ? await resolveInvitations(input.eventSlugs, tx)
+      : ok(null);
+    if (!planned.ok) return planned;
 
-  const [row] = await db
-    .insert(guests)
-    .values({
-      token: ids.data.token,
-      displayName: input.displayName,
-      displayNameFallback: input.displayNameFallback ?? null,
-      sortName: input.sortName,
-      side: input.side,
-      language: input.language ?? 'en',
-      maxPartySize: input.maxPartySize ?? 2,
-      phone: input.phone ?? null,
-      notes: input.notes ?? null,
-    })
-    .returning();
+    const ids = await allocateToken(tx);
+    if (!ids.ok) return ids;
 
-  if (!row) return serviceError('internal', 'Guest insert returned no row.');
+    const [row] = await tx
+      .insert(guests)
+      .values({
+        token: ids.data.token,
+        displayName: input.displayName,
+        displayNameFallback: input.displayNameFallback ?? null,
+        sortName: input.sortName,
+        side: input.side,
+        language: input.language ?? 'en',
+        maxPartySize: input.maxPartySize ?? 2,
+        phone: input.phone ?? null,
+        notes: input.notes ?? null,
+      })
+      .returning();
 
-  if (input.eventSlugs) {
-    const result = await setInvitations(row.id, input.eventSlugs, db);
-    if (!result.ok) return result;
-  }
-
-  return ok(toGuestView(row));
+    if (!row) return serviceError('internal', 'Guest insert returned no row.');
+    if (planned.data) await replaceInvitations(row.id, planned.data.eventIds, tx);
+    return ok(toGuestView(row));
+  });
 }
 
 export async function updateGuest(
@@ -170,32 +173,105 @@ export async function updateGuest(
   input: Partial<GuestInput>,
   db: DbLike = getDb(),
 ): Promise<Result<GuestView>> {
-  const [row] = await db
-    .update(guests)
-    .set({
-      ...(input.displayName !== undefined && { displayName: input.displayName }),
-      ...(input.displayNameFallback !== undefined && {
-        displayNameFallback: input.displayNameFallback,
-      }),
-      ...(input.sortName !== undefined && { sortName: input.sortName }),
-      ...(input.side !== undefined && { side: input.side }),
-      ...(input.language !== undefined && { language: input.language }),
-      ...(input.maxPartySize !== undefined && { maxPartySize: input.maxPartySize }),
-      ...(input.phone !== undefined && { phone: input.phone }),
-      ...(input.notes !== undefined && { notes: input.notes }),
-      updatedAt: new Date(),
-    })
-    .where(eq(guests.id, guestId))
-    .returning();
+  return withTransaction(db, async (tx) => {
+    const prepared = await prepareGuestUpdate(guestId, input, tx);
+    if (!prepared.ok) return prepared;
 
-  if (!row) return serviceError('not_found', 'No such guest.');
+    const [row] = await tx
+      .update(guests)
+      .set({
+        ...(input.displayName !== undefined && { displayName: input.displayName }),
+        ...(input.displayNameFallback !== undefined && {
+          displayNameFallback: input.displayNameFallback,
+        }),
+        ...(input.sortName !== undefined && { sortName: input.sortName }),
+        ...(input.side !== undefined && { side: input.side }),
+        ...(input.language !== undefined && { language: input.language }),
+        ...(input.maxPartySize !== undefined && { maxPartySize: input.maxPartySize }),
+        ...(input.phone !== undefined && { phone: input.phone }),
+        ...(input.notes !== undefined && { notes: input.notes }),
+        updatedAt: new Date(),
+      })
+      .where(eq(guests.id, guestId))
+      .returning();
 
-  if (input.eventSlugs) {
-    const result = await setInvitations(guestId, input.eventSlugs, db);
-    if (!result.ok) return result;
+    if (!row) return serviceError('not_found', 'No such guest.');
+    if (prepared.data.invitations) {
+      await replaceInvitations(guestId, prepared.data.invitations.eventIds, tx);
+    }
+    return ok(toGuestView(row));
+  });
+}
+
+type InvitationPlan = { slugs: string[]; eventIds: string[] };
+
+async function resolveInvitations(eventSlugs: string[], db: DbLike): Promise<Result<InvitationPlan>> {
+  const slugs = [...new Set(eventSlugs)];
+  const rows = slugs.length ? await db.select().from(events).where(inArray(events.slug, slugs)) : [];
+  const missing = slugs.filter((slug) => !rows.some((event) => event.slug === slug));
+  if (missing.length) {
+    return serviceError('validation', `Unknown event slug: ${missing.join(', ')}.`, 'eventSlugs');
   }
+  return ok({ slugs, eventIds: rows.map((event) => event.id) });
+}
 
-  return ok(toGuestView(row));
+async function prepareGuestUpdate(guestId: string, input: Partial<GuestInput>, tx: Tx) {
+  const guest = await lockGuest(tx, { id: guestId });
+  if (!guest) return serviceError('not_found', 'No such guest.');
+
+  const plan = input.eventSlugs !== undefined
+    ? await resolveInvitations(input.eventSlugs, tx)
+    : ok(null);
+  if (!plan.ok) return plan;
+
+  const responses = input.maxPartySize !== undefined || plan.data
+    ? await tx.select().from(rsvps).where(eq(rsvps.guestId, guestId))
+    : [];
+  const allowance = input.maxPartySize;
+  if (allowance !== undefined && responses.some((reply) => reply.attending && reply.partyCount > allowance)) {
+    return serviceError(
+      'conflict',
+      'This guest has already confirmed more people than the proposed invitation allows. ' +
+        'Adjust their response in Record a response before reducing the assigned places.',
+      'maxPartySize',
+    );
+  }
+  const invitationPlan = plan.data;
+  if (invitationPlan && responses.some((reply) => !invitationPlan.eventIds.includes(reply.eventId))) {
+    return serviceError(
+      'conflict',
+      'This guest has already responded to an event you are removing. Keep that event on their invitation.',
+      'eventSlugs',
+    );
+  }
+  return ok({ guest, invitations: plan.data });
+}
+
+/** The CSV preview and save share the same validation under the guest lock. */
+export async function validateGuestUpdate(
+  guestId: string,
+  input: Partial<GuestInput>,
+  db: DbLike = getDb(),
+): Promise<Result<GuestView>> {
+  return withTransaction(db, async (tx) => {
+    const prepared = await prepareGuestUpdate(guestId, input, tx);
+    return prepared.ok ? ok(toGuestView(prepared.data.guest)) : prepared;
+  });
+}
+
+export async function validateGuestCreate(
+  input: GuestInput,
+  db: DbLike = getDb(),
+): Promise<Result<true>> {
+  const plan = await resolveInvitations(input.eventSlugs ?? [], db);
+  return plan.ok ? ok(true) : plan;
+}
+
+async function replaceInvitations(guestId: string, eventIds: string[], tx: Tx): Promise<void> {
+  await tx.delete(invitations).where(eq(invitations.guestId, guestId));
+  if (eventIds.length) {
+    await tx.insert(invitations).values(eventIds.map((eventId) => ({ guestId, eventId })));
+  }
 }
 
 /**
@@ -209,40 +285,14 @@ export async function setInvitations(
   eventSlugs: string[],
   db: DbLike = getDb(),
 ): Promise<Result<string[]>> {
-  const wanted = [...new Set(eventSlugs)];
-
-  const eventRows = wanted.length
-    ? await db.select().from(events).where(inArray(events.slug, wanted))
-    : [];
-
-  const missing = wanted.filter((slug) => !eventRows.some((e) => e.slug === slug));
-  if (missing.length) {
-    return serviceError('validation', `Unknown event slug: ${missing.join(', ')}.`, 'eventSlugs');
-  }
-
-  const keepIds = eventRows.map((e) => e.id);
-
-  const existingRsvps = await db
-    .select({ eventId: rsvps.eventId })
-    .from(rsvps)
-    .where(eq(rsvps.guestId, guestId));
-
-  const wouldDrop = existingRsvps.filter((r) => !keepIds.includes(r.eventId));
-  if (wouldDrop.length) {
-    return serviceError(
-      'conflict',
-      'This guest has already responded to an event you are removing. ' +
-        'Delete the response first if that is really intended.',
-      'eventSlugs',
-    );
-  }
-
-  await db.delete(invitations).where(eq(invitations.guestId, guestId));
-  if (keepIds.length) {
-    await db.insert(invitations).values(keepIds.map((eventId) => ({ guestId, eventId })));
-  }
-
-  return ok(wanted);
+  return withTransaction(db, async (tx) => {
+    const prepared = await prepareGuestUpdate(guestId, { eventSlugs }, tx);
+    if (!prepared.ok) return prepared;
+    const plan = prepared.data.invitations;
+    if (!plan) return serviceError('internal', 'Invitation plan was not prepared.');
+    await replaceInvitations(guestId, plan.eventIds, tx);
+    return ok(plan.slugs);
+  });
 }
 
 export async function deleteGuest(
@@ -343,6 +393,19 @@ export async function getGuestById(
 /* -------------------------------------------------------------------------- */
 /* delivery channels                                                          */
 /* -------------------------------------------------------------------------- */
+
+/** CSV channel membership never changes an existing sending record. */
+export async function ensureDeliveryChannels(
+  guestId: string,
+  channels: DeliveryChannelView['channel'][],
+  db: DbLike = getDb(),
+): Promise<void> {
+  const unique = [...new Set(channels)];
+  if (!unique.length) return;
+  await db.insert(deliveryChannels)
+    .values(unique.map((channel) => ({ guestId, channel })))
+    .onConflictDoNothing({ target: [deliveryChannels.guestId, deliveryChannels.channel] });
+}
 
 export async function setDeliveryChannel(
   guestId: string,

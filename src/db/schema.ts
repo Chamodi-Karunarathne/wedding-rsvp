@@ -259,6 +259,23 @@ export const siteConfig = pgTable('site_config', {
   value: jsonb('value').notNull(),
 });
 
+/** Durable public-endpoint fixed windows. Keys are SHA-256 digests, never raw IPs/tokens. */
+export const apiRateLimits = pgTable(
+  'api_rate_limits',
+  {
+    scope: text('scope').notNull(),
+    keyHash: text('key_hash').notNull(),
+    requests: integer('requests').notNull(),
+    windowEndsAt: timestamp('window_ends_at', { withTimezone: true }).notNull(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.scope, t.keyHash] }),
+    index('api_rate_limits_expiry_idx').on(t.windowEndsAt),
+    check('api_rate_limits_requests_positive', sql`${t.requests} >= 1`),
+    check('api_rate_limits_key_hash_valid', sql`${t.keyHash} ~ '^[a-f0-9]{64}$'`),
+  ],
+);
+
 /* -------------------------------------------------------------------------- */
 /* inferred row types                                                         */
 /* -------------------------------------------------------------------------- */

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import type { z } from 'zod';
-import { HTTP_STATUS_BY_CODE, type Result, type ServiceError } from '@/lib/domain/result';
+import type { Result, ServiceError } from '@/lib/domain/result';
+import { readJsonBody, requestErrorStatus, type RequestBodyError } from './request-body.ts';
 
 /**
  * PERMANENT. The single place a service Result becomes an HTTP response, so
@@ -11,10 +12,10 @@ export function jsonOk<T>(data: T, init?: ResponseInit): NextResponse {
   return NextResponse.json({ ok: true, ...data }, { status: 200, ...init });
 }
 
-export function jsonError(error: ServiceError): NextResponse {
+export function jsonError(error: RequestBodyError): NextResponse {
   return NextResponse.json(
     { ok: false, error },
-    { status: HTTP_STATUS_BY_CODE[error.code] },
+    { status: requestErrorStatus(error) },
   );
 }
 
@@ -36,13 +37,6 @@ export function fromResult<T>(
   return result.ok ? jsonOk(toBody(result.data)) : jsonError(result.error);
 }
 
-export async function readJson(request: Request): Promise<Result<unknown, ServiceError>> {
-  try {
-    return { ok: true, data: await request.json() };
-  } catch {
-    return {
-      ok: false,
-      error: { code: 'validation', message: 'Request body must be valid JSON.' },
-    };
-  }
+export function readJson(request: Request): Promise<Result<unknown, RequestBodyError>> {
+  return readJsonBody(request, { trustedOrigin: process.env.NEXT_PUBLIC_SITE_URL });
 }

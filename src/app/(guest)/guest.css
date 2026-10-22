@@ -179,6 +179,7 @@
   position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
 }
 .respond-btn > span { border-bottom: 1px solid #ad915e; padding-block: 2px; }
+.respond-btn[hidden] { display: none; }
 .guest-ground .respond-btn:hover > span { border-bottom-color: #695330; color: #594321; }
 .sheet-standing { margin: 0; padding: .9rem 0 0; color: #6d5736; font: 400 .85rem/1.5 var(--font-ui); }
 
@@ -194,6 +195,18 @@
   overflow: visible;
 }
 .sheet::backdrop { background: rgb(62 46 27 / .36); backdrop-filter: blur(3px); }
+/* Readable before hydration, including when application chunks fail to load. */
+.sheet:not([data-enhanced='true']) {
+  display: block;
+  position: static;
+  width: 100%;
+  max-width: 34rem;
+  max-height: none;
+  margin: 2rem auto 0;
+}
+.sheet:not([data-enhanced='true']) :is(.sheet-form, .sheet-actions, .sheet-close) { display: none; }
+.sheet:not([data-enhanced='true']) .sheet-inner { max-height: none; }
+.sheet:not([data-enhanced='true']) .sheet-scroll { overflow: visible; }
 .sheet-inner {
   position: relative;
   display: flex;

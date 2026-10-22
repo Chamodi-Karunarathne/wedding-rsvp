@@ -4,10 +4,9 @@ import {
   CONFIG_SCHEMAS,
   DEFAULT_MESSAGING_CONFIG,
   DEFAULT_PHASE_CONFIG,
-  DEFAULT_SITE_SETTINGS,
   messagingConfigSchema,
   phaseConfigSchema,
-  siteSettingsSchema,
+  readSiteSettings,
   validatePhaseOrdering,
   type AppConfig,
   type ConfigKey,
@@ -24,12 +23,11 @@ export async function getConfig(db: DbLike = getDb()): Promise<AppConfig> {
   // A missing or malformed key falls back to its default rather than throwing,
   // so a freshly migrated database still renders.
   const phase = phaseConfigSchema.safeParse(byKey.get('phase'));
-  const site = siteSettingsSchema.safeParse(byKey.get('site'));
   const messaging = messagingConfigSchema.safeParse(byKey.get('messaging'));
 
   return {
     phase: phase.success ? phase.data : DEFAULT_PHASE_CONFIG,
-    site: site.success ? site.data : DEFAULT_SITE_SETTINGS,
+    site: readSiteSettings(byKey.get('site')),
     messaging: messaging.success ? messaging.data : DEFAULT_MESSAGING_CONFIG,
   };
 }

@@ -1,5 +1,8 @@
 import { z } from 'zod';
 import { PHASES, type Phase } from './phase.ts';
+import { DEFAULT_TIMEZONE, timeZoneSchema } from './timezone.ts';
+
+export { DEFAULT_TIMEZONE } from './timezone.ts';
 
 /**
  * PERMANENT. Shape and defaults for the site_config table.
@@ -49,7 +52,7 @@ export const siteSettingsSchema = z.object({
   groomName: z.string().min(1),
   /** IANA zone. Every guest-facing date is formatted in this zone, not the
    *  viewer's, so a guest abroad sees the local time of the wedding. */
-  timezone: z.string().min(1),
+  timezone: timeZoneSchema,
   /**
    * Who to telephone, as printed on the card.
    *
@@ -86,8 +89,6 @@ export const CONFIG_SCHEMAS = {
 /* -------------------------------------------------------------------------- */
 /* defaults                                                                   */
 /* -------------------------------------------------------------------------- */
-
-export const DEFAULT_TIMEZONE = 'Asia/Colombo';
 
 /**
  * Reads a date from the environment, falling back to the committed value.
@@ -142,6 +143,17 @@ export const DEFAULT_SITE_SETTINGS: SiteSettings = {
   timezone: DEFAULT_TIMEZONE,
   rsvpContacts: [],
 };
+
+/** Keep the settings editor usable when an older record contains a bad zone. */
+export function readSiteSettings(value: unknown): SiteSettings {
+  const parsed = siteSettingsSchema.safeParse(value);
+  if (parsed.success) return parsed.data;
+  if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
+    const recovered = siteSettingsSchema.safeParse({ ...value, timezone: DEFAULT_TIMEZONE });
+    if (recovered.success) return recovered.data;
+  }
+  return DEFAULT_SITE_SETTINGS;
+}
 
 /**
  * The message that actually goes out over WhatsApp.

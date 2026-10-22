@@ -13,7 +13,20 @@
  * a trailing slash there would put "example.com//i/TOKEN" into a message.
  */
 function normalizeOrigin(origin: string): string {
-  return origin.replace(/\/+$/, '');
+  let url: URL;
+  try {
+    url = new URL(origin.trim().replace(/\/+$/, ''));
+  } catch {
+    throw new Error('NEXT_PUBLIC_SITE_URL must be an absolute HTTPS origin.');
+  }
+  const local = ['localhost', '127.0.0.1', '[::1]'].includes(url.hostname);
+  if (
+    (url.protocol !== 'https:' && !(local && url.protocol === 'http:')) ||
+    url.username || url.password || url.pathname !== '/' || url.search || url.hash
+  ) {
+    throw new Error('NEXT_PUBLIC_SITE_URL must be an HTTPS origin without credentials, a path, query or fragment. HTTP is allowed only for local development.');
+  }
+  return url.origin;
 }
 
 /** Reads NEXT_PUBLIC_SITE_URL, without a trailing slash. */

@@ -1,11 +1,18 @@
 import { asc } from 'drizzle-orm';
-import { getDb } from '@/db/client';
+import { getDb, type DbLike } from '@/db/client';
 import { events, guests, DELIVERY_CHANNELS, LOCALES, SIDES } from '@/db/schema';
 import { parseCsvWithHeader } from '@/lib/domain/csv';
 import { importKey, normalizePhone } from '@/lib/domain/phone';
-import { ok, type Result } from '@/lib/domain/result';
+import { ok, serviceError, type Result } from '@/lib/domain/result';
 import type { DeliveryChannelName, Locale, Side } from './types';
-import { createGuest, setDeliveryChannel, updateGuest } from './guests';
+import {
+  createGuest,
+  ensureDeliveryChannels,
+  updateGuest,
+  validateGuestCreate,
+  validateGuestUpdate,
+} from './guests';
+import { withTransaction } from './transactions';
 
 /**
  * PERMANENT. CSV import for the guest list.
@@ -63,11 +70,14 @@ function splitList(value: string): string[] {
 export async function importGuestsCsv(
   csv: string,
   options: { defaultEventSlugs?: string[]; dryRun?: boolean } = {},
+  db: DbLike = getDb(),
 ): Promise<Result<ImportSummary>> {
-  const db = getDb();
   const dryRun = options.dryRun ?? false;
 
   const { headers, rows } = parseCsvWithHeader(csv);
+  if (rows.length > 1000) {
+    return serviceError('validation', 'A CSV import can contain at most 1000 guest rows.', 'csv');
+  }
   if (headers.length === 0) {
     return ok({ created: 0, updated: 0, skipped: 0, errors: 0, results: [], dryRun });
   }
@@ -78,7 +88,11 @@ export async function importGuestsCsv(
   ]);
 
   const knownSlugs = new Set(eventRows.map((row) => row.slug));
-  const defaultSlugs = (options.defaultEventSlugs ?? []).filter((slug) => knownSlugs.has(slug));
+  const defaultSlugs = options.defaultEventSlugs ?? [];
+  const unknownDefaults = defaultSlugs.filter((slug) => !knownSlugs.has(slug));
+  if (unknownDefaults.length) {
+    return serviceError('validation', `Unknown event slug: ${unknownDefaults.join(', ')}.`, 'defaultEventSlugs');
+  }
 
   // Existing rows, keyed the same way new rows will be.
   const byKey = new Map(
@@ -177,52 +191,50 @@ export async function importGuestsCsv(
       ...(eventSlugs.length ? { eventSlugs } : {}),
     };
 
-    if (dryRun) {
+    try {
+      if (dryRun) {
+        const validation = existing
+          ? await validateGuestUpdate(existing.id, payload, db)
+          : await validateGuestCreate(payload, db);
+        if (!validation.ok) {
+          fail(validation.error.message);
+          continue;
+        }
+        results.push({
+          row: rowNumber,
+          status: existing ? 'updated' : 'created',
+          displayName,
+          ...(existing ? { token: existing.token } : {}),
+        });
+        continue;
+      }
+
+      // Each row is independent, but its guest, invitations and new channels
+      // commit together. Commands compose using savepoints on this transaction.
+      const saved = await withTransaction(db, async (tx) => {
+        const result = existing
+          ? await updateGuest(existing.id, payload, tx)
+          : await createGuest(payload, tx);
+        if (!result.ok) return result;
+        await ensureDeliveryChannels(result.data.id, channelsRaw as DeliveryChannelName[], tx);
+        return result;
+      });
+      if (!saved.ok) {
+        fail(saved.error.message);
+        continue;
+      }
       results.push({
         row: rowNumber,
         status: existing ? 'updated' : 'created',
         displayName,
-        ...(existing ? { token: existing.token } : {}),
+        // Updates always preserve the existing token, including re-imports.
+        token: saved.data.token,
       });
-      continue;
+    } catch {
+      // Do not expose SQL or connection details. A failed row rolls back and
+      // the remainder still receive individual results.
+      fail('This row could not be saved. No changes from this row were kept; please retry.');
     }
-
-    if (existing) {
-      // Note: the token is NOT regenerated. A link already sent over WhatsApp
-      // stays valid no matter how many times the list is re-imported.
-      const updated = await updateGuest(existing.id, payload, db);
-      if (!updated.ok) {
-        fail(updated.error.message);
-        continue;
-      }
-      for (const channel of channelsRaw) {
-        await setDeliveryChannel(existing.id, channel as DeliveryChannelName, {}, db);
-      }
-      results.push({
-        row: rowNumber,
-        status: 'updated',
-        displayName,
-        token: existing.token,
-      });
-      continue;
-    }
-
-    const created = await createGuest(payload, db);
-    if (!created.ok) {
-      fail(created.error.message);
-      continue;
-    }
-    for (const channel of channelsRaw) {
-      await setDeliveryChannel(created.data.id, channel as DeliveryChannelName, {}, db);
-    }
-    // No byKey.set here: seenInFile already catches a repeat within this file,
-    // and byKey only ever needs to describe rows that existed before it began.
-    results.push({
-      row: rowNumber,
-      status: 'created',
-      displayName,
-      token: created.data.token,
-    });
   }
 
   return ok({

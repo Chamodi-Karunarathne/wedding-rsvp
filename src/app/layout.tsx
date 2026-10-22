@@ -3,6 +3,7 @@ import type { ReactNode } from 'react';
 import './globals.css';
 import { Cormorant_Garamond, Jost, Noto_Serif, Public_Sans } from 'next/font/google';
 import { cn } from '@/lib/utils';
+import { siteOrigin } from '@/lib/domain/urls';
 
 const publicSansHeading = Public_Sans({ subsets: ['latin'], variable: '--font-heading' });
 
@@ -43,6 +44,7 @@ const jost = Jost({
  */
 
 export const metadata: Metadata = {
+  metadataBase: new URL(siteOrigin()),
   title: 'Wedding',
   robots: { index: false, follow: false },
 };

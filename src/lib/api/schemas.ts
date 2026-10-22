@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { DELIVERY_CHANNELS, DELIVERY_STATUSES, LOCALES, SIDES } from '@/db/schema';
 import { PHASES } from '@/lib/domain/phase';
+import { timeZoneSchema } from '@/lib/domain/timezone';
 
 /** PERMANENT. Zod schema for every API input. Inferred types are exported. */
 
@@ -83,7 +84,7 @@ export const phaseConfigInputSchema = z.object({
 export const siteSettingsInputSchema = z.object({
   brideName: z.string().min(1).max(100),
   groomName: z.string().min(1).max(100),
-  timezone: z.string().min(1).max(64),
+  timezone: timeZoneSchema,
   /** Who to telephone, as printed on the card. */
   rsvpContacts: z
     .array(
