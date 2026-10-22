@@ -299,12 +299,17 @@ export async function deleteGuest(
   guestId: string,
   db: DbLike = getDb(),
 ): Promise<Result<{ id: string }>> {
-  const deleted = await db.delete(guests).where(eq(guests.id, guestId)).returning({
-    id: guests.id,
+  return withTransaction(db, async (tx) => {
+    const guest = await lockGuest(tx, { id: guestId });
+    if (!guest) return serviceError('not_found', 'No such guest.');
+    // Guest-owned rows cascade inside this transaction. The shared row lock
+    // serializes deletion with guest edits and first or replacement replies.
+    const [deleted] = await tx.delete(guests).where(eq(guests.id, guestId)).returning({
+      id: guests.id,
+    });
+    if (!deleted) return serviceError('not_found', 'No such guest.');
+    return ok({ id: deleted.id });
   });
-  const row = deleted[0];
-  if (!row) return serviceError('not_found', 'No such guest.');
-  return ok({ id: row.id });
 }
 
 /* -------------------------------------------------------------------------- */

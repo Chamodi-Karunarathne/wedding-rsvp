@@ -87,27 +87,6 @@ export function GuestEditor({ events, guest, invitedSlugs = [], onDone }: Props)
     onDone?.(message);
     router.refresh();
   }
-  async function remove() {
-    if (
-      !guest ||
-      !window.confirm(
-        'Remove “' +
-          guest.displayName +
-          '” from your guest list?\n\nTheir replies and sending records will also be removed, and their invitation link will stop working. This cannot be undone.',
-      )
-    )
-      return;
-    setBusy(true);
-    setError(null);
-    const result = await postJson('/api/admin/guests', { id: guest.id }, 'DELETE');
-    setBusy(false);
-    if (!result.ok) {
-      setError(result.message);
-      return;
-    }
-    onDone?.('Guest removed.');
-    router.refresh();
-  }
   return (
     <form onSubmit={save} className="space-y-5">
       <fieldset disabled={busy} className="space-y-5">
@@ -243,19 +222,6 @@ export function GuestEditor({ events, guest, invitedSlugs = [], onDone }: Props)
       <Button type="submit" disabled={busy}>
         {busy ? 'Saving…' : editing ? 'Save guest details' : 'Add guest'}
       </Button>
-      {editing && (
-        <details className="text-sm">
-          <summary className="min-h-11 cursor-pointer py-3 text-muted-foreground">
-            Remove this guest
-          </summary>
-          <p className="mb-3 text-muted-foreground">
-            Removing this guest also removes their replies and disables their invitation link.
-          </p>
-          <Button type="button" variant="destructive" onClick={remove} disabled={busy}>
-            Remove guest
-          </Button>
-        </details>
-      )}
     </form>
   );
 }

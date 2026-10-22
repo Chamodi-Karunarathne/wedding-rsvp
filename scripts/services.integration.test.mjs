@@ -25,7 +25,7 @@ const pool = new pg.Pool({
   options: `-c search_path=${schemaName} -c statement_timeout=10000 -c lock_timeout=8000`,
 });
 const schema = await import('../src/db/schema.ts');
-const { createGuest, setInvitations, updateGuest } = await import('../src/lib/services/guests.ts');
+const { createGuest, deleteGuest, setInvitations, updateGuest } = await import('../src/lib/services/guests.ts');
 const { importGuestsCsv } = await import('../src/lib/services/import.ts');
 const { submitRsvpByGuestId } = await import('../src/lib/services/rsvps.ts');
 const { lockGuest, withTransaction } = await import('../src/lib/services/transactions.ts');
@@ -297,5 +297,70 @@ describe('PostgreSQL service transactions in a disposable schema', () => {
     assert.equal(response.ok, false);
     assert.equal(response.error.code, 'forbidden');
     assert.equal(await current(f.guest.id), undefined);
+  });
+
+  it('deletes a household and all six guest-owned record types while preserving other households and events', async () => {
+    const f = await fixture();
+    const other = await fixture();
+    assert.equal((await submitRsvpByGuestId(f.guest.id, answer(f.eventSlug, 2), db)).ok, true);
+    assert.equal((await submitRsvpByGuestId(f.guest.id, answer(f.eventSlug, 3), db)).ok, true);
+    await pool.query("INSERT INTO guest_messages(guest_id,body) VALUES ($1,'Deletion fixture message')", [f.guest.id]);
+    await pool.query('INSERT INTO guest_opens(guest_id,first_open,last_open) VALUES ($1,now(),now())', [f.guest.id]);
+    await pool.query("INSERT INTO delivery_channels(guest_id,channel,status,sent_at,sent_by) VALUES ($1,'whatsapp','delivered',now(),'Deletion fixture')", [f.guest.id]);
+    for (const table of ['invitations', 'rsvps', 'rsvp_history', 'guest_messages', 'guest_opens', 'delivery_channels']) {
+      assert.equal((await pool.query(`SELECT count(*) FROM "${table}" WHERE guest_id=$1`, [f.guest.id])).rows[0].count, '1');
+    }
+    const deleted = await deleteGuest(f.guest.id, db);
+    assert.equal(deleted.ok, true);
+    assert.equal(deleted.data.id, f.guest.id);
+    assert.equal((await pool.query('SELECT count(*) FROM guests WHERE id=$1 OR token=$2', [f.guest.id, f.guest.token])).rows[0].count, '0');
+    for (const table of ['invitations', 'rsvps', 'rsvp_history', 'guest_messages', 'guest_opens', 'delivery_channels']) {
+      assert.equal((await pool.query(`SELECT count(*) FROM "${table}" WHERE guest_id=$1`, [f.guest.id])).rows[0].count, '0');
+    }
+    assert.equal((await pool.query('SELECT count(*) FROM guests WHERE id=$1', [other.guest.id])).rows[0].count, '1');
+    assert.equal((await pool.query('SELECT count(*) FROM invitations WHERE guest_id=$1', [other.guest.id])).rows[0].count, '1');
+    assert.equal((await pool.query('SELECT count(*) FROM events WHERE id=$1', [f.eventId])).rows[0].count, '1');
+    const repeated = await deleteGuest(f.guest.id, db);
+    assert.equal(repeated.ok, false);
+    assert.equal(repeated.error.code, 'not_found');
+  });
+
+  it('restores a deleted household and its cascaded records if the enclosing command rolls back', async () => {
+    const f = await fixture();
+    assert.equal((await submitRsvpByGuestId(f.guest.id, answer(f.eventSlug, 2), db)).ok, true);
+    await pool.query("INSERT INTO guest_messages(guest_id,body) VALUES ($1,'Keep after rollback')", [f.guest.id]);
+    const failed = await withTransaction(db, async (tx) => {
+      assert.equal((await deleteGuest(f.guest.id, tx)).ok, true);
+      return serviceError('conflict', 'Abort the enclosing deletion command.');
+    });
+    assert.equal(failed.ok, false);
+    assert.equal((await pool.query('SELECT token FROM guests WHERE id=$1', [f.guest.id])).rows[0].token, f.guest.token);
+    assert.equal((await pool.query('SELECT count(*) FROM invitations WHERE guest_id=$1', [f.guest.id])).rows[0].count, '1');
+    assert.equal((await current(f.guest.id)).party_count, 2);
+    assert.equal((await pool.query('SELECT body FROM guest_messages WHERE guest_id=$1', [f.guest.id])).rows[0].body, 'Keep after rollback');
+  });
+
+  it('rejects a waiting first reply after the household deletion commits', async () => {
+    const f = await fixture();
+    const [deleted, response] = await race(f.guest.id,
+      (tx) => deleteGuest(f.guest.id, tx),
+      (otherDb) => submitRsvpByGuestId(f.guest.id, answer(f.eventSlug, 2), otherDb));
+    assert.equal(deleted.ok, true);
+    assert.equal(response.ok, false);
+    assert.equal(response.error.code, 'not_found');
+    assert.equal(await current(f.guest.id), undefined);
+    assert.equal((await pool.query('SELECT count(*) FROM invitations WHERE guest_id=$1', [f.guest.id])).rows[0].count, '0');
+  });
+
+  it('deletes a household and its newly saved reply after waiting for that reply transaction', async () => {
+    const f = await fixture();
+    const [response, deleted] = await race(f.guest.id,
+      (tx) => submitRsvpByGuestId(f.guest.id, answer(f.eventSlug, 2), tx),
+      (otherDb) => deleteGuest(f.guest.id, otherDb));
+    assert.equal(response.ok, true);
+    assert.equal(deleted.ok, true);
+    assert.equal(await current(f.guest.id), undefined);
+    assert.equal((await pool.query('SELECT count(*) FROM guests WHERE id=$1', [f.guest.id])).rows[0].count, '0');
+    assert.equal((await pool.query('SELECT count(*) FROM invitations WHERE guest_id=$1', [f.guest.id])).rows[0].count, '0');
   });
 });

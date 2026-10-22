@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useRef, useState } from 'react';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { TableCell, TableRow } from '@/components/ui/table';
@@ -8,6 +9,7 @@ import { formatDateTimeShort } from '@/lib/format';
 import type { GuestListRow } from '@/lib/services/guests';
 import type { EventView } from '@/lib/services/types';
 import { GuestEditor } from './guest-editor';
+import { postJson } from '../_components/api';
 import { Feedback, StatusBadge } from '../_components/ui';
 import {
   CHANNEL_LABELS,
@@ -26,9 +28,45 @@ export function GuestRow({
   events: EventView[];
   timezone: string;
 }) {
+  const router = useRouter();
   const rowRef = useRef<HTMLTableRowElement>(null);
+  const deleteInFlight = useRef(false);
   const [open, setOpen] = useState(false);
   const [success, setSuccess] = useState<string | null>(null);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState(false);
+  const [removed, setRemoved] = useState(false);
+
+  async function removeGuest() {
+    if (deleteInFlight.current) return;
+    if (!window.confirm(
+      'Delete “' + row.guest.displayName + '”?\n\n' +
+      'This permanently removes this household, its invitations, replies and reply history, ' +
+      'guest messages, sending records, and opening activity. Their invitation link will stop working.\n\n' +
+      'This cannot be undone.',
+    )) return;
+
+    deleteInFlight.current = true;
+    setDeleting(true);
+    setDeleteError(null);
+    setSuccess(null);
+    const result = await postJson('/api/admin/guests', { id: row.guest.id }, 'DELETE');
+    deleteInFlight.current = false;
+    setDeleting(false);
+    if (!result.ok) {
+      setDeleteError(result.message);
+      return;
+    }
+    const deleted = result.data.deleted;
+    if (!deleted || typeof deleted !== 'object' || !('id' in deleted) || deleted.id !== row.guest.id) {
+      setDeleteError('The website did not confirm this deletion. Refresh the page to check before trying again.');
+      return;
+    }
+    setRemoved(true);
+    router.refresh();
+  }
+
+  if (removed) return null;
   const state = invitationStatus(row);
   const invited = events.filter((event) => row.eventSlugs.includes(event.slug));
   return (
@@ -81,18 +119,31 @@ export function GuestRow({
           <span className="admin-row-subtext">{row.guest.maxPartySize} places reserved</span>
         </TableCell>
         <TableCell data-label="Actions">
-          <Button
-            type="button"
-            variant="outline"
-            aria-expanded={open}
-            aria-controls={'guest-details-' + row.guest.id}
-            onClick={() => setOpen(!open)}
-          >
-            {open ? 'Close details' : 'View / edit'}
-          </Button>
-          {success && (
+          <div className="flex flex-wrap gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              aria-expanded={open}
+              aria-controls={'guest-details-' + row.guest.id}
+              disabled={deleting}
+              onClick={() => setOpen(!open)}
+            >
+              {open ? 'Close details' : 'View / edit'}
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              aria-label={'Delete guest: ' + row.guest.displayName}
+              disabled={deleting}
+              onClick={removeGuest}
+            >
+              {deleting ? 'Deleting…' : 'Delete guest'}
+            </Button>
+          </div>
+          {deleting && <p role="status" className="mt-3 text-sm text-muted-foreground">Deleting this household…</p>}
+          {(success || deleteError) && (
             <div className="mt-3">
-              <Feedback success={success} />
+              <Feedback success={success} error={deleteError} />
             </div>
           )}
         </TableCell>
@@ -101,16 +152,18 @@ export function GuestRow({
         <TableRow className="admin-expanded">
           <TableCell colSpan={4}>
             <div id={'guest-details-' + row.guest.id} className="space-y-6">
-              <GuestEditor
-                events={events}
-                guest={row.guest}
-                invitedSlugs={row.eventSlugs}
-                onDone={(message) => {
-                  setOpen(false);
-                  setSuccess(message);
-                  requestAnimationFrame(() => rowRef.current?.scrollIntoView({ block: 'center' }));
-                }}
-              />
+              <fieldset disabled={deleting} className="min-w-0">
+                <GuestEditor
+                  events={events}
+                  guest={row.guest}
+                  invitedSlugs={row.eventSlugs}
+                  onDone={(message) => {
+                    setOpen(false);
+                    setSuccess(message);
+                    requestAnimationFrame(() => rowRef.current?.scrollIntoView({ block: 'center' }));
+                  }}
+                />
+              </fieldset>
               <section className="space-y-3 border-t pt-5">
                 <h3 className="font-semibold">Response and activity</h3>
                 {row.rsvps.length === 0 ? (
