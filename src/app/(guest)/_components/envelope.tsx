@@ -70,6 +70,7 @@ export function Envelope({ name, sealed = false }: Props) {
       <p
         className="env-name"
         data-script={script}
+        lang={script === 'sinhala' ? 'si' : undefined}
         style={{ '--name-scale': scale } as CSSProperties}
       >
         {name}

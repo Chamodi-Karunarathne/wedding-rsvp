@@ -140,20 +140,13 @@
 [data-intro='card'].is-staged { position: fixed; inset: 0; margin: auto; z-index: 55; width: var(--scene-card-width); height: fit-content; }
 [data-intro='card'].is-staged .card-stage { width: 100%; }
 .intro-locked { overflow: hidden; }
-.intro-skip {
-  position: fixed; z-index: 60; right: max(1.3rem, env(safe-area-inset-right)); bottom: max(1.2rem, env(safe-area-inset-bottom));
-  min-width: 64px; min-height: 44px; padding: .6rem 1rem; border: 1px solid rgb(139 109 65 / .3); border-radius: 2px;
-  background: rgb(250 245 234 / .85); color: #65543c; font: 10px var(--font-ui); text-transform: uppercase; letter-spacing: .2em; opacity: 0; transition: opacity .3s ease; cursor: pointer;
-}
-.intro-skip[data-visible='true'], .intro-skip:focus-visible { opacity: 1; }
-.intro-skip:focus-visible, .respond-btn:focus-visible, .replay:focus-visible { outline: 2px solid var(--gold); outline-offset: 4px; }
+.respond-btn:focus-visible, .replay:focus-visible { outline: 2px solid var(--gold); outline-offset: 4px; }
 .replay-wrap { position: absolute; top: calc(100svh - 3.6rem); left: 0; width: 100%; text-align: center; margin: 0; }
 @media (max-width: 600px) {
   .guest-ground::before, .intro-veil { background-image: radial-gradient(ellipse at 48% 42%, rgb(255 250 236 / .28), transparent 70%), linear-gradient(110deg, rgb(255 253 241 / .13), rgb(162 128 83 / .07)), url('/card/satin-garden-mobile.7b96b557f7.webp'); }
 }
 @media (max-height: 550px) and (min-width: 600px) {
   .guest-ground { --scene-card-width: min(50vw, 44svh); }
-  .invitation-dedication { display: none; }
 }
 @media (prefers-reduced-motion: reduce) {
   .guest-ground *, .guest-ground *::before, .guest-ground *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
@@ -830,12 +823,6 @@
   border-color: #cebd9c;
   box-shadow: inset 0 1px 3px rgb(92 69 35 / .08), 0 1px 0 rgb(255 253 242 / .8);
 }
-.intro-skip {
-  background: linear-gradient(125deg, rgb(254 249 236 / .92), rgb(233 220 195 / .88));
-  border-color: rgb(163 137 91 / .45);
-  box-shadow: inset 0 1px 0 rgb(255 253 239 / .75), 0 2px 4px rgb(83 62 32 / .08);
-}
-
 /* The sleeve loses its pocket shadow as the paper clears the envelope. */
 .env-sleeve-shade {
   position: absolute;
@@ -843,6 +830,53 @@
   pointer-events: none;
   background: linear-gradient(0deg, rgb(105 76 38 / .2), transparent 70%);
   opacity: 0;
+}
+
+/* Give the household's name steady contrast over the mobile satin photograph. */
+@media (max-width: 600px), (max-height: 550px) and (max-width: 1024px) {
+  .invitation-dedication {
+    justify-self: center;
+    width: min(100%, 30rem);
+    padding: .65rem 1rem .8rem;
+    color: #493b2c;
+    background: linear-gradient(125deg, rgb(255 253 246 / .95), rgb(250 245 233 / .93));
+    border: 1px solid rgb(174 148 103 / .24);
+    border-radius: 2px;
+    box-shadow: inset 0 1px 0 rgb(255 255 249 / .8), 0 2px 5px rgb(77 54 27 / .06);
+  }
+  .invitation-dedication p:first-child {
+    font-size: .625rem;
+    font-weight: 500;
+    letter-spacing: .14em;
+  }
+  .invitation-dedication p:last-child {
+    max-width: 100%;
+    margin-top: .4rem;
+    font-size: clamp(1.375rem, 5.8vw, 1.625rem);
+    font-weight: 600;
+    line-height: 1.25;
+  }
+  .invitation-dedication p[data-script='sinhala'],
+  .invitation-dedication p[data-script='other'] {
+    font-size: clamp(1.25rem, 5.2vw, 1.5rem);
+    line-height: 1.5;
+  }
+  .env-name {
+    top: auto;
+    bottom: 3%;
+    left: 6%;
+    width: 88%;
+    color: #493b2c;
+    font-size: clamp(1rem, calc(6cqw * var(--name-scale, 1)), 1.375rem);
+    font-weight: 500;
+    line-height: 1.2;
+    text-shadow: none;
+  }
+  .env-name[data-script='sinhala'], .env-name[data-script='other'] {
+    font-weight: 600;
+    line-height: 1.4;
+  }
+  .env-seal { top: 43%; }
 }
 
 /* Keep small popup labels readable on textured paper. */

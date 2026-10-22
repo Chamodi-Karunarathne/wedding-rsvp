@@ -1,4 +1,4 @@
-# Production deployment
+# Production deployment from an empty guest list
 
 Use Node 24.x, the pnpm version pinned in package.json, and a frozen lockfile.
 Build with the final `NEXT_PUBLIC_SITE_URL=https://your-domain.example` already set.
@@ -15,32 +15,57 @@ changing it requires rebuilding. HTTP loopback origins are accepted for local QA
   The integration suite deliberately requires the loopback database
   `wedding_release_test`, role `release_test`, through `TEST_DATABASE_URL` and
   `RATE_LIMIT_TEST_DATABASE_URL`. It never reads the normal DATABASE_URL or .env.
-- Review the event, venue, dates, reply contacts, guest assignments and duplicate
-  import identities in the intended production database.
+- Review the initialized event, venue, dates, names and reply contacts. Verify
+  the guest list and all operational tables are empty before importing real data.
 - Verify HTTPS/custom domain, backup retention, a tested restore, error monitoring,
   and the actual WhatsApp preview for Latin and Sinhala invitations.
 
-## Migration order for this release
+## Fresh-start setup
 
-Migration `0003` deletes the old personal notes. Migration `0004` creates durable
-public endpoint rate-limit counters. Both must be included in the release plan:
-old code needs the dropped column, while new sign-in/reply endpoints require the
-new table and deliberately return 503 if it is missing.
+All existing households and operational records are disposable test data. A fresh
+deployment initializes only the real ceremony and wedding configuration. It never
+inserts development guests. All real households are created or imported through
+the admin UI.
 
-1. Build and stage the new artifact with the final origin and secrets configured.
-2. Put the deployment into maintenance and drain old instances. Preserve a
-   recoverable Neon branch/backup, including personal-note values; CSV exports
-   do not preserve that column.
-3. Run `pnpm db:migrate` with the production migration credential. Verify the
-   migration journal includes `0003_remove_guest_personal_note` and
-   `0004_public_rate_limits` and that the rate-limit table/index exist.
-4. Activate the new artifact and run the smoke checks below before reopening
-   traffic. Retain maintenance/telephone communication if a check fails.
+For a new empty database, set its DATABASE_URL, then run:
 
-For rollback after the drop, restore the nullable `guests.personal_note` column
-before activating the older application. Adding the column restores compatibility;
-recovering its previous values requires the backup. The additive rate-limit table
-may remain during rollback. Rehearse this procedure before the live change.
+```sh
+pnpm db:migrate
+pnpm db:prepare
+```
+
+`db:prepare` creates the canonical `ceremony` event and any missing `phase`, `site`
+and `messaging` settings. Repeating it preserves existing settings and guest data.
+It creates no guest, invitation, response or delivery records.
+
+For the existing database containing only test data, stop application traffic and
+use the explicit one-time reset instead:
+
+```sh
+pnpm db:migrate
+pnpm db:reset-test-data -- --confirm-test-data
+```
+
+The reset atomically clears all ten application tables, rebuilds one ceremony and
+three configuration keys, and verifies that every operational count is zero.
+It preserves the Drizzle migration ledger. Without the explicit confirmation flag
+it refuses to connect. Do not run it after real households have been imported.
+
+Verify the migration journal includes `0003_remove_guest_personal_note` and
+`0004_public_rate_limits`. The new sign-in/reply endpoints require the limiter
+table and return 503 if it is missing. Old application instances must be drained
+before migration 0003 drops the column they used.
+
+Activate the new build, sign in at `/admin/login`, review Wedding Details, then
+use **Guests → Import a guest list** to add real households. Assign the ceremony through
+the import form and review the preview before importing. Add individual guests
+through the same admin UI. Confirm the final permanent invitation/preview origin
+before sending links.
+
+For application rollback to code that still uses `guests.personal_note`, restore
+that nullable column before activating the older build. Test-data contents are
+deliberately discarded by this fresh start. Once real data exists, enable backups
+and rehearse restores; never use the test reset as a rollback mechanism.
 
 Never use `db:seed`, `db:push` or the legacy `verify` acceptance script to update
 an existing production guest list. Seed clears records/tokens, push skips the

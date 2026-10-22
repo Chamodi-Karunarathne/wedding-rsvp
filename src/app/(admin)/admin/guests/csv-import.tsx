@@ -50,7 +50,7 @@ export function CsvImport({ events }: { events: EventView[] }) {
     if (
       !dryRun &&
       !window.confirm(
-        'Import this guest list?\n\nMatching guests will be updated. Their details, event invitations and sending records may change. Missing optional values can replace existing information. Already shared invitation links will stay the same.',
+        'Import this guest list?\n\nMatching guests will be updated. Their details and event invitations may change. Missing optional values can replace existing information. Sending progress and already shared invitation links will stay the same.',
       )
     )
       return;
@@ -130,8 +130,8 @@ export function CsvImport({ events }: { events: EventView[] }) {
           </p>
           <p className="text-sm text-muted-foreground">
             Existing households are matched by name to sort by and phone number. Re-importing can
-            replace notes, reserved places and other details, and reset sending records. Include the
-            information you want to keep.
+            replace notes, reserved places and other details. Sending progress and invitation links
+            are preserved. Include the information you want to keep.
           </p>
         </div>
       </details>

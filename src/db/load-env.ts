@@ -2,11 +2,11 @@ import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
 /**
- * Minimal .env loader for standalone scripts only (drizzle-kit config, db:seed).
+ * Minimal .env loader for standalone scripts only (Drizzle config and DB CLIs).
  *
  * Next.js loads .env itself at runtime, so nothing under src/app, src/lib or
  * src/db/client.ts should ever import this. It exists because drizzle-kit and
- * `node src/db/seed.ts` run outside the Next.js process and would otherwise
+ * the database preparation/seed scripts run outside Next.js and would otherwise
  * need a dotenv dependency.
  */
 export function loadEnv(file = '.env'): void {

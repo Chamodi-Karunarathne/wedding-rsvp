@@ -126,7 +126,6 @@ export type CopyBundle = {
     close: string;
   };
   intro: {
-    skip: string;
     replay: string;
     /** The closing line, under the monogram. */
     farewell: string;
@@ -251,7 +250,6 @@ const en: CopyBundle = {
     close: 'Back to the invitation',
   },
   intro: {
-    skip: 'Skip',
     replay: 'Watch it open again',
     farewell: 'We look forward to celebrating with you',
   },

@@ -11,7 +11,7 @@ function topToBottom(elements: HTMLElement[]): HTMLElement[] {
   return [...elements].sort((a, b) => a.getBoundingClientRect().top - b.getBoundingClientRect().top);
 }
 
-/** One canvas, driven by the master timeline so pause, skip and replay stop every mote. */
+/** One canvas, driven by the master timeline so pause and replay stop every mote. */
 function particleRenderer(canvas: HTMLCanvasElement) {
   const context = canvas.getContext('2d');
   if (!context) return null;
@@ -95,7 +95,7 @@ export type BuiltTimeline = { timeline: gsap.core.Timeline; cleanup: Cleanup };
 export function buildIntroTimeline(root: ParentNode, onComplete: () => void, onHandoff: () => void): BuiltTimeline {
   const cleanups: Cleanup[] = [];
   let timeline!: gsap.core.Timeline;
-  // Capture setup sets as well as tweens, so skip/replay restores every layer.
+  // Capture setup sets as well as tweens, so cleanup/replay restores every layer.
   const context = gsap.context(() => {});
   try {
     context.add(() => {

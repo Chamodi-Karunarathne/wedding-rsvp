@@ -28,7 +28,7 @@ export const dynamic = 'force-dynamic';
 
 type PageProps = {
   params: Promise<{ token: string }>;
-  searchParams: Promise<{ preview?: string; noanim?: string }>;
+  searchParams: Promise<{ preview?: string }>;
 };
 
 /**
@@ -100,7 +100,7 @@ export default async function InvitationPage({ params, searchParams }: PageProps
         are ready the moment the timeline starts, inside an overlay that is
         `hidden` until script decides otherwise.
       */}
-      <Intro token={guest.token} labels={{ skip: copy.intro.skip, replay: copy.intro.replay }}>
+      <Intro token={guest.token} labels={{ replay: copy.intro.replay }}>
         {/* The opening and closing share the commissioned monogram asset. */}
         <div className="intro-piece intro-monogram" data-intro="monogram">
           <Monogram />

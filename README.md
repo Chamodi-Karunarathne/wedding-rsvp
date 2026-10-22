@@ -10,11 +10,13 @@ One event: a Poruwa ceremony, 09:15 on Thursday 3 December 2026, at the Lumina B
 pnpm install
 cp .env.example .env   # then fill in DATABASE_URL from your Neon dev branch
 pnpm db:migrate
-pnpm db:seed
+pnpm db:prepare
 pnpm dev
 ```
 
-`pnpm db:seed` prints sample invitation links to open.
+Open `/admin/login`, then import the guest list through the admin UI. `db:prepare`
+initializes the wedding settings and ceremony without creating sample households.
+Use `pnpm db:seed` only when you explicitly want disposable development fixtures.
 
 Use Node 24.x and the pinned pnpm version. See [the deployment runbook](docs/deployment.md)
 before deploying or migrating an existing guest database. Production requires the
@@ -29,6 +31,8 @@ rate-limiter migration and the final HTTPS origin configured at build time.
 | `pnpm test`                    | Unit tests via Node's built-in runner. No test framework dependency.             |
 | `pnpm db:generate`             | Write a migration from schema changes. Works without a database.                 |
 | `pnpm db:migrate`              | Apply migrations                                                                 |
+| `pnpm db:prepare`              | Initialize missing wedding settings and the ceremony; creates no guests.         |
+| `pnpm db:reset-test-data -- --confirm-test-data` | Remove all test application data and prepare an empty guest list. |
 | `pnpm db:seed`                 | Wipe and reseed. Refuses to run against `NODE_ENV=production` without `--force`. |
 | `pnpm verify`                  | Runs the database-backed acceptance checks. Needs `pnpm dev` running.            |
 | `pnpm make-test-csv`           | Writes a 50-row import fixture for the CSV import check.                         |
@@ -185,9 +189,9 @@ It follows the bride's storyboard: monogram on a warm bokeh ground, a sealed env
 
 Centring is done with `inset: 0; margin: auto`, never a translate: GSAP owns `transform` on those elements, and a centring translate would be the first thing it overwrote.
 
-**It is progressive enhancement, and the overlay proves it.** The intro is `hidden` in the server-rendered HTML and is only ever revealed by script deciding to play. No JavaScript, a script that failed to load, an old browser, a thrown error, `?noanim=1` — in every one of those the overlay stays hidden and the invitation underneath is already complete, readable and submittable. Nothing is hidden by CSS waiting to be un-hidden.
+**It is progressive enhancement.** The intro is `hidden` in the server-rendered HTML and is only revealed by script deciding to play. When JavaScript is unavailable, the readable details and telephone contacts remain accessible. An animation error releases the invitation. Nothing waits behind CSS for script to reveal it.
 
-`shouldPlayIntro()` in `lib/animation/playback.ts` is pure and tested. It declines to play for, in order: `?noanim=1`, `prefers-reduced-motion: reduce`, a device reporting 4 cores or 2 GB or less, and a second visit. `?noanim=1` outranks everything including a replay press, because that is the link we send someone who reports trouble. Absent `hardwareConcurrency`/`deviceMemory` is **not** treated as low-end — Safari reports neither, and assuming the worst would switch the sequence off for every iPhone.
+`shouldPlayIntro()` in `lib/animation/playback.ts` is pure and tested. It declines to play for `prefers-reduced-motion: reduce`, a device reporting 4 cores or 2 GB or less, and a second visit. Absent `hardwareConcurrency`/`deviceMemory` is not treated as low-end. The opening completes automatically; there is no skip button, Escape shortcut or URL bypass. Replay remains available after completion.
 
 GSAP **core only**, no plugins, so nothing here needs a licence review beyond the standard "no charge" licence in `gsap/package.json`. It is loaded with a dynamic `import()`, so a guest who never sees the sequence never downloads it.
 

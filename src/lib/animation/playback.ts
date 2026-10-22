@@ -11,8 +11,6 @@
 export type PlaybackContext = {
   /** prefers-reduced-motion: reduce */
   reducedMotion: boolean;
-  /** ?noanim=1 in the URL. */
-  noanim: boolean;
   /** navigator.hardwareConcurrency, when the browser reports it. */
   hardwareConcurrency?: number | undefined;
   /** navigator.deviceMemory in GB, when the browser reports it. */
@@ -25,7 +23,6 @@ export type PlaybackContext = {
 
 export type PlaybackReason =
   | 'play'
-  | 'noanim-param'
   | 'reduced-motion'
   | 'low-end-device'
   | 'already-seen';
@@ -39,14 +36,11 @@ export const MIN_MEMORY_GB = 2;
 /**
  * Order matters, and it is the order of how firmly each signal was expressed.
  *
- * ?noanim=1 is someone deliberately asking, including us when sending the
- * link to a guest who reported trouble, so nothing overrides it - not even
- * replay. Reduced-motion is an accessibility setting and outranks a replay
+ * Reduced-motion is an accessibility setting and outranks a replay
  * press, which is far more likely to be a mis-tap than a request to override
  * the setting on their own device.
  */
 export function shouldPlayIntro(context: PlaybackContext): PlaybackDecision {
-  if (context.noanim) return { play: false, reason: 'noanim-param' };
   if (context.reducedMotion) return { play: false, reason: 'reduced-motion' };
 
   if (isLowEnd(context)) return { play: false, reason: 'low-end-device' };

@@ -4,7 +4,6 @@ import {
   BEATS,
   MAX_PARTICLES,
   SEQUENCE_DURATION,
-  SKIP_VISIBLE_AT,
   sequenceDuration,
 } from './beats.ts';
 
@@ -71,11 +70,6 @@ describe('the intro sequence', () => {
     // Six supporting lines and one couple-name phrase fit within the five-second beat.
     const lines = BEATS.find((b) => b.id === 'text-lines')!;
     assert.ok((7 - 1) * lines.stagger! <= lines.duration, 'the last line never appears');
-  });
-
-  it('shows the skip control well before the first beat ends', () => {
-    assert.ok(SKIP_VISIBLE_AT <= 1, 'a guest must be able to leave early');
-    assert.equal(SKIP_VISIBLE_AT, 0.8);
   });
 
   it('caps the particle count', () => {

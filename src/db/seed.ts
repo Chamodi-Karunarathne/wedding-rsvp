@@ -16,12 +16,7 @@ import {
   type Side,
 } from './schema.ts';
 import { generateToken } from '../lib/domain/ids.ts';
-import {
-  DEFAULT_MESSAGING_CONFIG,
-  DEFAULT_PHASE_CONFIG,
-  DEFAULT_TIMEZONE,
-  EVENT_DATE,
-} from '../lib/domain/config.ts';
+import { PRODUCTION_CONFIG, PRODUCTION_EVENT } from './production-defaults.ts';
 
 /**
  * Development seed. Runs outside Next, so relative imports carry explicit
@@ -36,10 +31,6 @@ loadEnv();
 /* fixtures                                                                   */
 /* -------------------------------------------------------------------------- */
 
-// Thursday 3 December 2026, 09:15 Asia/Colombo. Overridable with
-// WEDDING_EVENT_DATE so this can be re-pointed without a code change.
-const CEREMONY_AT = EVENT_DATE;
-
 /**
  * ONE event, deliberately seeded through the same tables a dozen would use.
  *
@@ -47,20 +38,7 @@ const CEREMONY_AT = EVENT_DATE;
  * reception is added later, that must be a row someone inserts, not a
  * migration three weeks before a printed deadline.
  */
-const EVENT_FIXTURES = [
-  {
-    slug: 'ceremony',
-    name: 'Poruwa Ceremony',
-    startsAt: CEREMONY_AT,
-    venueName: 'Lumina Ballroom, Cinnamon Life',
-    // CONFIRM the exact street address with the venue before anything is sent.
-    venueAddress: 'Cinnamon Life, Colombo',
-    mapUrl: 'https://maps.google.com/?q=Cinnamon+Life+Colombo',
-    // Null on purpose: set it from /admin/config once the couple decide.
-    dressCode: null,
-    sortOrder: 1,
-  },
-] as const;
+const EVENT_FIXTURES = [PRODUCTION_EVENT] as const;
 
 type EventSlug = (typeof EVENT_FIXTURES)[number]['slug'];
 
@@ -355,25 +333,9 @@ async function main(): Promise<void> {
 
     console.log('Inserting site config...');
     await db.insert(siteConfig).values([
-      { key: 'phase', value: DEFAULT_PHASE_CONFIG },
-      {
-        key: 'site',
-        value: {
-          // The names the card artwork is set in. card-text.svg has them
-          // as outlines, so these two must agree with it or the page and the
-          // card contradict each other.
-          brideName: 'Madushani',
-          groomName: 'Charith',
-          // The numbers printed on the card. A real fraction of the answers
-          // arrive on these rather than through the form.
-          rsvpContacts: [
-            { name: 'Masha', phone: '075 9500073', side: 'Bride' },
-            { name: 'Shirani', phone: '077 3913737', side: 'Groom' },
-          ],
-          timezone: DEFAULT_TIMEZONE,
-        },
-      },
-      { key: 'messaging', value: DEFAULT_MESSAGING_CONFIG },
+      { key: 'phase', value: PRODUCTION_CONFIG.phase },
+      { key: 'site', value: PRODUCTION_CONFIG.site },
+      { key: 'messaging', value: PRODUCTION_CONFIG.messaging },
     ]);
 
     console.log('Inserting guests...');

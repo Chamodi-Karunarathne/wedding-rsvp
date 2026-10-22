@@ -11,7 +11,6 @@ import {
 
 const FRESH: PlaybackContext = {
   reducedMotion: false,
-  noanim: false,
   alreadySeen: false,
   replayRequested: false,
 };
@@ -19,12 +18,6 @@ const FRESH: PlaybackContext = {
 describe('shouldPlayIntro', () => {
   it('plays for a first visit on a capable device', () => {
     assert.deepEqual(shouldPlayIntro(FRESH), { play: true, reason: 'play' });
-  });
-
-  it('never plays with ?noanim=1, whatever else is true', () => {
-    // This is the link we send someone who reported trouble. It has to win.
-    const decision = shouldPlayIntro({ ...FRESH, noanim: true, replayRequested: true });
-    assert.deepEqual(decision, { play: false, reason: 'noanim-param' });
   });
 
   it('never plays under prefers-reduced-motion', () => {

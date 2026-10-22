@@ -178,8 +178,5 @@ export const BEATS: readonly Beat[] = [
 
 export const SEQUENCE_DURATION = sequenceDuration(BEATS);
 
-/** The skip control appears at this point, and never moves afterwards. */
-export const SKIP_VISIBLE_AT = 0.8;
-
 /** Hard cap for beat 10. DOM nodes would not survive this on a mid-range phone. */
 export const MAX_PARTICLES = 28;

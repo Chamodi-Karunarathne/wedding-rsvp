@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
-import { SEQUENCE_DURATION, SKIP_VISIBLE_AT } from '@/lib/animation/beats';
+import { SEQUENCE_DURATION } from '@/lib/animation/beats';
 import { seenStorageKey, shouldPlayIntro } from '@/lib/animation/playback';
 
 /*
@@ -10,8 +10,8 @@ import { seenStorageKey, shouldPlayIntro } from '@/lib/animation/playback';
  * THE OVERLAY IS `hidden` IN THE SERVER HTML and only ever revealed by this
  * component deciding to play. That is the whole progressive-enhancement
  * story: no JavaScript, a script that failed to load, a thrown error, an old
- * browser, ?noanim=1 - in every one of those the overlay stays hidden and the
- * invitation underneath is complete, readable and submittable.
+ * browser - in every one of those the overlay stays hidden and the
+ * invitation details and telephone contacts remain readable.
  *
  * GSAP is imported dynamically so its ~70 KB is not in the critical path for
  * a guest who is never going to see the sequence.
@@ -22,7 +22,7 @@ type Props = {
   /** Server-rendered monogram, envelope and seal. */
   children: ReactNode;
   /** Copy, passed in rather than imported: this is a Client Component. */
-  labels: { skip: string; replay: string };
+  labels: { replay: string };
 };
 
 type Phase = 'deciding' | 'playing' | 'finished';
@@ -46,7 +46,6 @@ export function Intro({ token, children, labels }: Props) {
   const runRef = useRef(0);
 
   const [phase, setPhase] = useState<Phase>('deciding');
-  const [skipVisible, setSkipVisible] = useState(false);
   const [canReplay, setCanReplay] = useState(false);
 
   /** Reveals the invitation and tears the sequence down. Idempotent. */
@@ -55,28 +54,15 @@ export function Intro({ token, children, labels }: Props) {
     cleanupRef.current?.();
     cleanupRef.current = null;
 
-    /*
-     * Put the overlay away.
-     *
-     * This is the whole point of finishing and it was missing: play() sets
-     * hidden = false and nothing ever set it back. The overlay is
-     * position: fixed; inset: 0; z-index: 50, so once the sequence ended - or
-     * the guest pressed Skip - it stayed on top of the invitation forever. The
-     * page underneath was complete and correct the entire time and no guest
-     * could reach it. React state said 'finished' while the DOM said otherwise.
-     *
-     * Set on the node rather than through state because play() writes the same
-     * property imperatively, and one owner for one property is the only way
-     * these two stay in agreement.
-     */
+    // play() reveals the overlay imperatively, so completion hides it the same
+    // way before React catches up with the finished phase.
     if (overlayRef.current) overlayRef.current.hidden = true;
 
     // Back into the page, and scrolling again. Done before the styles are
     // cleared so the card never flashes fixed-and-visible in the flow.
     stageCard(false);
 
-    // Anything the timeline left mid-animation is reset, so a skip lands on
-    // the finished invitation rather than on a half-played one.
+    // Also restore the usable invitation after an animation load failure.
     document.querySelectorAll<HTMLElement>('[data-intro-managed]').forEach((element) => {
       element.style.removeProperty('opacity');
       element.style.removeProperty('transform');
@@ -84,7 +70,6 @@ export function Intro({ token, children, labels }: Props) {
     });
 
     setPhase('finished');
-    setSkipVisible(false);
     setCanReplay(true);
 
     try {
@@ -111,7 +96,6 @@ export function Intro({ token, children, labels }: Props) {
       const params = new URLSearchParams(window.location.search);
       const decision = shouldPlayIntro({
         reducedMotion: window.matchMedia('(prefers-reduced-motion: reduce)').matches,
-        noanim: params.get('noanim') === '1',
         hardwareConcurrency: navigator.hardwareConcurrency,
         deviceMemory: (navigator as { deviceMemory?: number }).deviceMemory,
         alreadySeen,
@@ -153,9 +137,8 @@ export function Intro({ token, children, labels }: Props) {
        * The overlay is revealed here, imperatively, AND kept revealed by
        * `hidden={phase !== 'playing'}` in the markup below.
        *
-       * Both, on purpose. The attribute is what React owns, so a re-render -
-       * the skip button appearing at 0.8s, for instance - cannot quietly put
-       * the overlay back. The imperative set is what makes it visible NOW,
+       * Both, on purpose. The attribute is what React owns, so a re-render
+       * cannot quietly put the overlay back. The imperative set makes it visible NOW,
        * before the timeline is built: GSAP measures the artwork with getBBox()
        * to work out where the seal halves turn about, and an element inside a
        * `hidden` subtree measures zero on every axis.
@@ -221,13 +204,6 @@ export function Intro({ token, children, labels }: Props) {
     };
   }, [play]);
 
-  // The skip control appears early and never moves after that.
-  useEffect(() => {
-    if (phase !== 'playing') return;
-    const timer = window.setTimeout(() => setSkipVisible(true), SKIP_VISIBLE_AT * 1000);
-    return () => window.clearTimeout(timer);
-  }, [phase]);
-
   // A hung chunk or a changed motion preference must release the invitation.
   useEffect(() => {
     if (phase !== 'playing') return;
@@ -237,16 +213,6 @@ export function Intro({ token, children, labels }: Props) {
     const debugHold = process.env.NODE_ENV !== 'production' && new URLSearchParams(window.location.search).has('beat');
     const timeout = debugHold ? undefined : window.setTimeout(finish, (SEQUENCE_DURATION + 5) * 1000);
     return () => { motion.removeEventListener('change', changed); window.clearTimeout(timeout); };
-  }, [phase, finish]);
-
-  // Escape does what the button does, for anyone on a keyboard.
-  useEffect(() => {
-    if (phase !== 'playing') return;
-    const onKey = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') finish();
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
   }, [phase, finish]);
 
   return (
@@ -267,17 +233,6 @@ export function Intro({ token, children, labels }: Props) {
         <div className="intro-stage">{children}</div>
         <canvas className="intro-canvas" data-intro="canvas" />
       </div>
-
-      {phase === 'playing' && (
-        <button
-          type="button"
-          className="intro-skip"
-          data-visible={skipVisible ? 'true' : 'false'}
-          onClick={finish}
-        >
-          {labels.skip}
-        </button>
-      )}
 
       {phase === 'finished' && canReplay && (
         <p className="replay-wrap">
