@@ -171,7 +171,30 @@
   font: 500 max(8px, 2.25cqw)/1 var(--font-ui); letter-spacing: .08em; text-transform: uppercase;
   position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
 }
-.respond-btn > span { border-bottom: 1px solid #ad915e; padding-block: 2px; }
+.respond-btn > span { position: relative; overflow: hidden; border-bottom: 1px solid #ad915e; padding-block: 2px; }
+.respond-btn > span::after {
+  content: '';
+  position: absolute;
+  inset-inline: 0;
+  bottom: -1px;
+  height: 2px;
+  pointer-events: none;
+  background: linear-gradient(90deg, transparent, #b58d4d 28%, #fff1c7 50%, #b58d4d 72%, transparent);
+  opacity: 0;
+  transform: translateX(-140%);
+}
+/* A brief foil glint over the underline, followed by six quiet seconds. */
+@keyframes reply-underline-glint {
+  0%, 12% { opacity: 0; transform: translateX(-140%); }
+  15% { opacity: .95; }
+  28% { opacity: .95; transform: translateX(140%); }
+  31%, 100% { opacity: 0; transform: translateX(140%); }
+}
+@media (prefers-reduced-motion: no-preference) {
+  html:not(.intro-locked):not(:has(.intro[data-phase='playing'])):not(.dialog-open) .stage[data-replied='false'] .respond-btn > span::after {
+    animation: reply-underline-glint 8s ease-in-out 1s infinite;
+  }
+}
 .respond-btn[hidden] { display: none; }
 .guest-ground .respond-btn:hover > span { border-bottom-color: #695330; color: #594321; }
 .sheet-standing { margin: 0; padding: .9rem 0 0; color: #6d5736; font: 400 .85rem/1.5 var(--font-ui); }
@@ -450,6 +473,23 @@
   opacity: 0;
   transform: scale(0.97);
   pointer-events: none;
+}
+
+/*
+ * Replaying after a reply still uses the original card. Its wrapper must be
+ * visible and untransformed while the card is fixed above the intro scenery:
+ * opacity hides descendants, and a transform changes their fixed positioning.
+ * The intro releases this class on handoff, failure, timeout, and navigation,
+ * so the saved reply and thank-you return without resetting the response.
+ */
+.intro-locked .stage[data-replied='true'] .stage-card {
+  opacity: 1;
+  transform: none;
+  transition: none;
+}
+
+.intro-locked .stage[data-replied='true'] .closing {
+  visibility: hidden;
 }
 
 .closing {

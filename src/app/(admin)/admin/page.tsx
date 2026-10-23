@@ -9,8 +9,9 @@ import {
 import { buttonVariants } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { getConfig } from '@/lib/services/config';
-import { getDashboardSummary } from '@/lib/services/dashboard';
+import { summarizeGuests } from '@/lib/services/dashboard';
 import { listGuests } from '@/lib/services/guests';
+import { listEvents } from '@/lib/services/events';
 import { formatDate } from '@/lib/format';
 import { CountsBlock } from './_components/counts';
 import { AdminPageHeader, EmptyState } from './_components/ui';
@@ -19,11 +20,12 @@ import { invitationStatus, matchesReply } from './_components/presentation';
 export const dynamic = 'force-dynamic';
 
 export default async function AdminDashboard() {
-  const [config, summary, guests] = await Promise.all([
+  const [config, guests, events] = await Promise.all([
     getConfig(),
-    getDashboardSummary(),
     listGuests(),
+    listEvents(),
   ]);
+  const summary = summarizeGuests(guests, events);
   const event = summary.perEvent[0]?.event;
   const now = new Date();
   const days = event ? Math.ceil((event.startsAt.getTime() - now.getTime()) / 86400000) : null;

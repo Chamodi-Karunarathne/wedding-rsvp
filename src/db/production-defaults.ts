@@ -7,7 +7,7 @@ import {
 } from '../lib/domain/config.ts';
 import type { NewEventRow } from './schema.ts';
 
-/** The real wedding foundations; development guest fixtures stay in seed.ts. */
+/** The real wedding foundations, with no guest or response records. */
 export const PRODUCTION_EVENT = {
   slug: 'ceremony',
   name: 'Poruwa Ceremony',

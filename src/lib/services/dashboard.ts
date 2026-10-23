@@ -70,12 +70,21 @@ export async function getDashboardSummary(
     db.select().from(events).orderBy(asc(events.sortOrder), asc(events.startsAt)),
   ]);
 
+  return summarizeGuests(allRows, eventRows.map(toEventView), filters);
+}
+
+/** Reuse a page's loaded rows for totals without another set of database reads. */
+export function summarizeGuests(
+  allRows: GuestListRow[],
+  eventRows: EventView[],
+  filters: DashboardFilters = {},
+): DashboardSummary {
+
   // Source is deliberately not passed on: the counts answer "where do we
   // stand", which a source filter would silently corrupt. See DashboardFilters.
   const rows = applyFilters(allRows, { side: filters.side, channel: filters.channel });
 
-  const perEvent: EventCounts[] = eventRows.map((eventRow) => {
-    const event = toEventView(eventRow);
+  const perEvent: EventCounts[] = eventRows.map((event) => {
     let invited = 0;
     let attending = 0;
     let declined = 0;

@@ -4,9 +4,8 @@ import { Table, TableBody, TableHead, TableHeader, TableRow } from '@/components
 import { listEvents } from '@/lib/services/events';
 import { listGuests } from '@/lib/services/guests';
 import { getConfig } from '@/lib/services/config';
-import { CsvImport } from './csv-import';
 import { GuestRow } from './guest-row';
-import { GuestEditor } from './guest-editor';
+import { AddGuest, ImportGuests } from './guest-tools';
 import { AdminPageHeader, EmptyState, SearchFilters } from '../_components/ui';
 import { matchesReply, matchesSearch, SIDE_LABELS } from '../_components/presentation';
 
@@ -43,12 +42,7 @@ export default async function AdminGuestsPage({ searchParams }: Props) {
           Download guest list
         </a>
       </AdminPageHeader>
-      <details className="admin-disclosure" id="add-guest">
-        <summary>Add a guest or family</summary>
-        <div className="admin-disclosure-body">
-          <GuestEditor events={events} />
-        </div>
-      </details>
+      <AddGuest events={events} />
       <Card>
         <CardContent>
           <SearchFilters
@@ -127,15 +121,7 @@ export default async function AdminGuestsPage({ searchParams }: Props) {
           )}
         </CardContent>
       </Card>
-      <details className="admin-disclosure">
-        <summary>Import a guest list</summary>
-        <div className="admin-disclosure-body space-y-4">
-          <p className="text-muted-foreground">
-            Have a list in Excel? Save it as a CSV file, then check it here before adding guests.
-          </p>
-          <CsvImport events={events} />
-        </div>
-      </details>
+      <ImportGuests events={events} />
     </div>
   );
 }

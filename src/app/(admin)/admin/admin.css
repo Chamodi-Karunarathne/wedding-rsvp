@@ -78,6 +78,7 @@
   margin-left: auto;
 }
 .admin-nav-link {
+  position: relative;
   min-height: 44px;
   display: flex;
   align-items: center;
@@ -94,6 +95,36 @@
 .admin-nav-link[aria-current='page'] {
   background: var(--secondary);
   color: var(--secondary-foreground);
+}
+.admin-nav-pending {
+  position: absolute;
+  left: 13px;
+  right: 13px;
+  bottom: 3px;
+  height: 2px;
+  border-radius: 2px;
+  background: currentColor;
+  opacity: 0;
+}
+.admin-nav-pending[data-pending='true'] {
+  opacity: 1;
+}
+.admin-loading-card {
+  display: grid;
+  gap: 24px;
+  padding: 28px 24px;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: var(--card);
+}
+.admin-loading-line {
+  height: 44px;
+  border-radius: 8px;
+  background: var(--muted);
+}
+.admin-loading-line-short {
+  width: min(240px, 65%);
+  height: 20px;
 }
 .admin-menu-button {
   display: none;

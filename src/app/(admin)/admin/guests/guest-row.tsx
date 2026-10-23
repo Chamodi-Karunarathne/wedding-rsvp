@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import dynamic from 'next/dynamic';
 import { useRouter } from 'next/navigation';
 import { useRef, useState } from 'react';
 import { Button, buttonVariants } from '@/components/ui/button';
@@ -8,7 +9,6 @@ import { TableCell, TableRow } from '@/components/ui/table';
 import { formatDateTimeShort } from '@/lib/format';
 import type { GuestListRow } from '@/lib/services/guests';
 import type { EventView } from '@/lib/services/types';
-import { GuestEditor } from './guest-editor';
 import { postJson } from '../_components/api';
 import { Feedback, StatusBadge } from '../_components/ui';
 import {
@@ -18,6 +18,10 @@ import {
   SIDE_LABELS,
   SOURCE_LABELS,
 } from '../_components/presentation';
+
+const GuestEditor = dynamic(() => import('./guest-editor').then(module => module.GuestEditor), {
+  loading: () => <p role="status">Loading guest details…</p>,
+});
 
 export function GuestRow({
   row,
@@ -152,7 +156,7 @@ export function GuestRow({
         <TableRow className="admin-expanded">
           <TableCell colSpan={4}>
             <div id={'guest-details-' + row.guest.id} className="space-y-6">
-              <fieldset disabled={deleting} className="min-w-0">
+              <fieldset disabled={deleting} className="min-w-0" data-admin-editing>
                 <GuestEditor
                   events={events}
                   guest={row.guest}

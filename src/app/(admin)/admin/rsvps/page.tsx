@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import Form from 'next/form';
 import { buttonVariants } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
@@ -10,7 +11,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { DELIVERY_CHANNELS, RSVP_SOURCES, SIDES } from '@/db/schema';
-import { applyFilters, getDashboardSummary } from '@/lib/services/dashboard';
+import { applyFilters, summarizeGuests } from '@/lib/services/dashboard';
 import { listEvents } from '@/lib/services/events';
 import { listGuests } from '@/lib/services/guests';
 import { getConfig } from '@/lib/services/config';
@@ -26,6 +27,7 @@ import {
   SOURCE_LABELS,
 } from '../_components/presentation';
 import { RecordResponse, type Candidate } from './record-response';
+import { FilterSubmit } from '../_components/filter-submit';
 
 export const dynamic = 'force-dynamic';
 type Props = {
@@ -52,12 +54,12 @@ export default async function AdminRsvpsPage({ searchParams }: Props) {
       ? (params.source as RsvpSource)
       : ('all' as const),
   };
-  const [summary, allGuests, events, config] = await Promise.all([
-    getDashboardSummary(filters),
+  const [allGuests, events, config] = await Promise.all([
     listGuests(),
     listEvents(),
     getConfig(),
   ]);
+  const summary = summarizeGuests(allGuests, events, filters);
   const query = params.q ?? '';
   const status = params.status ?? 'all';
   const guests = applyFilters(allGuests, filters).filter(
@@ -142,13 +144,14 @@ export default async function AdminRsvpsPage({ searchParams }: Props) {
       <details className="admin-disclosure">
         <summary>More filters and download</summary>
         <div className="admin-disclosure-body space-y-4">
-          <form action="/admin/rsvps" className="admin-filters">
+          <Form action="/admin/rsvps" className="admin-filters">
             <input type="hidden" name="q" value={query} />
             <input type="hidden" name="status" value={status} />
             <input type="hidden" name="side" value={filters.side} />
             <div className="admin-filter">
               <label htmlFor="reply-method">Reply received</label>
               <select
+                key={filters.source}
                 className="admin-select"
                 id="reply-method"
                 name="source"
@@ -165,6 +168,7 @@ export default async function AdminRsvpsPage({ searchParams }: Props) {
             <div className="admin-filter">
               <label htmlFor="sending-method">Invitation sent by</label>
               <select
+                key={filters.channel}
                 className="admin-select"
                 id="sending-method"
                 name="channel"
@@ -178,13 +182,8 @@ export default async function AdminRsvpsPage({ searchParams }: Props) {
                 ))}
               </select>
             </div>
-            <button
-              type="submit"
-              className={buttonVariants({ variant: 'outline', className: 'admin-button' })}
-            >
-              Apply filters
-            </button>
-          </form>
+            <FilterSubmit label="Apply filters" />
+          </Form>
           <div className="space-y-2">
             <a
               href={'/api/admin/export/rsvps?' + exportQuery}

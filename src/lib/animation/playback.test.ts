@@ -1,83 +1,43 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import {
-  MIN_CORES,
-  MIN_MEMORY_GB,
-  isLowEnd,
-  seenStorageKey,
-  shouldPlayIntro,
-  type PlaybackContext,
-} from './playback.ts';
-
-const FRESH: PlaybackContext = {
-  reducedMotion: false,
-  alreadySeen: false,
-  replayRequested: false,
-};
+import { shouldPlayIntro } from './playback.ts';
 
 describe('shouldPlayIntro', () => {
-  it('plays for a first visit on a capable device', () => {
-    assert.deepEqual(shouldPlayIntro(FRESH), { play: true, reason: 'play' });
+  it('plays on every opening when motion is allowed', () => {
+    for (let visit = 0; visit < 3; visit += 1) {
+      assert.deepEqual(shouldPlayIntro({ reducedMotion: false }), {
+        play: true,
+        reason: 'play',
+      });
+    }
   });
 
-  it('never plays under prefers-reduced-motion', () => {
-    assert.deepEqual(shouldPlayIntro({ ...FRESH, reducedMotion: true }), {
-      play: false,
-      reason: 'reduced-motion',
-    });
+  it('does not suppress playback because of legacy seen or replay flags', () => {
+    for (const replayRequested of [false, true]) {
+      const facts = { reducedMotion: false, alreadySeen: true, replayRequested };
+      assert.deepEqual(shouldPlayIntro(facts), { play: true, reason: 'play' });
+    }
   });
 
-  it('keeps reduced-motion winning over a replay press', () => {
-    // A replay press is far likelier to be a mis-tap than a request to
-    // override an accessibility setting on the guest's own device.
-    const decision = shouldPlayIntro({ ...FRESH, reducedMotion: true, replayRequested: true });
-    assert.equal(decision.play, false);
+  it('does not suppress playback based on reported hardware', () => {
+    for (const hardware of [
+      { hardwareConcurrency: 2, deviceMemory: 1 },
+      { hardwareConcurrency: 4, deviceMemory: 2 },
+      { hardwareConcurrency: 8, deviceMemory: 8 },
+      {},
+    ]) {
+      const facts = { reducedMotion: false, ...hardware };
+      assert.deepEqual(shouldPlayIntro(facts), { play: true, reason: 'play' });
+    }
   });
 
-  it('skips a second visit', () => {
-    assert.deepEqual(shouldPlayIntro({ ...FRESH, alreadySeen: true }), {
-      play: false,
-      reason: 'already-seen',
-    });
-  });
-
-  it('replays a second visit when the guest asks', () => {
-    const decision = shouldPlayIntro({ ...FRESH, alreadySeen: true, replayRequested: true });
-    assert.deepEqual(decision, { play: true, reason: 'play' });
-  });
-
-  it('skips a low-end device', () => {
-    assert.equal(shouldPlayIntro({ ...FRESH, hardwareConcurrency: 4 }).reason, 'low-end-device');
-    assert.equal(shouldPlayIntro({ ...FRESH, deviceMemory: 2 }).reason, 'low-end-device');
-  });
-});
-
-describe('isLowEnd', () => {
-  it('fires at the threshold, not just below it', () => {
-    assert.equal(isLowEnd({ ...FRESH, hardwareConcurrency: MIN_CORES }), true);
-    assert.equal(isLowEnd({ ...FRESH, deviceMemory: MIN_MEMORY_GB }), true);
-  });
-
-  it('passes a capable device', () => {
-    assert.equal(isLowEnd({ ...FRESH, hardwareConcurrency: 8, deviceMemory: 8 }), false);
-  });
-
-  it('does not assume the worst when the browser reports nothing', () => {
-    // Safari reports neither. Treating absence as low-end would switch the
-    // sequence off for every iPhone without anybody noticing.
-    assert.equal(isLowEnd(FRESH), false);
-    assert.equal(isLowEnd({ ...FRESH, hardwareConcurrency: undefined }), false);
-  });
-
-  it('trusts either signal on its own', () => {
-    assert.equal(isLowEnd({ ...FRESH, hardwareConcurrency: 8, deviceMemory: 1 }), true);
-    assert.equal(isLowEnd({ ...FRESH, hardwareConcurrency: 2, deviceMemory: 8 }), true);
-  });
-});
-
-describe('seenStorageKey', () => {
-  it('is keyed per invitation, not per browser', () => {
-    assert.equal(seenStorageKey('abc123XYZ0'), 'invite-seen:abc123XYZ0');
-    assert.notEqual(seenStorageKey('a'), seenStorageKey('b'));
+  it('honors reduced motion on initial opening and replay', () => {
+    for (const replayRequested of [false, true]) {
+      const facts = { reducedMotion: true, replayRequested };
+      assert.deepEqual(shouldPlayIntro(facts), {
+        play: false,
+        reason: 'reduced-motion',
+      });
+    }
   });
 });

@@ -25,7 +25,9 @@ changing it requires rebuilding. HTTP loopback origins are accepted for local QA
 All existing households and operational records are disposable test data. A fresh
 deployment initializes only the real ceremony and wedding configuration. It never
 inserts development guests. All real households are created or imported through
-the admin UI.
+the admin UI. Guest-seeding, fake CSV generation and the legacy acceptance script
+that wrote synthetic responses have been removed. The guarded integration tests
+create fixtures only in private schemas on the disposable local test database.
 
 For a new empty database, set its DATABASE_URL, then run:
 
@@ -67,9 +69,9 @@ that nullable column before activating the older build. Test-data contents are
 deliberately discarded by this fresh start. Once real data exists, enable backups
 and rehearse restores; never use the test reset as a rollback mechanism.
 
-Never use `db:seed`, `db:push` or the legacy `verify` acceptance script to update
-an existing production guest list. Seed clears records/tokens, push skips the
-reviewed migration history, and verify overwrites existing responses.
+Use `db:migrate` for production schema changes. `db:push` bypasses the reviewed
+migration history and must not update a production database. Guest imports and
+guest changes belong in the admin UI.
 
 ## Throttling and proxy configuration
 
@@ -103,6 +105,11 @@ most 1,000 data rows. Browser write requests must provide JSON and match the
 configured Origin; Origin-less non-browser clients remain supported.
 
 ## Smoke checks
+
+Run synthetic invitation and response checks only against an isolated local or
+staging database. Keep fresh production empty; after real admin imports, validate
+invitation rendering and tracking with a real imported guest and record only
+genuine responses.
 
 - Holding page 200; unknown invitation 404; unauthenticated admin redirects and
   private APIs return 401; successful login sets Secure/HttpOnly/SameSite cookies.

@@ -16,7 +16,9 @@ pnpm dev
 
 Open `/admin/login`, then import the guest list through the admin UI. `db:prepare`
 initializes the wedding settings and ceremony without creating sample households.
-Use `pnpm db:seed` only when you explicitly want disposable development fixtures.
+The repository has no guest-seeding or fake-data import scripts. Real households
+are added or imported through the admin UI. Database integration tests use only
+an explicitly configured, disposable local test database and private schemas.
 
 Use Node 24.x and the pinned pnpm version. See [the deployment runbook](docs/deployment.md)
 before deploying or migrating an existing guest database. Production requires the
@@ -29,13 +31,11 @@ rate-limiter migration and the final HTTPS origin configured at build time.
 | `pnpm dev` / `build` / `start` | Next.js                                                                          |
 | `pnpm typecheck`               | `tsc --noEmit`                                                                   |
 | `pnpm test`                    | Unit tests via Node's built-in runner. No test framework dependency.             |
+| `pnpm test:integration`        | Database checks in private schemas on the explicitly configured disposable local test database. |
 | `pnpm db:generate`             | Write a migration from schema changes. Works without a database.                 |
 | `pnpm db:migrate`              | Apply migrations                                                                 |
 | `pnpm db:prepare`              | Initialize missing wedding settings and the ceremony; creates no guests.         |
 | `pnpm db:reset-test-data -- --confirm-test-data` | Remove all test application data and prepare an empty guest list. |
-| `pnpm db:seed`                 | Wipe and reseed. Refuses to run against `NODE_ENV=production` without `--force`. |
-| `pnpm verify`                  | Runs the database-backed acceptance checks. Needs `pnpm dev` running.            |
-| `pnpm make-test-csv`           | Writes a 50-row import fixture for the CSV import check.                         |
 | `pnpm assets:optimize`         | Rewrites `public/card/*.svg` through SVGO at 2dp precision.                      |
 | `pnpm card:preview`            | Renders the composed card to a PNG, for checking layer offsets.                  |
 
@@ -176,6 +176,12 @@ Refresh pauses for open editors, focused fields, text selection and pending writ
 and catches up when returning to the tab. Login and the Wedding Details editor do
 not poll while being edited.
 
+Admin routes stream their content behind loading skeletons while navigation stays
+available. Searches and filters navigate without a full document reload and show
+pending feedback. Guest editors and CSV import load when opened; add/import drafts
+survive closing their disclosures. Overview and Responses share their loaded guest
+snapshot with summary counts, avoiding duplicate database reads.
+
 ## The card, and why there are offsets
 
 The three card layers were exported from three different artboards, each trimmed to its own content, so they do **not** share a viewBox:
@@ -210,7 +216,11 @@ Centring is done with `inset: 0; margin: auto`, never a translate: GSAP owns `tr
 
 **It is progressive enhancement.** The intro is `hidden` in the server-rendered HTML and is only revealed by script deciding to play. When JavaScript is unavailable, the readable details and telephone contacts remain accessible. An animation error releases the invitation. Nothing waits behind CSS for script to reveal it.
 
-`shouldPlayIntro()` in `lib/animation/playback.ts` is pure and tested. It declines to play for `prefers-reduced-motion: reduce`, a device reporting 4 cores or 2 GB or less, and a second visit. Absent `hardwareConcurrency`/`deviceMemory` is not treated as low-end. The opening completes automatically; there is no skip button, Escape shortcut or URL bypass. Replay remains available after completion.
+`shouldPlayIntro()` in `lib/animation/playback.ts` is pure and tested. The opening plays on every visit, including repeat visits, regardless of stored visit history or reported device specifications. It respects `prefers-reduced-motion: reduce`. The opening completes automatically; there is no skip button, Escape shortcut or URL bypass. Replay remains available after completion.
+
+Replaying from the reply thank-you temporarily restores the original card's
+wrapper for the animation. Completion or interruption restores the thank-you and
+keeps the saved answer; the replay control receives focus again.
 
 GSAP **core only**, no plugins, so nothing here needs a licence review beyond the standard "no charge" licence in `gsap/package.json`. It is loaded with a dynamic `import()`, so a guest who never sees the sequence never downloads it.
 

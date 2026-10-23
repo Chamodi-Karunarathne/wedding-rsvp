@@ -1,7 +1,8 @@
 import type { ReactNode } from 'react';
-import { Button } from '@/components/ui/button';
+import Form from 'next/form';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
+import { FilterSubmit } from './filter-submit';
 
 export function AdminPageHeader({
   title,
@@ -98,10 +99,11 @@ export function SearchFilters({
   children?: ReactNode;
 }) {
   return (
-    <form action={action} className="admin-filters">
+    <Form action={action} className="admin-filters">
       <div className="admin-search">
         <label htmlFor={`${action}-search`}>Find a guest</label>
         <Input
+          key={query}
           id={`${action}-search`}
           name="q"
           defaultValue={query}
@@ -113,6 +115,7 @@ export function SearchFilters({
         <div className="admin-filter" key={filter.name}>
           <label htmlFor={`${action}-${filter.name}`}>{filter.label}</label>
           <select
+            key={filter.value}
             className="admin-select"
             id={`${action}-${filter.name}`}
             name={filter.name}
@@ -127,8 +130,8 @@ export function SearchFilters({
         </div>
       ))}
       {children}
-      <Button type="submit">Show guests</Button>
-    </form>
+      <FilterSubmit />
+    </Form>
   );
 }
 export function Feedback({ error, success }: { error?: string | null; success?: string | null }) {

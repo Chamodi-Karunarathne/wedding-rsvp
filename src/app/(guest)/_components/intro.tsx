@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { SEQUENCE_DURATION } from '@/lib/animation/beats';
-import { seenStorageKey, shouldPlayIntro } from '@/lib/animation/playback';
+import { shouldPlayIntro } from '@/lib/animation/playback';
 
 /*
  * The intro sequence, as a layer over a page that already works.
@@ -40,8 +40,21 @@ function stageCard(on: boolean): void {
   if (main) main.inert = on;
 }
 
+/** Also release the card when loading, playback, or navigation is interrupted. */
+function restoreCard(): void {
+  stageCard(false);
+  document.querySelectorAll<HTMLElement>('[data-intro-managed]').forEach((element) => {
+    element.style.removeProperty('opacity');
+    element.style.removeProperty('transform');
+    element.style.removeProperty('clip-path');
+    delete element.dataset.introManaged;
+  });
+}
+
 export function Intro({ token, children, labels }: Props) {
   const overlayRef = useRef<HTMLDivElement>(null);
+  const replayRef = useRef<HTMLButtonElement>(null);
+  const restoreReplayFocusRef = useRef(false);
   const cleanupRef = useRef<(() => void) | null>(null);
   const runRef = useRef(0);
 
@@ -60,51 +73,26 @@ export function Intro({ token, children, labels }: Props) {
 
     // Back into the page, and scrolling again. Done before the styles are
     // cleared so the card never flashes fixed-and-visible in the flow.
-    stageCard(false);
-
-    // Also restore the usable invitation after an animation load failure.
-    document.querySelectorAll<HTMLElement>('[data-intro-managed]').forEach((element) => {
-      element.style.removeProperty('opacity');
-      element.style.removeProperty('transform');
-      element.style.removeProperty('clip-path');
-    });
+    restoreCard();
 
     setPhase('finished');
     setCanReplay(true);
-
-    try {
-      localStorage.setItem(seenStorageKey(token), '1');
-    } catch {
-      // Private mode, or storage disabled. Costs a replay on the next visit
-      // and nothing else, so it is not worth surfacing.
-    }
-  }, [token]);
+  }, []);
 
   const play = useCallback(
-    async (replayRequested: boolean) => {
+    async () => {
       const run = ++runRef.current;
       const overlay = overlayRef.current;
       if (!overlay) return;
 
-      let alreadySeen = false;
-      try {
-        alreadySeen = localStorage.getItem(seenStorageKey(token)) === '1';
-      } catch {
-        alreadySeen = false;
-      }
-
       const params = new URLSearchParams(window.location.search);
       const decision = shouldPlayIntro({
         reducedMotion: window.matchMedia('(prefers-reduced-motion: reduce)').matches,
-        hardwareConcurrency: navigator.hardwareConcurrency,
-        deviceMemory: (navigator as { deviceMemory?: number }).deviceMemory,
-        alreadySeen,
-        replayRequested,
       });
 
       if (!decision.play) {
         setPhase('finished');
-        setCanReplay(decision.reason === 'already-seen');
+        setCanReplay(false);
         return;
       }
 
@@ -147,8 +135,7 @@ export function Intro({ token, children, labels }: Props) {
 
       try {
         // Dynamic, so GSAP is a separate chunk fetched only when the
-        // sequence actually plays. A guest on reduced-motion, a low-end
-        // phone, or a second visit never downloads it.
+        // sequence actually plays. Reduced-motion guests never download it.
         const { buildIntroTimeline } = await import('@/lib/animation/timeline');
         if (run !== runRef.current || !overlay.isConnected) return;
         const { timeline, cleanup } = buildIntroTimeline(document, finish, () => stageCard(false));
@@ -191,18 +178,26 @@ export function Intro({ token, children, labels }: Props) {
         if (run === runRef.current) finish();
       }
     },
-    [finish, token],
+    [finish],
   );
 
   useEffect(() => {
-    void play(false);
+    void play();
     return () => {
       runRef.current += 1;
       cleanupRef.current?.();
+      cleanupRef.current = null;
+      restoreReplayFocusRef.current = false;
       // Navigating away mid-sequence must not leave the page unscrollable.
-      stageCard(false);
+      restoreCard();
     };
-  }, [play]);
+  }, [play, token]);
+
+  useEffect(() => {
+    if (phase !== 'finished' || !restoreReplayFocusRef.current) return;
+    restoreReplayFocusRef.current = false;
+    replayRef.current?.focus({ preventScroll: true });
+  }, [phase]);
 
   // A hung chunk or a changed motion preference must release the invitation.
   useEffect(() => {
@@ -236,7 +231,10 @@ export function Intro({ token, children, labels }: Props) {
 
       {phase === 'finished' && canReplay && (
         <p className="replay-wrap">
-          <button type="button" className="replay" onClick={() => void play(true)}>
+          <button ref={replayRef} type="button" className="replay" onClick={() => {
+            restoreReplayFocusRef.current = true;
+            void play();
+          }}>
             {labels.replay}
           </button>
         </p>

@@ -15,6 +15,7 @@ import {
 } from '@remixicon/react';
 import { Button } from '@/components/ui/button';
 import { postJson } from './api';
+import { NavigationStatus } from './navigation-status';
 
 const links = [
   { href: '/admin', label: 'Overview', icon: RiHome4Line },
@@ -86,6 +87,7 @@ export function AdminNavigation() {
                 >
                   <Icon size={17} aria-hidden="true" />
                   {label}
+                  <NavigationStatus label={label} />
                 </Link>
               ))}
               <Button type="button" variant="ghost" onClick={signOut} disabled={busy}>

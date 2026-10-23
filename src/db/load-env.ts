@@ -6,7 +6,7 @@ import { resolve } from 'node:path';
  *
  * Next.js loads .env itself at runtime, so nothing under src/app, src/lib or
  * src/db/client.ts should ever import this. It exists because drizzle-kit and
- * the database preparation/seed scripts run outside Next.js and would otherwise
+ * the database preparation scripts run outside Next.js and would otherwise
  * need a dotenv dependency.
  */
 export function loadEnv(file = '.env'): void {
@@ -31,15 +31,4 @@ export function loadEnv(file = '.env'): void {
     // A real environment variable always wins over the file.
     if (!(key in process.env)) process.env[key] = value;
   }
-}
-
-export function requireEnv(name: string): string {
-  const value = process.env[name];
-  if (value === undefined || value === '') {
-    throw new Error(
-      `${name} is not set.\n` +
-        `Copy .env.example to .env and fill it in, or export ${name} in your shell.`,
-    );
-  }
-  return value;
 }
