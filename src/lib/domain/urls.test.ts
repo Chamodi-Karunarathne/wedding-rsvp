@@ -38,11 +38,29 @@ describe('invitation URL', () => {
 describe('whatsappSendUrl', () => {
   it('strips formatting from the number and encodes the message', () => {
     const url = whatsappSendUrl('+94 77 123 4567', 'Hello & welcome');
-    assert.equal(url, 'https://wa.me/94771234567?text=Hello%20%26%20welcome');
+    assert.equal(url, 'https://api.whatsapp.com/send?phone=94771234567&text=Hello%20%26%20welcome');
   });
 
   it('encodes a URL inside the message without breaking it', () => {
     const url = whatsappSendUrl('+94771234567', `See ${invitationUrl('abc123XYZ0', ORIGIN)}`);
     assert.ok(url.includes(encodeURIComponent(`${ORIGIN}/i/abc123XYZ0`)));
+  });
+
+  it('bypasses the shortener and preserves emoji, Sinhala, line breaks and literal query punctuation', () => {
+    const message = '💍 💕 👩‍💻 👨🏽‍👩🏻‍👧🏾‍👦🏿 ආයුබෝවන්\nHello + & ? # 100%\n' +
+      invitationUrl('abc123XYZ0', ORIGIN);
+    const url = new URL(whatsappSendUrl('+94771234567', message));
+    assert.equal(url.origin + url.pathname, 'https://api.whatsapp.com/send');
+    assert.equal(url.searchParams.get('text'), message);
+    assert.equal(url.searchParams.get('phone'), '94771234567');
+    assert.equal(url.searchParams.size, 2);
+    assert.equal(url.hash, '');
+    assert.ok(!url.href.includes('%EF%BF%BD'));
+  });
+
+  it('normalizes previously stored local numbers before opening WhatsApp', () => {
+    for (const phone of ['077 123 4567', '771234567', '94771234567', '0094771234567']) {
+      assert.equal(new URL(whatsappSendUrl(phone, 'Hello')).searchParams.get('phone'), '94771234567');
+    }
   });
 });

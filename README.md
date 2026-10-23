@@ -193,6 +193,13 @@ actions together; sending records expand under **Sending details**. Copy message
 uses the same personalized text as WhatsApp and works without a phone number.
 If clipboard access is unavailable, a selected text field supports manual copying.
 
+WhatsApp links use `api.whatsapp.com/send` directly. The `wa.me` shortener was
+observed replacing emoji during its HTTP redirect; bypassing that hop preserves
+the exact Unicode message for web and native-app handoffs. Phone numbers are
+normalized before saving and when building links, including `077...`, bare
+`9477...` and nine-digit values whose leading zero was removed by Excel. See
+[the Unicode check](docs/whatsapp-unicode-check.md) for the reproduced behavior.
+
 Admin list data refreshes every 30 seconds while the tab is visible and online.
 Refresh pauses for open editors, focused fields, text selection and pending writes,
 and catches up when returning to the tab. Login and the Wedding Details editor do

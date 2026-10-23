@@ -1,3 +1,5 @@
+import { normalizePhone } from './phone.ts';
+
 /**
  * PERMANENT, and partly set in ink.
  *
@@ -51,8 +53,12 @@ export function invitationUrl(token: string, origin = siteOrigin()): string {
   return `${normalizeOrigin(origin)}${invitationPath(token)}`;
 }
 
-/** wa.me deep link with the invitation message pre-filled. */
+/**
+ * Open WhatsApp with the exact invitation message pre-filled.
+ * The wa.me shortener can replace non-BMP emoji during its desktop redirect;
+ * going directly to its destination preserves Unicode for both web and app handoff.
+ */
 export function whatsappSendUrl(phoneE164: string, message: string): string {
-  const number = phoneE164.replace(/[^\d]/g, '');
-  return `https://wa.me/${number}?text=${encodeURIComponent(message)}`;
+  const number = (normalizePhone(phoneE164) ?? '').replace(/[^\d]/g, '');
+  return `https://api.whatsapp.com/send?phone=${number}&text=${encodeURIComponent(message)}`;
 }
