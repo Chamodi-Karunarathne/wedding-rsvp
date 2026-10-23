@@ -19,6 +19,9 @@ describe('normalizePhone', () => {
       '+94771234567',
       '+94 77 123 4567',
       '0094771234567',
+      '94 77 123 4567',
+      '94771234567',
+      '00 94 (77) 123-4567',
       '771234567',
       '(077) 1234567',
     ]) {
@@ -28,6 +31,20 @@ describe('normalizePhone', () => {
 
   it('keeps a foreign number that already carries a plus', () => {
     assert.equal(normalizePhone('+44 20 7946 0958'), '+442079460958');
+  });
+
+  it('adds the plus to international numbers supplied with a country code', () => {
+    for (const phone of ['44 20 7946 0958', '00442079460958']) {
+      assert.equal(normalizePhone(phone), '+442079460958');
+    }
+    assert.equal(normalizePhone('1 (202) 555-0123'), '+12025550123');
+  });
+
+  it('is stable when saved international numbers are normalized again', () => {
+    for (const phone of ['077-123-4567', '771234567', '94771234567', '44 20 7946 0958']) {
+      const normalized = normalizePhone(phone);
+      assert.equal(normalizePhone(normalized), normalized);
+    }
   });
 
   it('does not drop unrecognisable input, so equal garbage still compares equal', () => {

@@ -12,6 +12,7 @@ import {
   isDisplayNameLong,
   resolveCardName,
 } from '@/lib/domain/names';
+import { normalizePhone } from '@/lib/domain/phone';
 import type { EventView, GuestView, Side } from '@/lib/services/types';
 import { postJson } from '../_components/api';
 import { SIDE_LABELS } from '../_components/presentation';
@@ -57,7 +58,7 @@ export function GuestEditor({ events, guest, invitedSlugs = [], onDone }: Props)
       sortName: form.sortName.trim() || form.displayName.trim(),
       side: form.side,
       maxPartySize: Number(form.maxPartySize),
-      phone: form.phone.trim() || null,
+      phone: normalizePhone(form.phone),
       notes: form.notes.trim() || null,
       eventSlugs: slugs,
     };
@@ -82,6 +83,8 @@ export function GuestEditor({ events, guest, invitedSlugs = [], onDone }: Props)
         notes: '',
       });
       setSlugs([]);
+    } else {
+      setForm((prev) => ({ ...prev, phone: payload.phone ?? '' }));
     }
     setSuccess(message);
     onDone?.(message);
@@ -115,10 +118,19 @@ export function GuestEditor({ events, guest, invitedSlugs = [], onDone }: Props)
               <Input
                 id={id + '-phone'}
                 type="tel"
+                aria-describedby={id + '-phone-help'}
                 value={form.phone}
                 onChange={(e) => set('phone', e.target.value)}
+                onBlur={() => {
+                  if (form.phone.trim() === '' || /\d/.test(form.phone)) {
+                    set('phone', normalizePhone(form.phone) ?? '');
+                  }
+                }}
                 placeholder="e.g. 077 123 4567"
               />
+              <p id={id + '-phone-help'} className="text-xs text-muted-foreground">
+                Local numbers are saved with +94. For overseas guests, include their country code.
+              </p>
             </div>
             <div className="space-y-2">
               <Label htmlFor={id + '-side'}>Family</Label>

@@ -4,8 +4,24 @@ import { invitationUrl } from '@/lib/domain/urls';
 import { applyFilters, type DashboardFilters } from './dashboard';
 import { listGuests } from './guests';
 import { listEvents } from './events';
+import { getDb, type DbLike } from '@/db/client';
 
 /** PERMANENT. CSV exports. All go through domain/csv, so all carry a BOM. */
+
+/** Editable household data with the exact columns accepted by guest import. */
+export async function buildGuestListCsv(db: DbLike = getDb()): Promise<string> {
+  const rows = await listGuests(db);
+  return toCsv([
+    ['display_name', 'display_name_fallback', 'sort_name', 'side', 'language',
+      'max_party_size', 'phone', 'events', 'channels', 'notes'],
+    ...rows.map((row) => [
+      row.guest.displayName, row.guest.displayNameFallback, row.guest.sortName,
+      row.guest.side, row.guest.language, row.guest.maxPartySize, row.guest.phone,
+      row.eventSlugs.join(';'), row.channels.map((channel) => channel.channel).join(';'),
+      row.guest.notes,
+    ]),
+  ]);
+}
 
 /** Full RSVP state, one row per guest, one column pair per event. */
 export async function buildRsvpExportCsv(filters: DashboardFilters = {}): Promise<string> {

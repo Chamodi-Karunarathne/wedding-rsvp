@@ -9,6 +9,7 @@ import {
   rsvps,
 } from '@/db/schema';
 import { generateToken } from '@/lib/domain/ids';
+import { normalizePhone } from '@/lib/domain/phone';
 import { ok, serviceError, type Result } from '@/lib/domain/result';
 import { toDeliveryChannelView, toEventView, toGuestView, toRsvpView } from './mappers';
 import { listOpens } from './opens';
@@ -157,7 +158,7 @@ export async function createGuest(
         side: input.side,
         language: input.language ?? 'en',
         maxPartySize: input.maxPartySize ?? 2,
-        phone: input.phone ?? null,
+        phone: normalizePhone(input.phone),
         notes: input.notes ?? null,
       })
       .returning();
@@ -188,7 +189,7 @@ export async function updateGuest(
         ...(input.side !== undefined && { side: input.side }),
         ...(input.language !== undefined && { language: input.language }),
         ...(input.maxPartySize !== undefined && { maxPartySize: input.maxPartySize }),
-        ...(input.phone !== undefined && { phone: input.phone }),
+        ...(input.phone !== undefined && { phone: normalizePhone(input.phone) }),
         ...(input.notes !== undefined && { notes: input.notes }),
         updatedAt: new Date(),
       })
@@ -227,6 +228,17 @@ async function prepareGuestUpdate(guestId: string, input: Partial<GuestInput>, t
   const responses = input.maxPartySize !== undefined || plan.data
     ? await tx.select().from(rsvps).where(eq(rsvps.guestId, guestId))
     : [];
+  const checked = validateGuestResponseConstraints(input, responses, plan.data?.eventIds);
+  if (!checked.ok) return checked;
+  return ok({ guest, invitations: plan.data });
+}
+
+/** Call after locking the guest and reading their current responses. */
+export function validateGuestResponseConstraints(
+  input: Partial<GuestInput>,
+  responses: { attending: boolean; partyCount: number; eventId: string }[],
+  invitationEventIds?: string[],
+): Result<true> {
   const allowance = input.maxPartySize;
   if (allowance !== undefined && responses.some((reply) => reply.attending && reply.partyCount > allowance)) {
     return serviceError(
@@ -236,15 +248,14 @@ async function prepareGuestUpdate(guestId: string, input: Partial<GuestInput>, t
       'maxPartySize',
     );
   }
-  const invitationPlan = plan.data;
-  if (invitationPlan && responses.some((reply) => !invitationPlan.eventIds.includes(reply.eventId))) {
+  if (invitationEventIds && responses.some((reply) => !invitationEventIds.includes(reply.eventId))) {
     return serviceError(
       'conflict',
       'This guest has already responded to an event you are removing. Keep that event on their invitation.',
       'eventSlugs',
     );
   }
-  return ok({ guest, invitations: plan.data });
+  return ok(true);
 }
 
 /** The CSV preview and save share the same validation under the guest lock. */

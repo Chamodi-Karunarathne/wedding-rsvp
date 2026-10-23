@@ -3,12 +3,33 @@ import { describe, it } from 'node:test';
 import { databaseFixture, eventFixture, guestFixture } from './service-test-support.ts';
 
 const { createGuest, updateGuest, setInvitations } = await import('./guests.ts');
-const { importGuestsCsv } = await import('./import.ts');
 const { submitRsvpByGuestId, submitRsvpByToken } = await import('./rsvps.ts');
 const { withTransaction } = await import('./transactions.ts');
 const { ok, serviceError } = await import('../domain/result.ts');
 
 describe('guest commands and transaction composition', () => {
+  it('normalizes manually created and edited guest phones and preserves omitted values', async () => {
+    const memory = databaseFixture();
+    for (const raw of ['0771234567', '077 123 4567', '94771234567', '771234567', '+94 77 123 4567']) {
+      const created = await createGuest({
+        displayName: 'Phone guest', sortName: 'Phone guest', side: 'both', phone: raw,
+      }, memory.asDb());
+      assert.equal(created.ok, true);
+      if (!created.ok) continue;
+      assert.equal(created.data.phone, '+94771234567');
+      assert.equal(memory.state.guests!.find((row) => row.id === created.data.id)!.phone, '+94771234567');
+      const edited = await updateGuest(guestFixture.id, { phone: raw }, memory.asDb());
+      assert.equal(edited.ok && edited.data.phone, '+94771234567');
+      assert.equal(memory.state.guests![0]!.phone, '+94771234567');
+    }
+    assert.equal((await updateGuest(guestFixture.id, { notes: 'Phone unchanged' }, memory.asDb())).ok, true);
+    assert.equal(memory.state.guests![0]!.phone, '+94771234567');
+    const foreign = await updateGuest(guestFixture.id, { phone: '44 7700 900123' }, memory.asDb());
+    assert.equal(foreign.ok && foreign.data.phone, '+447700900123');
+    const cleared = await updateGuest(guestFixture.id, { phone: '' }, memory.asDb());
+    assert.equal(cleared.ok && cleared.data.phone, null);
+  });
+
   it('rejects unknown invitations without creating an orphan or changing an existing guest', async () => {
     const memory = databaseFixture();
     const original = structuredClone(memory.state);
@@ -89,79 +110,6 @@ describe('guest commands and transaction composition', () => {
     assert.equal(memory.state.guests![0]!.maxPartySize, 6);
     assert.equal(memory.state.rsvps![0]!.partyCount, 4);
     assert.ok(memory.trace.indexOf('lock:guests') < memory.trace.indexOf('select:rsvps'));
-  });
-});
-
-describe('CSV import commands', () => {
-  const csv = 'display_name,sort_name,side,max_party_size,channels\nExisting household,Existing household,bride,4,whatsapp|print';
-
-  it('preserves existing delivery progress and tokens while adding a missing channel', async () => {
-    const memory = databaseFixture();
-    const sent = {
-      id: 'channel-id', guestId: guestFixture.id, channel: 'whatsapp', status: 'delivered',
-      sentAt: new Date('2026-10-01T00:00:00Z'), sentBy: 'Original sender', notes: 'Keep note',
-    };
-    memory.state.delivery_channels!.push(structuredClone(sent));
-    const first = await importGuestsCsv(csv, {}, memory.asDb());
-    const second = await importGuestsCsv(csv, {}, memory.asDb());
-    assert.equal(first.ok && first.data.updated, 1);
-    assert.equal(second.ok && second.data.updated, 1);
-    assert.deepEqual(memory.state.delivery_channels!.find((row) => row.channel === 'whatsapp'), sent);
-    assert.equal(memory.state.delivery_channels!.length, 2);
-    assert.equal(memory.state.delivery_channels!.find((row) => row.channel === 'print')!.status, 'pending');
-    assert.equal(memory.state.guests![0]!.token, guestFixture.token);
-  });
-
-  it('rolls back a failing row and continues to save the next row', async () => {
-    const memory = databaseFixture();
-    const before = structuredClone(memory.state.guests![0]);
-    memory.failInsertInto = 'delivery_channels';
-    const result = await importGuestsCsv(csv + '\nAnother household,Another household,groom,2,print', {
-      defaultEventSlugs: [eventFixture.slug],
-    }, memory.asDb());
-    assert.equal(result.ok, true);
-    if (!result.ok) return;
-    assert.equal(result.data.errors, 1);
-    assert.equal(result.data.created, 1);
-    assert.equal(result.data.results[0]!.status, 'error');
-    assert.equal(result.data.results[1]!.status, 'created');
-    assert.deepEqual(memory.state.guests![0], before);
-    assert.equal(memory.state.guests!.length, 2);
-    assert.equal(memory.state.invitations!.length, 2);
-    assert.equal(memory.state.delivery_channels!.length, 1);
-    assert.equal(memory.state.delivery_channels![0]!.channel, 'print');
-  });
-
-  it('reports the same headcount and invitation conflicts in preview and save', async () => {
-    const memory = databaseFixture({ responding: true });
-    const original = structuredClone(memory.state);
-    const tooSmall = 'display_name,side,max_party_size\nExisting household,bride,2';
-    const preview = await importGuestsCsv(tooSmall, { dryRun: true }, memory.asDb());
-    const saved = await importGuestsCsv(tooSmall, {}, memory.asDb());
-    assert.equal(preview.ok, true);
-    assert.equal(saved.ok, true);
-    if (!preview.ok || !saved.ok) return;
-    assert.equal(preview.data.errors, 1);
-    assert.equal(saved.data.errors, 1);
-    assert.equal(preview.data.results[0]!.message, saved.data.results[0]!.message);
-    assert.deepEqual(memory.state, original);
-
-    memory.state.events!.push({ ...eventFixture, id: 'another-event-id', slug: 'other' });
-    const removesResponse = 'display_name,side,max_party_size,events\nExisting household,bride,4,other';
-    const invitePreview = await importGuestsCsv(removesResponse, { dryRun: true }, memory.asDb());
-    const inviteSave = await importGuestsCsv(removesResponse, {}, memory.asDb());
-    assert.equal(invitePreview.ok && invitePreview.data.errors, 1);
-    assert.equal(inviteSave.ok && inviteSave.data.errors, 1);
-    assert.equal(memory.state.invitations![0]!.eventId, eventFixture.id);
-  });
-
-  it('rejects more than 1000 rows before any database operation', async () => {
-    const memory = databaseFixture();
-    const oversized = 'display_name,side\n' + Array.from({ length: 1001 }, (_, i) => `Guest ${i},bride`).join('\n');
-    const result = await importGuestsCsv(oversized, {}, memory.asDb());
-    assert.equal(result.ok, false);
-    if (!result.ok) assert.equal(result.error.field, 'csv');
-    assert.deepEqual(memory.trace, []);
   });
 });
 

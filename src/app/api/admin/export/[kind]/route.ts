@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { requireAdmin } from '@/lib/api/guard';
-import { buildRsvpExportCsv, buildSendListCsv } from '@/lib/services/exports';
+import { buildGuestListCsv, buildRsvpExportCsv, buildSendListCsv } from '@/lib/services/exports';
 import type { DashboardFilters, } from '@/lib/services/dashboard';
 import type { DeliveryChannelName, RsvpSource, Side } from '@/lib/services/types';
 
@@ -10,12 +10,13 @@ import type { DeliveryChannelName, RsvpSource, Side } from '@/lib/services/types
  *   /api/admin/export/rsvps  - full RSVP state, honours ?side=, ?channel=
  *                              and ?source=
  *   /api/admin/export/send   - the send list
+ *   /api/admin/export/guests - editable guest list for CSV re-import
  */
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-const KINDS = ['rsvps', 'send'] as const;
+const KINDS = ['rsvps', 'send', 'guests'] as const;
 type Kind = (typeof KINDS)[number];
 
 function isKind(value: string): value is Kind {
@@ -47,7 +48,8 @@ export async function GET(
     source: (params.get('source') as RsvpSource | 'all' | null) ?? 'all',
   };
 
-  const csv = kind === 'send' ? await buildSendListCsv() : await buildRsvpExportCsv(filters);
+  const csv = kind === 'guests' ? await buildGuestListCsv()
+    : kind === 'send' ? await buildSendListCsv() : await buildRsvpExportCsv(filters);
 
   const stamp = new Date().toISOString().slice(0, 10);
 

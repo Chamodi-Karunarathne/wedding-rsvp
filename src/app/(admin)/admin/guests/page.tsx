@@ -36,7 +36,7 @@ export default async function AdminGuestsPage({ searchParams }: Props) {
         eyebrow={allGuests.length + ' households'}
       >
         <a
-          href="/api/admin/export/rsvps"
+          href="/api/admin/export/guests"
           className={buttonVariants({ variant: 'outline', className: 'admin-button' })}
         >
           Download guest list

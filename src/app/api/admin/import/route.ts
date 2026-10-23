@@ -26,10 +26,24 @@ export async function POST(request: Request): Promise<NextResponse> {
   const parsed = csvImportSchema.safeParse(body.data);
   if (!parsed.success) return zodError(parsed.error);
 
-  const result = await importGuestsCsv(parsed.data.csv, {
-    ...(parsed.data.defaultEventSlugs && { defaultEventSlugs: parsed.data.defaultEventSlugs }),
-    ...(parsed.data.dryRun !== undefined && { dryRun: parsed.data.dryRun }),
-  });
+  try {
+    const result = await importGuestsCsv(parsed.data.csv, {
+      ...(parsed.data.defaultEventSlugs && { defaultEventSlugs: parsed.data.defaultEventSlugs }),
+      ...(parsed.data.dryRun !== undefined && { dryRun: parsed.data.dryRun }),
+    });
 
-  return result.ok ? jsonOk({ summary: result.data }) : jsonError(result.error);
+    return result.ok
+      ? jsonOk({ summary: result.data }, { headers: { 'cache-control': 'no-store' } })
+      : jsonError(result.error);
+  } catch {
+    // Database errors can contain connection details and guest parameters.
+    // A later batch may fail after earlier rows were committed successfully.
+    console.error('Guest import could not complete.');
+    return jsonError({
+      code: 'internal',
+      message: parsed.data.dryRun
+        ? 'The guest list could not be checked. Please try again.'
+        : 'The import could not finish. Some rows may have been saved. Check the guest list, then check your CSV again before retrying.',
+    });
+  }
 }

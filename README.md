@@ -112,9 +112,31 @@ Phase dates and the override are edited at `/admin/config`. Times there are ente
 
 ## CSV import
 
-Matches existing guests on `(sort_name, phone)`, both normalized — `077 123 4567` and `+94771234567` are the same household, and a missing phone collapses to `''` rather than `NULL` so two households with no number are still comparable. Re-running an import updates rather than duplicates, and **never regenerates a token**, so a link already sent stays valid.
+Upload a CSV UTF-8 file in **Guests → Import a guest list**, check every proposed
+add/update/error, then confirm the import. The file accepts up to 1,000 households
+within the 1 MiB JSON request limit. A preview never saves guest data; changing
+the file or event choices requires a new preview.
 
-Errors are reported per row; one bad row does not stop the other 499.
+Matches existing guests on `(sort_name, phone)`, both normalized — `077 123 4567`
+and `+94771234567` are the same household. Missing phones compare as empty values.
+Re-running a file updates matches without regenerating invitation tokens.
+Ambiguous existing matches and repeated households in a file are reported for
+review. To change a household's matching name or phone, use its guest editor.
+
+Missing optional detail columns preserve existing values; explicitly blank cells
+clear nullable text or use the documented defaults. Event columns/default choices
+control invitations; an empty event selection preserves existing invitations.
+Channels are added without resetting sending progress. Saved replies cannot be
+removed or exceed a newly lowered household allowance.
+
+Malformed quoting, duplicate headers and shifted columns reject the file before
+writes. Individual invalid rows are reported while valid rows import. Bulk
+transactions process 25 rows at a time; failed row constraints are isolated and
+concurrent imports recheck matches under a database lock.
+
+**Download guest list** now produces an editable file with import-compatible
+columns. Response and sending reports remain separate exports. See
+[the import review](docs/guest-import-review.md) for edge cases and verification.
 
 Exports are written with a UTF-8 BOM, because Excel will not read UTF-8 without one and the Sinhala names would otherwise reach the card designer as mojibake.
 

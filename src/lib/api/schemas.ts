@@ -1,5 +1,7 @@
 import { z } from 'zod';
-import { DELIVERY_CHANNELS, DELIVERY_STATUSES, LOCALES, SIDES } from '@/db/schema';
+import { DELIVERY_CHANNELS, DELIVERY_STATUSES } from '@/db/schema';
+import { guestInputSchema } from '@/lib/domain/guest-input';
+export { guestInputSchema, type GuestInputRequest } from '@/lib/domain/guest-input';
 import { PHASES } from '@/lib/domain/phase';
 import { timeZoneSchema } from '@/lib/domain/timezone';
 
@@ -31,25 +33,6 @@ export type RsvpResponseInput = z.infer<typeof rsvpResponseSchema>;
 /* -------------------------------------------------------------------------- */
 /* admin                                                                      */
 /* -------------------------------------------------------------------------- */
-
-export const guestInputSchema = z.object({
-  displayName: z.string().min(1).max(300),
-  /**
-   * Long names break the fixed-width card. Admin warns above
-   * DISPLAY_NAME_SOFT_LIMIT and offers this shorter form, but nothing is
-   * blocked here - a warning the family can overrule is the point.
-   */
-  displayNameFallback: z.string().max(300).nullable().optional(),
-  sortName: z.string().min(1).max(300),
-  side: z.enum(SIDES),
-  language: z.enum(LOCALES).optional(),
-  maxPartySize: z.number().int().min(1).max(50),
-  phone: z.string().max(40).nullable().optional(),
-  notes: z.string().max(4000).nullable().optional(),
-  eventSlugs: z.array(z.string().min(1)).max(20).optional(),
-});
-
-export type GuestInputRequest = z.infer<typeof guestInputSchema>;
 
 export const guestUpdateSchema = guestInputSchema.partial().extend({
   id: z.string().uuid(),
