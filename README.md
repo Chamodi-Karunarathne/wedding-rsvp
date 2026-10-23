@@ -75,18 +75,30 @@ That is on purpose. If a homecoming or a reception appears, it should be a row s
 
 1. **`NEXT_PUBLIC_SITE_URL`** — baked into every invitation link sent over WhatsApp. A delivered message cannot be reissued, so this must be the final production domain, registered and held, before the first send. This is the hardest external dependency in the project.
 2. **The invitation token** — regenerating one breaks a link somebody already holds. CSV re-imports never touch it.
-3. **The OG image** — see below. WhatsApp caches previews near-permanently.
+3. **The OG image** — see below. Messaging apps can retain cached previews after deployment.
 
-## Before anyone receives a link
+## Invitation link preview
 
-`src/app/(guest)/i/[token]/opengraph-image.tsx` is **provisional, and no longer obviously so**. WhatsApp caches link previews more or less permanently, so the first image a guest's phone fetches is the one they keep forever — redeploying does not replace it for anyone who already has the link.
+`src/app/(guest)/i/[token]/opengraph-image.tsx` renders a personalized 1200 × 630
+image using the current champagne satin, warm paper, photographic rose corners
+and commissioned monogram. Couple names and the household address remain live
+text; date, venue and private admin notes are excluded. The artwork composition
+is documented in `public/card/SCENE.md`.
 
-It renders the real envelope artwork with the guest's name and the wax seal. That is deliberate: it is the first thing all five hundred households will see. But it means the image no longer announces itself as unfinished, so **it has to be signed off explicitly** rather than caught by someone noticing it looks wrong. Sign off two things together, because both are cached just as hard:
+The `invitation-v2` metadata image identity gives fresh unfurls a different image
+URL from the earlier envelope artwork. Messaging apps can retain previews cached
+for already-shared links, so a new image identity does not guarantee old messages
+will refresh. Review the generated image and metadata before distributing links.
 
-- the image itself, and
-- the preview's title and description, which come from `generateMetadata` in the page beside it. They deliberately name only the couple — no guest name, no venue, no date, because a forwarded screenshot of a preview should not carry a household's details.
+The title and description come from `generateMetadata` beside the image route
+and name only the couple. The personalized image prefers the card name and then
+a Latin display name. If neither is supported by the vendored static font, the
+image keeps its couple names and generic invitation wording instead of rendering
+missing-glyph boxes. Invalid tokens receive a complete generic image.
 
-A name in a script the OG font cannot set falls back to the couple's names rather than rendering as empty boxes; `scriptOf` decides. Check a Sinhala-addressed household as well as a Latin one before signing anything off.
+The production HTTP checks cover Latin, long Latin, Sinhala fallback and invalid
+tokens, with 1200 × 630 PNG output. Next's deployment trace includes the background
+JPEG, monogram and static TTF required by the renderer.
 
 ## Domain rules, and where they live
 

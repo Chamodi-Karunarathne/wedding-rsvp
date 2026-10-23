@@ -39,3 +39,17 @@ Upper corner generation prompt:
 Lower corner generation prompt:
 
 > Use case: photorealistic-natural. Asset type: transparent lower-left botanical corner cutout for a luxury ivory wedding invitation. ONE very sparse, refined botanical spray photographed from directly overhead, isolated on genuine transparent alpha background. Anchored at LOWER LEFT: one small half-open ivory spray rose with the faintest blush, two tiny cream buds, airy delicate champagne-beige dried leaves and a very few tiny baby's breath florets, slender stems extending UP along the left edge and RIGHT along the bottom edge. The rose is modest, not a huge flower. The center and upper right 70 percent must remain completely EMPTY/TRANSPARENT for separately rendered text. Macro editorial botanical photograph, realistic rose petal folds, delicate translucent dried leaf veins; not watercolor, not vector or cartoon. Soft diffuse light from upper left, muted warm parchment/ivory/soft blush palette, tiny shading within petals, no external drop shadow. Entire spray in frame with slight transparent padding. Square image. NO background, NO paper, NO card, NO border, NO letters, NO watermark. A sparse corner botanical decoration, not a complete invitation or bouquet.
+
+## Link preview artwork
+
+`og-invitation-paper.8ea15a301e.jpg` (47 KB, 1200 × 630) is a deterministic
+composition of the existing satin image and the two rose corner cutouts, with
+the same warm paper palette as the invitation. The satin is center-cropped to
+1200 × 630. The paper occupies `(68, 34, 1064, 562)`, and the 356 px roses sit
+at `(776, 34)` and `(68, 240)`. It contains no text or personal information;
+the commissioned monogram, couple names and household address remain live in
+the Open Graph image route. JPEG is intentional because the installed Satori
+renderer cannot decode these WebP sources directly. Keep a new content hash
+when replacing the image and update the route's `invitation-v2` image identity
+when changing the shared design. An updated URL helps new unfurls; messaging
+apps may retain previews already cached for earlier messages.
