@@ -182,6 +182,13 @@ pending feedback. Guest editors and CSV import load when opened; add/import draf
 survive closing their disclosures. Overview and Responses share their loaded guest
 snapshot with summary counts, avoiding duplicate database reads.
 
+Standalone database queries use concurrent Neon HTTP requests with caching
+disabled. Interactive writes keep their WebSocket transaction; the transaction
+pool permits four clients per instance. See [the admin performance review](docs/admin-performance-review.md)
+for the previous single-connection bottleneck and measured before/after timings.
+`vercel.json` pins function execution to Singapore (`sin1`), matching the
+configured Neon database's `ap-southeast-1` region.
+
 ## The card, and why there are offsets
 
 The three card layers were exported from three different artboards, each trimmed to its own content, so they do **not** share a viewBox:

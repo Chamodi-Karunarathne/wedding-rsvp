@@ -9,6 +9,10 @@ changing it requires rebuilding. HTTP loopback origins are accepted for local QA
 
 - Set production `DATABASE_URL` to a TLS-required, pooled Neon connection, and set
   strong `ADMIN_PASSWORD` and random `ADMIN_SESSION_SECRET` values in hosting secrets.
+- `vercel.json` pins functions to `sin1` (Singapore), matching the configured
+  Neon compute in `ap-southeast-1`. If the database moves, update this setting.
+  The CDN location does not establish where functions run. Re-deploy after a
+  region change; see [Vercel's region configuration](https://vercel.com/docs/functions/configuring-functions/region).
 - Run `pnpm install --frozen-lockfile`, `pnpm typecheck`, `pnpm test`, `pnpm build`
   and `pnpm audit`. Install build dependencies before building.
 - Rehearse the migrations and `pnpm test:integration` on a disposable local database.
@@ -22,9 +26,8 @@ changing it requires rebuilding. HTTP loopback origins are accepted for local QA
 
 ## Fresh-start setup
 
-All existing households and operational records are disposable test data. A fresh
-deployment initializes only the real ceremony and wedding configuration. It never
-inserts development guests. All real households are created or imported through
+A fresh deployment initializes only the real ceremony and wedding configuration.
+It never inserts development guests. All real households are created or imported through
 the admin UI. Guest-seeding, fake CSV generation and the legacy acceptance script
 that wrote synthetic responses have been removed. The guarded integration tests
 create fixtures only in private schemas on the disposable local test database.
@@ -72,6 +75,28 @@ and rehearse restores; never use the test reset as a rollback mechanism.
 Use `db:migrate` for production schema changes. `db:push` bypasses the reviewed
 migration history and must not update a production database. Guest imports and
 guest changes belong in the admin UI.
+
+## Admin database latency
+
+Standalone queries use Neon's HTTP transport without a persistent data cache;
+independent page reads run concurrently. Interactive transactions still use a
+checked-out WebSocket connection for their entire lifetime, preserving locks,
+dependent writes and rollback. The transaction pool permits up to four clients
+per function instance. No environment variable or schema migration is needed for
+this transport change; deploy the updated build.
+
+Do not add pool `connect`, `acquire`, `release` or `remove` event listeners: these
+disable Neon's HTTP query path. Use a standard Neon pooled URL; HTTP queries do
+not apply PostgreSQL session startup options from the URL. The shipped Neon 1.1
+driver documents `poolQueryViaFetch` as experimental, so retain the transport
+regression checks when upgrading it.
+
+If deployed admin loads remain slow, compare full response completion with time
+to first byte: loading skeletons can arrive well before database content. Inspect
+Vercel function duration and its actual region, then Neon activation and query
+latency. A first visit after Neon suspends may include wake-up time; sustained
+warm-page delays need separate investigation. See
+[the performance review](admin-performance-review.md) for measurements and limits.
 
 ## Throttling and proxy configuration
 

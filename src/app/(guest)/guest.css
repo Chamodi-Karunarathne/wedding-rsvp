@@ -171,6 +171,17 @@
   font: 500 max(8px, 2.25cqw)/1 var(--font-ui); letter-spacing: .08em; text-transform: uppercase;
   position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
 }
+.respond-btn::before {
+  content: '';
+  position: absolute;
+  inset: 7px -4px;
+  border: 1px solid rgb(173 145 94 / .35);
+  border-radius: 999px;
+  background: radial-gradient(ellipse, rgb(235 199 127 / .34), rgb(235 199 127 / .12) 65%, transparent);
+  box-shadow: 0 0 13px rgb(177 133 49 / .24), inset 0 0 7px rgb(255 241 198 / .4);
+  opacity: 0;
+  pointer-events: none;
+}
 .respond-btn > span { position: relative; overflow: hidden; border-bottom: 1px solid #ad915e; padding-block: 2px; }
 .respond-btn > span::after {
   content: '';
@@ -183,7 +194,16 @@
   opacity: 0;
   transform: translateX(-140%);
 }
-/* A brief foil glint over the underline, followed by six quiet seconds. */
+/* A warm halo and two tiny lifts draw attention, then rest for four seconds. */
+@keyframes reply-halo {
+  0%, 5%, 46%, 100% { opacity: 0; transform: scale(.96); }
+  16%, 33% { opacity: 1; transform: scale(1.04); }
+  24% { opacity: .45; transform: scale(1); }
+}
+@keyframes reply-nudge {
+  0%, 6%, 24%, 44%, 100% { transform: translateY(0); }
+  15%, 33% { transform: translateY(-1.5px); }
+}
 @keyframes reply-underline-glint {
   0%, 12% { opacity: 0; transform: translateX(-140%); }
   15% { opacity: .95; }
@@ -191,8 +211,14 @@
   31%, 100% { opacity: 0; transform: translateX(140%); }
 }
 @media (prefers-reduced-motion: no-preference) {
+  html:not(.intro-locked):not(:has(.intro[data-phase='playing'])):not(.dialog-open) .stage[data-replied='false'] .respond-btn::before {
+    animation: reply-halo 7s ease-in-out 1s infinite;
+  }
+  html:not(.intro-locked):not(:has(.intro[data-phase='playing'])):not(.dialog-open) .stage[data-replied='false'] .respond-btn > span {
+    animation: reply-nudge 7s ease-in-out 1s infinite;
+  }
   html:not(.intro-locked):not(:has(.intro[data-phase='playing'])):not(.dialog-open) .stage[data-replied='false'] .respond-btn > span::after {
-    animation: reply-underline-glint 8s ease-in-out 1s infinite;
+    animation: reply-underline-glint 7s ease-in-out 1s infinite;
   }
 }
 .respond-btn[hidden] { display: none; }
