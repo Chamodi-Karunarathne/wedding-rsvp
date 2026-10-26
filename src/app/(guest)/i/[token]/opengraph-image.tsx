@@ -7,6 +7,10 @@ import { loadInvitation } from '@/lib/services/invitation';
 import { readCardSvg } from '@/lib/svg';
 
 export const runtime = 'nodejs';
+// The image ID describes artwork, not a list of known guest tokens. Prevent
+// generateImageMetadata's partial static params from producing an SSG fallback
+// for this per-invitation database read on serverless deployments.
+export const dynamic = 'force-dynamic';
 export const alt = 'A personal wedding invitation';
 export const size = { width: 1200, height: 630 };
 export const contentType = 'image/png';

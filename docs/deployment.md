@@ -144,6 +144,12 @@ genuine responses.
   private APIs return 401; successful login sets Secure/HttpOnly/SameSite cookies.
 - Correct invitation details and both 1200 x 630 preview images; emitted image
   URLs use the permanent HTTPS domain. Check desktop, mobile and Sinhala names.
+  Fetch the exact `og:image` URL from the invitation HTML and verify HTTP 200
+  with `image/png`; the correct origin alone does not prove the image works.
+  Keep the image handler explicitly `force-dynamic`: its artwork ID does not
+  enumerate guest tokens. It must not appear as a partial SSG fallback in
+  `.next/prerender-manifest.json`, even though the build summary can mark the
+  metadata helper as SSG because it internally exports static image IDs.
 - Use dedicated synthetic invitations for create/change/decline/phone replies,
   allowance conflicts, re-import preservation, throttling, and response history.
   Confirm ordinary duplicate submissions do not manufacture history.
