@@ -12,19 +12,20 @@ import {
   isDisplayNameLong,
   resolveCardName,
 } from '@/lib/domain/names';
-import { normalizePhone } from '@/lib/domain/phone';
-import type { EventView, GuestView, Side } from '@/lib/services/types';
+import { normalizePhones, phoneListError, splitPhoneNumbers } from '@/lib/domain/phone';
+import type { DeliveryChannelName, EventView, GuestView, Side } from '@/lib/services/types';
 import { postJson } from '../_components/api';
-import { SIDE_LABELS } from '../_components/presentation';
+import { CHANNEL_LABELS, SIDE_LABELS } from '../_components/presentation';
 import { Feedback } from '../_components/ui';
 
 type Props = {
   events: EventView[];
   guest?: GuestView;
   invitedSlugs?: string[];
+  channels?: DeliveryChannelName[];
   onDone?: (message: string) => void;
 };
-export function GuestEditor({ events, guest, invitedSlugs = [], onDone }: Props) {
+export function GuestEditor({ events, guest, invitedSlugs = [], channels = [], onDone }: Props) {
   const router = useRouter();
   const id = useId();
   const editing = guest !== undefined;
@@ -39,6 +40,7 @@ export function GuestEditor({ events, guest, invitedSlugs = [], onDone }: Props)
   };
   const [form, setForm] = useState(initialForm);
   const [slugs, setSlugs] = useState<string[]>(invitedSlugs);
+  const [methods, setMethods] = useState<DeliveryChannelName[]>(guest ? channels : ['whatsapp']);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -49,6 +51,8 @@ export function GuestEditor({ events, guest, invitedSlugs = [], onDone }: Props)
   const cardName = resolveCardName(form.displayName, form.displayNameFallback);
   async function save(event: React.FormEvent) {
     event.preventDefault();
+    const phoneError = phoneListError(form.phone);
+    if (phoneError) { setError(phoneError); return; }
     setBusy(true);
     setError(null);
     setSuccess(null);
@@ -58,9 +62,10 @@ export function GuestEditor({ events, guest, invitedSlugs = [], onDone }: Props)
       sortName: form.sortName.trim() || form.displayName.trim(),
       side: form.side,
       maxPartySize: Number(form.maxPartySize),
-      phone: normalizePhone(form.phone),
+      phone: normalizePhones(form.phone),
       notes: form.notes.trim() || null,
       eventSlugs: slugs,
+      channels: methods,
     };
     const result = editing
       ? await postJson('/api/admin/guests', { id: guest.id, ...payload }, 'PATCH')
@@ -83,6 +88,7 @@ export function GuestEditor({ events, guest, invitedSlugs = [], onDone }: Props)
         notes: '',
       });
       setSlugs([]);
+      setMethods(['whatsapp']);
     } else {
       setForm((prev) => ({ ...prev, phone: payload.phone ?? '' }));
     }
@@ -114,23 +120,26 @@ export function GuestEditor({ events, guest, invitedSlugs = [], onDone }: Props)
               )}
             </div>
             <div className="space-y-2">
-              <Label htmlFor={id + '-phone'}>Phone number</Label>
+              <Label htmlFor={id + '-phone'}>Phone numbers</Label>
               <Input
                 id={id + '-phone'}
-                type="tel"
+                type="text"
+                autoComplete="off"
                 aria-describedby={id + '-phone-help'}
                 value={form.phone}
                 onChange={(e) => set('phone', e.target.value)}
                 onBlur={() => {
-                  if (form.phone.trim() === '' || /\d/.test(form.phone)) {
-                    set('phone', normalizePhone(form.phone) ?? '');
-                  }
+                  if (!phoneListError(form.phone)) set('phone', normalizePhones(form.phone) ?? '');
                 }}
-                placeholder="e.g. 077 123 4567"
+                placeholder="077 123 4567, 077 765 4321"
+                maxLength={500}
               />
               <p id={id + '-phone-help'} className="text-xs text-muted-foreground">
-                Local numbers are saved with +94. For overseas guests, include their country code.
+                Separate numbers with commas. Local numbers are saved with +94; include country codes for overseas guests.
               </p>
+              {methods.includes('whatsapp') && splitPhoneNumbers(form.phone).length === 0 && (
+                <p className="admin-warning-text">WhatsApp needs a phone number. You can save now and add it later, or choose another channel.</p>
+              )}
             </div>
             <div className="space-y-2">
               <Label htmlFor={id + '-side'}>Family</Label>
@@ -169,6 +178,19 @@ export function GuestEditor({ events, guest, invitedSlugs = [], onDone }: Props)
         </section>
         <section className="admin-form-section">
           <h3>Invitation</h3>
+          <fieldset className="mb-5 space-y-2">
+            <legend className="mb-2 text-sm font-medium">Sending channels</legend>
+            <div className="flex flex-wrap gap-2">
+              {(Object.keys(CHANNEL_LABELS) as DeliveryChannelName[]).map((channel) => (
+                <Label key={channel} className="admin-choice font-normal">
+                  <input type="checkbox" checked={methods.includes(channel)} onChange={event => setMethods(previous =>
+                    event.target.checked ? [...previous, channel] : previous.filter(value => value !== channel))} />
+                  {CHANNEL_LABELS[channel]}
+                </Label>
+              ))}
+            </div>
+            <p className="text-xs text-muted-foreground">Phone numbers are optional for other channels. Removing a channel also removes its sending record.</p>
+          </fieldset>
           <fieldset className="space-y-2">
             <legend className="mb-2 text-sm font-medium">Invited to</legend>
             <div className="flex flex-wrap gap-3">

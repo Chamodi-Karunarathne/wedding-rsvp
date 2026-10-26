@@ -4,14 +4,16 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { DELIVERY_STATES } from '@/lib/domain/delivery';
 import { renderTemplate } from '@/lib/domain/template';
-import { invitationUrl, whatsappSendUrl } from '@/lib/domain/urls';
+import { invitationUrl } from '@/lib/domain/urls';
+import { splitPhoneNumbers } from '@/lib/domain/phone';
 import { formatDate, formatDateTimeShort, formatEventDateTime } from '@/lib/format';
 import { getConfig } from '@/lib/services/config';
 import { getPrimaryEvent } from '@/lib/services/events';
 import { listGuests } from '@/lib/services/guests';
 import { SendRow } from './send-row';
 import { AdminPageHeader, EmptyState, SearchFilters } from '../_components/ui';
-import { INVITATION_LABELS, invitationStatus, matchesSearch } from '../_components/presentation';
+import { INVITATION_LABELS, invitationStatus, matchesSearch, needsWhatsAppPhone } from '../_components/presentation';
+import { WorkflowDialog } from '../_components/workflow-dialog';
 
 export const dynamic = 'force-dynamic';
 type Props = { searchParams: Promise<{ q?: string; state?: string }> };
@@ -40,7 +42,8 @@ export default async function AdminSendPage({ searchParams }: Props) {
   const rows = guests.map((row) => ({ row, state: invitationStatus(row) }));
   const filtered = rows.filter(
     ({ row, state }) =>
-      matchesSearch(row, query) && (stateFilter === 'all' || stateFilter === state),
+      matchesSearch(row, query) && (stateFilter === 'all' || stateFilter === state ||
+        (stateFilter === 'needs_phone' && needsWhatsAppPhone(row))),
   );
   return (
     <div className="space-y-5">
@@ -48,6 +51,11 @@ export default async function AdminSendPage({ searchParams }: Props) {
         title="Invitations"
         description="Send a personal invitation and see who has opened their link or replied."
       >
+        <WorkflowDialog title="Invitation messages" label="Message templates" description="Personalized WhatsApp and plain text templates used for each household.">
+          <h3 className="font-semibold">WhatsApp</h3><p className="whitespace-pre-wrap rounded-xl bg-muted p-4">{config.messaging.whatsappTemplate}</p>
+          <h3 className="font-semibold">Other channels · plain text</h3><p className="whitespace-pre-wrap rounded-xl bg-muted p-4">{config.messaging.plainTextTemplate}</p>
+          <Link href="/admin/config#invitation-message" className={buttonVariants({ variant: 'outline' })}>Edit message templates</Link>
+        </WorkflowDialog>
         <a
           href="/api/admin/export/send"
           className={buttonVariants({ variant: 'outline', className: 'admin-button' })}
@@ -55,6 +63,7 @@ export default async function AdminSendPage({ searchParams }: Props) {
           Download invitation list
         </a>
       </AdminPageHeader>
+      {guests.some(needsWhatsAppPhone) && <p className="admin-warning"><Link href="/admin/send?state=needs_phone" className="underline">{guests.filter(needsWhatsAppPhone).length} households need a WhatsApp phone number.</Link> Add a number or choose another channel in sending details.</p>}
       <section aria-label="Invitation progress">
         <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
           {DELIVERY_STATES.map((state) => (
@@ -93,6 +102,7 @@ export default async function AdminSendPage({ searchParams }: Props) {
                 value: stateFilter,
                 options: [
                   { value: 'all', label: 'All invitations' },
+                  { value: 'needs_phone', label: 'WhatsApp phone missing' },
                   ...DELIVERY_STATES.map((value) => ({ value, label: INVITATION_LABELS[value] })),
                 ],
               },
@@ -109,7 +119,7 @@ export default async function AdminSendPage({ searchParams }: Props) {
           <CardTitle>
             {filtered.length} {filtered.length === 1 ? 'invitation' : 'invitations'}
             {stateFilter !== 'all'
-              ? ' · ' + (INVITATION_LABELS[stateFilter as keyof typeof INVITATION_LABELS] ?? 'All')
+              ? ' · ' + (stateFilter === 'needs_phone' ? 'WhatsApp phone missing' : INVITATION_LABELS[stateFilter as keyof typeof INVITATION_LABELS] ?? 'All')
               : ''}
           </CardTitle>
         </CardHeader>
@@ -133,7 +143,7 @@ export default async function AdminSendPage({ searchParams }: Props) {
             <Table className="admin-table admin-invitations">
               <TableHeader>
                 <TableRow>
-                  {['Guest / Family', 'Progress', 'Actions'].map((heading) => (
+                  {['Guest / Family', 'Phone numbers', 'Channels', 'Progress', 'Last opened', 'WhatsApp', 'Message', 'Actions'].map((heading) => (
                     <TableHead key={heading}>{heading}</TableHead>
                   ))}
                 </TableRow>
@@ -146,6 +156,9 @@ export default async function AdminSendPage({ searchParams }: Props) {
                     name: row.guest.cardName,
                     url,
                   });
+                  const plainMessage = renderTemplate(config.messaging.plainTextTemplate, {
+                    ...sharedVars, name: row.guest.cardName, url,
+                  });
                   return (
                     <SendRow
                       key={row.guest.id}
@@ -154,9 +167,8 @@ export default async function AdminSendPage({ searchParams }: Props) {
                       phone={row.guest.phone}
                       invitationUrl={url}
                       message={message}
-                      whatsappUrl={
-                        row.guest.phone ? whatsappSendUrl(row.guest.phone, message) : null
-                      }
+                      plainMessage={plainMessage}
+                      whatsappNumbers={splitPhoneNumbers(row.guest.phone)}
                       state={state}
                       firstOpenedAt={row.firstOpen ? formatDateTimeShort(row.firstOpen, config.site.timezone) : null}
                       lastOpenedAt={row.lastOpen ? formatDateTimeShort(row.lastOpen, config.site.timezone) : null}
@@ -172,23 +184,6 @@ export default async function AdminSendPage({ searchParams }: Props) {
           )}
         </CardContent>
       </Card>
-      <details className="admin-disclosure">
-        <summary>Invitation message</summary>
-        <div className="admin-disclosure-body space-y-4">
-          <p className="text-muted-foreground">
-            Every message uses the guest’s invitation name and personal link.
-          </p>
-          <p className="whitespace-pre-wrap rounded-xl bg-muted p-4">
-            {config.messaging.whatsappTemplate}
-          </p>
-          <Link
-            href="/admin/config#invitation-message"
-            className={buttonVariants({ variant: 'outline', className: 'admin-button' })}
-          >
-            Edit the message
-          </Link>
-        </div>
-      </details>
     </div>
   );
 }

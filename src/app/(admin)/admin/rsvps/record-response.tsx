@@ -2,10 +2,10 @@
 
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { RiPhoneLine } from '@remixicon/react';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import type { EventView, RsvpView } from '@/lib/services/types';
@@ -23,6 +23,11 @@ export type Candidate = {
   rsvps: RsvpView[];
 };
 type Field = { attending: boolean; partyCount: number; attendeeNames: string };
+const RECORD_REPLY_EVENT = 'admin:record-reply';
+
+export function RecordResponseButton({ guestId, displayName, children = 'Record reply' }: { guestId?: string; displayName?: string; children?: React.ReactNode }) {
+  return <Button type="button" variant="outline" aria-label={displayName ? 'Record reply for ' + displayName : undefined} onClick={() => window.dispatchEvent(new CustomEvent(RECORD_REPLY_EVENT, { detail: guestId ?? null }))}>{children}</Button>;
+}
 function initialFields(guest: Candidate, invited: EventView[]): Record<string, Field> {
   return Object.fromEntries(
     invited.map((event) => {
@@ -52,6 +57,7 @@ export function RecordResponse({
 }) {
   const router = useRouter();
   const initialGuest = guests.find((guest) => guest.id === initialGuestId) ?? null;
+  const [open, setOpen] = useState(Boolean(initialGuest));
   const [query, setQuery] = useState('');
   const [selected, setSelected] = useState<Candidate | null>(initialGuest);
   const [fields, setFields] = useState<Record<string, Field>>(() =>
@@ -81,6 +87,17 @@ export function RecordResponse({
   const invited = selected
     ? events.filter((event) => selected.invitedSlugs.includes(event.slug))
     : [];
+  useEffect(() => {
+    function show(event: Event) {
+      const guestId = (event as CustomEvent<string | null>).detail;
+      const guest = guests.find(value => value.id === guestId);
+      if (guest) choose(guest);
+      setSaved(null);
+      setOpen(true);
+    }
+    window.addEventListener(RECORD_REPLY_EVENT, show);
+    return () => window.removeEventListener(RECORD_REPLY_EVENT, show);
+  }, [guests, events]);
   function choose(guest: Candidate) {
     setSelected(guest);
     setFields(
@@ -96,6 +113,7 @@ export function RecordResponse({
     setSelected(null);
     setQuery('');
     setError(null);
+    setOpen(false);
   }
   async function submit(event: React.FormEvent) {
     event.preventDefault();
@@ -125,23 +143,24 @@ export function RecordResponse({
     setSaved(selected.displayName);
     setSelected(null);
     setQuery('');
-    requestAnimationFrame(() =>
-      document.getElementById('record-reply')?.scrollIntoView({ block: 'start' }),
-    );
+    setOpen(false);
     router.refresh();
   }
   return (
-    <Card id="record-reply" className="scroll-mt-28 !border-[#d9cdae]">
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
+    <>
+    {saved && <p role="status" className="admin-success">Response saved for {saved}.</p>}
+    <Dialog open={open} onOpenChange={value => { if (!busy) setOpen(value); }}>
+      <DialogContent keepMounted className="admin-dialog-wide" showCloseButton={!busy}>
+      <DialogHeader>
+        <DialogTitle className="flex items-center gap-2">
           <RiPhoneLine size={19} className="text-primary" aria-hidden="true" />
           Record a phone reply
-        </CardTitle>
-        <CardDescription>
+        </DialogTitle>
+        <DialogDescription>
           For an answer received by phone. Find the family, record their reply, then save.
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-5">
+        </DialogDescription>
+      </DialogHeader>
+      <div className="space-y-5">
         <Feedback
           success={
             saved ? 'Response saved for ' + saved + '. Ready to record another reply.' : null
@@ -342,7 +361,9 @@ export function RecordResponse({
             </div>
           </form>
         )}
-      </CardContent>
-    </Card>
+      </div>
+      </DialogContent>
+    </Dialog>
+    </>
   );
 }

@@ -3,252 +3,101 @@
 import { useRouter } from 'next/navigation';
 import { useEffect, useId, useState } from 'react';
 import { Button, buttonVariants } from '@/components/ui/button';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { TableCell, TableRow } from '@/components/ui/table';
 import { Textarea } from '@/components/ui/textarea';
+import { whatsappSendUrl } from '@/lib/domain/urls';
 import type { DeliveryState } from '@/lib/domain/delivery';
 import type { DeliveryChannelName, DeliveryStatus } from '@/lib/services/types';
 import { postJson } from '../_components/api';
 import { CHANNEL_LABELS, INVITATION_LABELS } from '../_components/presentation';
 import { Feedback, StatusBadge } from '../_components/ui';
+import { PhoneNumbers } from '../_components/phone-numbers';
 
 type Props = {
-  guestId: string;
-  displayName: string;
-  phone: string | null;
-  invitationUrl: string;
-  message: string;
-  whatsappUrl: string | null;
-  state: DeliveryState;
-  firstOpenedAt: string | null;
-  lastOpenedAt: string | null;
+  guestId: string; displayName: string; phone: string | null; invitationUrl: string;
+  message: string; plainMessage: string; whatsappNumbers: string[]; state: DeliveryState;
+  firstOpenedAt: string | null; lastOpenedAt: string | null;
   channels: { channel: DeliveryChannelName; status: DeliveryStatus }[];
 };
-type CopyTarget = 'message' | 'link';
+type CopyTarget = 'whatsapp' | 'plain' | 'link';
 const statusLabels = { pending: 'Not sent', sent: 'Sent', delivered: 'Delivered' };
 
-export function SendRow({
-  guestId,
-  displayName,
-  phone,
-  invitationUrl,
-  message,
-  whatsappUrl,
-  state,
-  firstOpenedAt,
-  lastOpenedAt,
-  channels,
-}: Props) {
+export function SendRow({ guestId, displayName, phone, invitationUrl, message, plainMessage, whatsappNumbers, state, firstOpenedAt, lastOpenedAt, channels }: Props) {
   const router = useRouter();
   const id = useId();
+  const [open, setOpen] = useState(false);
+  const [loaded, setLoaded] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [copied, setCopied] = useState<CopyTarget | null>(null);
   const [manualCopy, setManualCopy] = useState<CopyTarget | null>(null);
+  const [number, setNumber] = useState(whatsappNumbers[0] ?? '');
+  const [messageStyle, setMessageStyle] = useState<'whatsapp' | 'plain'>(channels.some(channel => channel.channel !== 'whatsapp') ? 'plain' : 'whatsapp');
   const [method, setMethod] = useState<DeliveryChannelName>('whatsapp');
-  const available = (Object.keys(CHANNEL_LABELS) as DeliveryChannelName[]).filter(
-    (name) => !channels.some((channel) => channel.channel === name),
-  );
-
-  useEffect(() => {
-    if (!copied) return;
-    const timer = window.setTimeout(() => setCopied(null), 2500);
-    return () => window.clearTimeout(timer);
-  }, [copied]);
-
-  async function update(
-    channel: DeliveryChannelName,
-    status: DeliveryStatus,
-    previous?: DeliveryStatus,
-  ) {
-    if (
-      status === 'pending' &&
-      previous &&
-      previous !== 'pending' &&
-      !window.confirm(
-        'Mark this invitation as not sent?\n\nThis will clear its sent date and return this sending method to Not sent. The personal invitation link will keep working.',
-      )
-    )
-      return;
-    setBusy(true);
-    setError(null);
-    setSuccess(null);
-    const result = await postJson('/api/admin/delivery', {
-      guestId,
-      channel,
-      status,
-      sentBy: 'admin',
-    });
+  const [confirmReset, setConfirmReset] = useState<DeliveryChannelName | null>(null);
+  const [confirmRemove, setConfirmRemove] = useState<DeliveryChannelName | null>(null);
+  const available = (Object.keys(CHANNEL_LABELS) as DeliveryChannelName[]).filter(name => !channels.some(channel => channel.channel === name));
+  const needsPhone = channels.some(channel => channel.channel === 'whatsapp') && whatsappNumbers.length === 0;
+  const chosenNumber = whatsappNumbers.includes(number) ? number : whatsappNumbers[0];
+  useEffect(() => { if (!copied) return; const timer = window.setTimeout(() => setCopied(null), 2500); return () => window.clearTimeout(timer); }, [copied]);
+  async function update(channel: DeliveryChannelName, status: DeliveryStatus) {
+    setBusy(true); setError(null); setSuccess(null);
+    const result = await postJson('/api/admin/delivery', { guestId, channel, status, sentBy: 'admin' });
     setBusy(false);
-    if (!result.ok) {
-      setError(result.message);
-      return;
-    }
-    setSuccess(CHANNEL_LABELS[channel] + ' record updated.');
-    router.refresh();
+    if (!result.ok) { setError(result.message); return; }
+    setConfirmReset(null); setSuccess(CHANNEL_LABELS[channel] + ' record updated.'); router.refresh();
   }
-
+  async function remove(channel: DeliveryChannelName) {
+    setBusy(true); setError(null); setSuccess(null);
+    const result = await postJson('/api/admin/delivery', { guestId, channel }, 'DELETE');
+    setBusy(false);
+    if (!result.ok) { setError(result.message); return; }
+    setConfirmRemove(null); setSuccess(CHANNEL_LABELS[channel] + ' channel removed.'); router.refresh();
+  }
+  const copyValue = (target: CopyTarget) => target === 'link' ? invitationUrl : target === 'plain' ? plainMessage : message;
   async function copy(target: CopyTarget) {
     setCopied(null);
-    try {
-      await navigator.clipboard.writeText(target === 'message' ? message : invitationUrl);
-      setManualCopy(null);
-      setCopied(target);
-    } catch {
-      setManualCopy(target);
-    }
+    try { await navigator.clipboard.writeText(copyValue(target)); setManualCopy(null); setCopied(target); }
+    catch { setManualCopy(target); setLoaded(true); setOpen(true); }
   }
-
-  const action = state === 'sent' ? 'Send again' : 'WhatsApp';
-  const progressHint = state === 'responded'
-    ? 'A reply has been recorded online or by phone.'
-    : state === 'opened'
-      ? 'Opened the link. Waiting for a reply.'
-      : state === 'sent'
-        ? 'Marked sent. No opening recorded yet.'
-        : 'Ready to prepare and send.';
   const openedAt = lastOpenedAt ?? firstOpenedAt;
-
   return (
-    <TableRow>
-      <TableCell data-label="Guest / Family">
-        <span className="admin-name">{displayName}</span>
-        <span className="admin-row-subtext">
-          {phone ? <a href={'tel:' + phone}>{phone}</a> : 'No phone number'}
-        </span>
-      </TableCell>
-      <TableCell data-label="Progress">
-        <span title={progressHint}>
-          <StatusBadge
-            tone={state === 'responded' ? 'positive' : state === 'opened' ? 'warm' : 'neutral'}
-          >
-            {INVITATION_LABELS[state]}
-          </StatusBadge>
-        </span>
-        <span className="admin-row-subtext">
-          {openedAt ? <>Link opened <span className="admin-opened-at">{openedAt}</span></> : 'Link not opened'}
-        </span>
-      </TableCell>
-      <TableCell data-label="Actions">
-        <div className="admin-invitation-actions">
-          {whatsappUrl && (
-            <a
-              href={whatsappUrl}
-              target="_blank"
-              rel="noreferrer noopener"
-              className={buttonVariants({ className: 'admin-button' })}
-              aria-label={action + ' for ' + displayName}
-            >
-              {action}
-            </a>
-          )}
-          <Button type="button" variant="outline" onClick={() => copy('message')}>
-            {copied === 'message' ? 'Message copied' : 'Copy message'}
-          </Button>
-          <Button type="button" variant="outline" onClick={() => copy('link')}>
-            {copied === 'link' ? 'Link copied' : 'Copy link'}
-          </Button>
-        </div>
-        <p role="status" className="sr-only">
-          {copied ? (copied === 'message' ? 'Invitation message' : 'Invitation link') + ' copied for ' + displayName + '.' : ''}
-        </p>
-        {manualCopy && (
-          <div className="admin-invitation-copy">
-            <label htmlFor={id + '-copy'}>
-              Select and copy the {manualCopy === 'message' ? 'message' : 'link'} below.
-            </label>
-            {manualCopy === 'message' ? (
-              <Textarea
-                id={id + '-copy'}
-                aria-label={'Invitation message for ' + displayName}
-                readOnly
-                autoFocus
-                value={message}
-                onFocus={(event) => event.target.select()}
-                rows={6}
-                style={{ fieldSizing: 'fixed' }}
-              />
-            ) : (
-              <Input
-                id={id + '-copy'}
-                aria-label={'Invitation link for ' + displayName}
-                readOnly
-                autoFocus
-                value={invitationUrl}
-                onFocus={(event) => event.target.select()}
-              />
-            )}
-            <Button type="button" variant="ghost" onClick={() => setManualCopy(null)}>
-              Close copy field
-            </Button>
-          </div>
-        )}
-        <details className="admin-invitation-details">
-          <summary>Sending details</summary>
-          <div className="admin-invitation-detail-body">
-            <p className="text-xs text-muted-foreground">{progressHint}</p>
-            <p className="text-xs text-muted-foreground">
-              {firstOpenedAt ? 'First opened: ' + firstOpenedAt + '. Last opened: ' + openedAt + '.' : 'The personal invitation link has not been opened yet.'}
-            </p>
-            {!phone && (
-              <a href={'/admin/guests?q=' + encodeURIComponent(displayName)} className="underline">
-                Add a phone number to send through WhatsApp
-              </a>
-            )}
-            {channels.length === 0 && (
-              <div className="admin-invitation-channel">
-                <span>No sending record yet</span>
-                <Button type="button" variant="outline" disabled={busy} onClick={() => update('whatsapp', 'sent')}>
-                  {busy ? 'Saving…' : 'Mark WhatsApp sent'}
-                </Button>
-              </div>
-            )}
-            {channels.map((channel) => (
-              <div key={channel.channel} className="admin-invitation-channel">
-                <span>{CHANNEL_LABELS[channel.channel]} · {statusLabels[channel.status]}</span>
-                <Button
-                  type="button"
-                  variant="outline"
-                  disabled={busy}
-                  onClick={() => update(
-                    channel.channel,
-                    channel.status === 'pending' ? 'sent' : channel.status === 'sent' ? 'delivered' : 'pending',
-                    channel.status,
-                  )}
-                >
-                  {busy ? 'Saving…' : channel.status === 'pending' ? 'Mark as sent' : channel.status === 'sent' ? 'Mark delivered' : 'Mark not sent'}
-                </Button>
-              </div>
-            ))}
-            {available.length > 0 && (
-              <div className="admin-invitation-method">
-                <label htmlFor={id + '-method'} className="text-xs">Another sending method</label>
-                <div className="admin-invitation-channel">
-                  <select
-                    id={id + '-method'}
-                    className="admin-select"
-                    value={available.includes(method) ? method : available[0]}
-                    onChange={(event) => setMethod(event.target.value as DeliveryChannelName)}
-                    disabled={busy}
-                  >
-                    {available.map((value) => <option key={value} value={value}>{CHANNEL_LABELS[value]}</option>)}
-                  </select>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    disabled={busy}
-                    onClick={() => update(available.includes(method) ? method : available[0]!, 'pending')}
-                  >
-                    Add method
-                  </Button>
-                </div>
-              </div>
-            )}
-          </div>
-        </details>
+    <Dialog open={open} onOpenChange={value => { if (!busy) { setOpen(value); if (value) setLoaded(true); } }}>
+      <TableRow>
+        <TableCell><span className="admin-name" title={displayName}>{displayName}</span></TableCell>
+        <TableCell><PhoneNumbers value={phone} /></TableCell>
+        <TableCell><div className="admin-cell-badges">{channels.length ? channels.map(channel => <span key={channel.channel} className="admin-channel-tag" title={statusLabels[channel.status]}>{CHANNEL_LABELS[channel.channel]}</span>) : <span className="text-muted-foreground">None</span>}</div>{needsPhone && <span className="admin-warning-text">WhatsApp phone missing</span>}</TableCell>
+        <TableCell><StatusBadge tone={state === 'responded' ? 'positive' : state === 'opened' ? 'warm' : 'neutral'}>{INVITATION_LABELS[state]}</StatusBadge></TableCell>
+        <TableCell><span className="admin-date">{openedAt ?? 'Not opened'}</span></TableCell>
+        <TableCell>
+          {chosenNumber ? <div className="admin-whatsapp-action">
+            {whatsappNumbers.length > 1 && <select className="admin-select" aria-label={'WhatsApp number for ' + displayName} value={chosenNumber} onChange={event => setNumber(event.target.value)}>{whatsappNumbers.map(value => <option key={value} value={value}>{value}</option>)}</select>}
+            <a href={whatsappSendUrl(chosenNumber, message)} target="_blank" rel="noreferrer noopener" className={buttonVariants({ className: 'admin-button' })} aria-label={'WhatsApp for ' + displayName}>WhatsApp</a>
+          </div> : <span className="text-muted-foreground">{needsPhone ? 'Add a number' : '—'}</span>}
+        </TableCell>
+        <TableCell><div className="admin-message-action"><select className="admin-select" aria-label={'Message style for ' + displayName} value={messageStyle} onChange={event => setMessageStyle(event.target.value as 'whatsapp' | 'plain')}><option value="whatsapp">WhatsApp</option><option value="plain">Plain text</option></select><Button type="button" variant="outline" onClick={() => copy(messageStyle)} aria-label={'Copy ' + (messageStyle === 'plain' ? 'plain text message' : 'WhatsApp message') + ' for ' + displayName}>{copied === messageStyle ? 'Copied' : 'Copy'}</Button></div></TableCell>
+        <TableCell><div className="admin-row-actions"><Button type="button" variant="outline" onClick={() => copy('link')}>{copied === 'link' ? 'Copied' : 'Copy link'}</Button><DialogTrigger render={<Button type="button" variant="outline" />} aria-label={'Sending details for ' + displayName}>Details</DialogTrigger></div><span role="status" className="sr-only">{copied ? 'Copied ' + (copied === 'link' ? 'invitation link' : 'message') + ' for ' + displayName : ''}</span></TableCell>
+      </TableRow>
+      {loaded && <DialogContent keepMounted className="admin-dialog-wide" showCloseButton={!busy}>
+        <DialogHeader><DialogTitle>Sending details · {displayName}</DialogTitle><DialogDescription>Manage channels and sending progress, or copy the invitation text.</DialogDescription></DialogHeader>
+        <p className="text-sm text-muted-foreground">{firstOpenedAt ? 'First opened: ' + firstOpenedAt + '. Last opened: ' + openedAt + '.' : 'The personal invitation link has not been opened yet.'}</p>
+        {needsPhone && <p className="admin-warning">WhatsApp needs a phone number. <a className="underline" href={'/admin/guests?q=' + encodeURIComponent(displayName)}>Add a number</a>, or remove WhatsApp and select another channel below.</p>}
+        {channels.length === 0 && <p className="text-muted-foreground">No sending channel selected yet.</p>}
+        <div className="space-y-3">{channels.map(channel => <div key={channel.channel} className="admin-channel-record">
+          <span className="font-medium">{CHANNEL_LABELS[channel.channel]}</span>
+          <select className="admin-select" aria-label={'Sending status for ' + CHANNEL_LABELS[channel.channel] + ' · ' + displayName} value={channel.status} disabled={busy} onChange={event => { const status = event.target.value as DeliveryStatus; if (status === 'pending' && channel.status !== 'pending') setConfirmReset(channel.channel); else void update(channel.channel, status); }}><option value="pending">Not sent</option><option value="sent">Sent</option><option value="delivered">Delivered</option></select>
+          <Button type="button" variant="ghost" disabled={busy} onClick={() => setConfirmRemove(channel.channel)}>Remove</Button>
+          {confirmReset === channel.channel && <div className="admin-channel-confirm"><p>Clear this channel’s sent date and mark it not sent?</p><Button type="button" variant="outline" disabled={busy} onClick={() => update(channel.channel, 'pending')}>Reset sending status</Button><Button type="button" variant="ghost" disabled={busy} onClick={() => setConfirmReset(null)}>Cancel</Button></div>}
+          {confirmRemove === channel.channel && <div className="admin-channel-confirm"><p>Remove {CHANNEL_LABELS[channel.channel]} and its sending record?</p><Button type="button" variant="destructive" disabled={busy} onClick={() => remove(channel.channel)}>Remove channel</Button><Button type="button" variant="ghost" disabled={busy} onClick={() => setConfirmRemove(null)}>Keep channel</Button></div>}
+        </div>)}</div>
+        {available.length > 0 && <div className="space-y-2 border-t pt-4"><label htmlFor={id + '-method'}>Add a sending channel</label><div className="flex gap-2"><select id={id + '-method'} className="admin-select" value={available.includes(method) ? method : available[0]} onChange={event => setMethod(event.target.value as DeliveryChannelName)} disabled={busy}>{available.map(value => <option key={value} value={value}>{CHANNEL_LABELS[value]}</option>)}</select><Button type="button" variant="outline" disabled={busy} onClick={() => update(available.includes(method) ? method : available[0]!, 'pending')}>Add channel</Button></div></div>}
+        <section className="space-y-3 border-t pt-4"><h3 className="font-semibold">Invitation message</h3><p className="text-sm text-muted-foreground">Use plain text for Instagram, Messenger, WeChat and other channels.</p><div className="flex flex-wrap gap-2"><Button type="button" variant="outline" onClick={() => copy('whatsapp')}>Copy WhatsApp message</Button><Button type="button" variant="outline" onClick={() => copy('plain')}>Copy plain text message</Button><Button type="button" variant="outline" onClick={() => copy('link')}>Copy invitation link</Button></div></section>
+        {manualCopy && <div className="space-y-2"><label htmlFor={id + '-copy'}>Select and copy the {manualCopy === 'link' ? 'link' : 'message'} below.</label>{manualCopy === 'link' ? <Input id={id + '-copy'} value={invitationUrl} readOnly onFocus={event => event.target.select()} autoFocus /> : <Textarea id={id + '-copy'} value={copyValue(manualCopy)} readOnly rows={7} onFocus={event => event.target.select()} autoFocus style={{ fieldSizing: 'fixed' }} />}</div>}
         <Feedback error={error} success={success} />
-      </TableCell>
-    </TableRow>
+      </DialogContent>}
+    </Dialog>
   );
 }

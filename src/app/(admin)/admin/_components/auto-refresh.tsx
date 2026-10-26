@@ -23,6 +23,10 @@ export function AdminAutoRefresh() {
       if (Date.now() - lastRefresh < REFRESH_INTERVAL_MS || refreshing.current ||
           document.visibilityState !== 'visible' || !navigator.onLine || hasPendingAdminWrites()) return;
 
+      // Workflow dialogs live in portals outside main; do not refresh their drafts.
+      if (Array.from(document.querySelectorAll<HTMLElement>('[role="dialog"], [role="alertdialog"]'))
+        .some(dialog => dialog.getClientRects().length > 0)) return;
+
       const main = document.getElementById('admin-main');
       if (!main) return;
       const active = document.activeElement;

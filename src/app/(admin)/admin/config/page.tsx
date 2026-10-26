@@ -3,13 +3,15 @@ import { currentPhase } from '@/lib/domain/phase';
 import { formatDate, formatEventDateTime, toDateTimeLocalValue } from '@/lib/format';
 import { getConfig } from '@/lib/services/config';
 import { getPrimaryEvent } from '@/lib/services/events';
+import { guestCount } from '@/lib/services/clear-guests';
 import { ConfigForm } from './config-form';
+import { ClearGuestList } from './clear-guest-list';
 import { AdminPageHeader, EmptyState } from '../_components/ui';
 
 export const dynamic = 'force-dynamic';
 
 export default async function AdminConfigPage() {
-  const [config, event] = await Promise.all([getConfig(), getPrimaryEvent()]);
+  const [config, event, count] = await Promise.all([getConfig(), getPrimaryEvent(), guestCount()]);
   const zone = config.site.timezone;
   return (
     <div className="space-y-6">
@@ -17,6 +19,7 @@ export default async function AdminConfigPage() {
         title="Wedding Details"
         description="Update the names, reply contacts and invitation message your guests see."
       />
+      <ClearGuestList count={count} />
       <Card>
         <CardHeader>
           <CardTitle>The celebration</CardTitle>

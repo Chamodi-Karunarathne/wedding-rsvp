@@ -35,6 +35,8 @@ export default async function AdminGuestsPage({ searchParams }: Props) {
         description="Everyone on your wedding guest list. Each household has its own invitation."
         eyebrow={allGuests.length + ' households'}
       >
+        <AddGuest events={events} />
+        <ImportGuests events={events} />
         <a
           href="/api/admin/export/guests"
           className={buttonVariants({ variant: 'outline', className: 'admin-button' })}
@@ -42,7 +44,6 @@ export default async function AdminGuestsPage({ searchParams }: Props) {
           Download guest list
         </a>
       </AdminPageHeader>
-      <AddGuest events={events} />
       <Card>
         <CardContent>
           <SearchFilters
@@ -57,6 +58,7 @@ export default async function AdminGuestsPage({ searchParams }: Props) {
                 options: [
                   { value: 'all', label: 'All guests' },
                   { value: 'not_sent', label: 'Invitation not sent' },
+                  { value: 'needs_phone', label: 'WhatsApp phone missing' },
                   { value: 'waiting', label: 'Waiting for reply' },
                   { value: 'coming', label: 'Coming' },
                   { value: 'declined', label: 'Unable to attend' },
@@ -94,15 +96,15 @@ export default async function AdminGuestsPage({ searchParams }: Props) {
               }
               description={
                 allGuests.length === 0
-                  ? 'Add a guest above, or import your family’s list below.'
+                  ? 'Use Add guest or Import CSV to begin your list.'
                   : 'Try another name, phone number or filter.'
               }
             />
           ) : (
-            <Table className="admin-table">
+            <Table className="admin-table admin-guests">
               <TableHeader>
                 <TableRow>
-                  {['Guest / Family', 'Invitation', 'Response', ''].map((heading) => (
+                  {['Guest / Family', 'Family', 'Phone numbers', 'Reserved', 'Channels', 'Invitation', 'Reply', 'Actions'].map((heading) => (
                     <TableHead key={heading}>{heading}</TableHead>
                   ))}
                 </TableRow>
@@ -121,7 +123,6 @@ export default async function AdminGuestsPage({ searchParams }: Props) {
           )}
         </CardContent>
       </Card>
-      <ImportGuests events={events} />
     </div>
   );
 }

@@ -124,27 +124,36 @@ Phase dates and the override are edited at `/admin/config`. Times there are ente
 
 ## CSV import
 
-Upload a CSV UTF-8 file in **Guests → Import a guest list**, check every proposed
+Upload a CSV UTF-8 file in **Guests → Import CSV**, check every proposed
 add/update/error, then confirm the import. The file accepts up to 1,000 households
 within the 1 MiB JSON request limit. A preview never saves guest data; changing
 the file or event choices requires a new preview.
 
-Matches existing guests on `(sort_name, phone)`, both normalized — `077 123 4567`
-and `+94771234567` are the same household. Missing phones compare as empty values.
-Re-running a file updates matches without regenerating invitation tokens.
-Ambiguous existing matches and repeated households in a file are reported for
-review. To change a household's matching name or phone, use its guest editor.
+Supported sending channels are `whatsapp`, `print`, `instagram`, `messenger`,
+`wechat`, and legacy `in_person`. A phone cell may contain several comma-separated
+numbers; quote that CSV cell. Each number is normalized separately and stored
+with its country code. The sample download includes both multi-number WhatsApp
+and phone-free social-channel examples. Semicolons, pipes or quoted commas can
+separate channel names.
 
-Missing optional detail columns preserve existing values; explicitly blank cells
-clear nullable text or use the documented defaults. Event columns/default choices
-control invitations; an empty event selection preserves existing invitations.
-Channels are added without resetting sending progress. Saved replies cannot be
-removed or exceed a newly lowered household allowance.
+Existing households are reviewed as duplicates rather than overwritten
+automatically. Matching considers normalized names and phone sets; ambiguous
+matches require correction. Choose **Update**, **Replace**, or **Discard** for
+each duplicate. Update merges nonblank details and adds phone numbers/events/
+channels; Replace uses the CSV details/defaults and replaces assignments; Discard
+leaves the household untouched. Both save options preserve its invitation token
+and recorded responses. Changes that invalidate recorded attendance are rejected.
+
+Phone numbers are optional for other channels. A WhatsApp household with no
+usable number still registers and displays a persistent warning until a number
+is added or WhatsApp is removed. The Invitations page offers a number selector
+when several contacts are available.
 
 Malformed quoting, duplicate headers and shifted columns reject the file before
 writes. Individual invalid rows are reported while valid rows import. Bulk
-transactions process 25 rows at a time; failed row constraints are isolated and
-concurrent imports recheck matches under a database lock.
+savepoints process 25 rows at a time; failed row constraints are isolated and
+concurrent imports recheck matches under a database lock. One transaction covers
+the complete apply operation, including synchronization with Clear All.
 
 **Download guest list** now produces an editable file with import-compatible
 columns. Response and sending reports remain separate exports. See
@@ -200,10 +209,21 @@ Two things it touches outside `/admin`, both in `src/app/globals.css` and both f
 
 The root layout no longer sets a width. Guest pages get their reading column from `(guest)/layout.tsx` and `not-found.tsx` sets its own; the console needs the full width for its tables.
 
-Invitations keeps each household's WhatsApp, **Copy message**, and **Copy link**
-actions together; sending records expand under **Sending details**. Copy message
-uses the same personalized text as WhatsApp and works without a phone number.
-If clipboard access is unavailable, a selected text field supports manual copying.
+Invitations separates household details, channels, progress, message copying and
+actions into compact columns. **Details** opens the sending records in a dialog.
+Choose WhatsApp or plain text when copying a personalized message; copying works
+without a phone number. If clipboard access is unavailable, a selected text field
+supports manual copying.
+
+Wedding Details has separate WhatsApp and plain-text message templates. The
+plain template is used for Instagram, Messenger, WeChat and other channels; both
+support the same guest/link/date placeholders. Adding/importing/editing guests,
+sending details and recording replies use shadcn dialogs. Guest, response and
+invitation tables have compact columns and horizontal scrolling on mobile.
+
+**Wedding Details → Advanced data maintenance** contains Clear All Guests. It
+requires typing `DELETE ALL GUESTS` and confirming the current household count;
+wedding configuration remains intact. See [the workflow guide](docs/admin-channel-workflows.md).
 
 WhatsApp links use `api.whatsapp.com/send` directly. The `wa.me` shortener was
 observed replacing emoji during its HTTP redirect; bypassing that hop preserves

@@ -7,6 +7,10 @@ changing it requires rebuilding. HTTP loopback origins are accepted for local QA
 
 ## Before activation
 
+- Apply `pnpm db:migrate` before enabling social delivery channels. Migration
+  `0005_add_social_delivery_channels` widens the existing channel constraint and
+  preserves saved guests and legacy `in_person` records. No database reset or
+  phone backfill is required.
 - Set production `DATABASE_URL` to a TLS-required, pooled Neon connection, and set
   strong `ADMIN_PASSWORD` and random `ADMIN_SESSION_SECRET` values in hosting secrets.
 - `vercel.json` pins functions to `sin1` (Singapore), matching the configured
@@ -56,8 +60,8 @@ three configuration keys, and verifies that every operational count is zero.
 It preserves the Drizzle migration ledger. Without the explicit confirmation flag
 it refuses to connect. Do not run it after real households have been imported.
 
-Verify the migration journal includes `0003_remove_guest_personal_note` and
-`0004_public_rate_limits`. The new sign-in/reply endpoints require the limiter
+Verify the migration journal includes `0003_remove_guest_personal_note`,
+`0004_public_rate_limits` and `0005_add_social_delivery_channels`. The sign-in/reply endpoints require the limiter
 table and return 503 if it is missing. Old application instances must be drained
 before migration 0003 drops the column they used.
 

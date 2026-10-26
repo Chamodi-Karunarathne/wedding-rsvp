@@ -26,7 +26,8 @@ import {
   SIDE_LABELS,
   SOURCE_LABELS,
 } from '../_components/presentation';
-import { RecordResponse, type Candidate } from './record-response';
+import { RecordResponse, RecordResponseButton, type Candidate } from './record-response';
+import { PhoneNumbers } from '../_components/phone-numbers';
 import { FilterSubmit } from '../_components/filter-submit';
 
 export const dynamic = 'force-dynamic';
@@ -84,9 +85,7 @@ export default async function AdminRsvpsPage({ searchParams }: Props) {
         title="Responses"
         description="See who is coming, how many people to expect, and who still needs to reply."
       >
-        <Link href="#record-reply" className={buttonVariants({ className: 'admin-button' })}>
-          Record a phone reply
-        </Link>
+        <RecordResponseButton>Record a phone reply</RecordResponseButton>
       </AdminPageHeader>
       <section aria-label="Response totals" className="space-y-3">
         {summary.perEvent.map((counts) => (
@@ -228,16 +227,12 @@ export default async function AdminRsvpsPage({ searchParams }: Props) {
               }
             />
           ) : (
-            <Table className="admin-table">
+            <Table className="admin-table admin-responses">
               <TableHeader>
                 <TableRow>
                   {[
-                    'Guest / Family',
-                    'Response',
-                    'Guests attending',
-                    'Last updated',
-                    'Reply received',
-                    '',
+                    'Guest / Family', 'Family', 'Phone numbers', 'Channels', 'Response',
+                    'Attending', 'Reserved', 'Attendee names', 'Reply received', 'Updated', 'Actions',
                   ].map((heading) => (
                     <TableHead key={heading}>{heading}</TableHead>
                   ))}
@@ -246,98 +241,20 @@ export default async function AdminRsvpsPage({ searchParams }: Props) {
               <TableBody>
                 {guests.map((row) => (
                   <TableRow key={row.guest.id}>
-                    <TableCell data-label="Guest / Family">
-                      <span className="admin-name">{row.guest.displayName}</span>
-                      <span className="admin-row-subtext">{SIDE_LABELS[row.guest.side]}</span>
-                      {row.guest.phone && (
-                        <a href={'tel:' + row.guest.phone} className="admin-row-subtext">
-                          {row.guest.phone}
-                        </a>
-                      )}
-                    </TableCell>
-                    <TableCell data-label="Response">
-                      {row.eventSlugs.length === 0 ? (
-                        <span className="text-muted-foreground">No celebration selected</span>
-                      ) : (
-                        events
-                          .filter((event) => row.eventSlugs.includes(event.slug))
-                          .map((event) => {
-                            const reply = row.rsvps.find((r) => r.eventSlug === event.slug);
-                            return (
-                              <div key={event.slug} className="mb-2">
-                                {events.length > 1 && (
-                                  <span className="admin-row-subtext">{event.name}</span>
-                                )}
-                                <StatusBadge
-                                  tone={!reply ? 'warm' : reply.attending ? 'positive' : 'quiet'}
-                                >
-                                  {!reply
-                                    ? 'Waiting for reply'
-                                    : reply.attending
-                                      ? 'Coming'
-                                      : 'Unable to attend'}
-                                </StatusBadge>
-                              </div>
-                            );
-                          })
-                      )}
-                    </TableCell>
-                    <TableCell data-label="Guests attending">
-                      {row.rsvps.length ? (
-                        row.rsvps.map((reply) => (
-                          <div key={reply.eventSlug} className="mb-2">
-                            {events.length > 1 && (
-                              <span className="admin-row-subtext">
-                                {events.find((event) => event.slug === reply.eventSlug)?.name}
-                              </span>
-                            )}
-                            <strong className="font-medium tabular-nums">
-                              {reply.attending ? reply.partyCount : '—'}
-                            </strong>
-                            {reply.attendeeNames && (
-                              <span className="admin-row-subtext">{reply.attendeeNames}</span>
-                            )}
-                          </div>
-                        ))
-                      ) : (
-                        <span className="text-muted-foreground">Awaiting reply</span>
-                      )}
-                    </TableCell>
-                    <TableCell data-label="Last updated">
-                      {row.rsvps.length ? (
-                        row.rsvps.map((reply) => (
-                          <p key={reply.eventSlug} className="mb-2 text-xs text-muted-foreground">
-                            {formatDateTimeShort(new Date(reply.updatedAt), config.site.timezone)}
-                          </p>
-                        ))
-                      ) : (
-                        <span className="text-muted-foreground">—</span>
-                      )}
-                    </TableCell>
-                    <TableCell data-label="Reply received">
-                      {row.rsvps.length === 0 && <span className="text-muted-foreground">—</span>}
-                      {row.rsvps.map((reply) => (
-                        <div key={reply.eventSlug} className="mb-2">
-                          {SOURCE_LABELS[reply.source]}
-                          {reply.recordedBy && (
-                            <span className="admin-row-subtext">
-                              Recorded by {reply.recordedBy}
-                            </span>
-                          )}
-                        </div>
-                      ))}
-                    </TableCell>
-                    <TableCell data-label="Actions">
-                      <Link
-                        href={'/admin/rsvps?guest=' + row.guest.id + '#record-reply'}
-                        className={buttonVariants({
-                          variant: 'outline',
-                          className: 'admin-button',
-                        })}
-                      >
-                        Record reply
-                      </Link>
-                    </TableCell>
+                    <TableCell><span className="admin-name" title={row.guest.displayName}>{row.guest.displayName}</span></TableCell>
+                    <TableCell>{SIDE_LABELS[row.guest.side]}</TableCell>
+                    <TableCell><PhoneNumbers value={row.guest.phone} /></TableCell>
+                    <TableCell><div className="admin-cell-badges">{row.channels.map(channel => <span key={channel.channel} className="admin-channel-tag">{CHANNEL_LABELS[channel.channel]}</span>)}{!row.channels.length && <span className="text-muted-foreground">None</span>}</div></TableCell>
+                    <TableCell><div className="admin-cell-lines">{row.eventSlugs.length ? events.filter(event => row.eventSlugs.includes(event.slug)).map(event => {
+                      const reply = row.rsvps.find(value => value.eventSlug === event.slug);
+                      return <span key={event.slug} title={event.name}><StatusBadge tone={!reply ? 'warm' : reply.attending ? 'positive' : 'quiet'}>{!reply ? 'Waiting' : reply.attending ? 'Coming' : 'Declined'}</StatusBadge></span>;
+                    }) : <span className="text-muted-foreground">Not invited</span>}</div></TableCell>
+                    <TableCell><div className="admin-cell-lines tabular-nums">{row.rsvps.length ? row.rsvps.map(reply => <span key={reply.eventSlug}>{reply.attending ? reply.partyCount : '—'}</span>) : '—'}</div></TableCell>
+                    <TableCell className="tabular-nums">{row.guest.maxPartySize}</TableCell>
+                    <TableCell><div className="admin-cell-lines">{row.rsvps.some(reply => reply.attendeeNames) ? row.rsvps.map(reply => <span key={reply.eventSlug} className="admin-clamp-text" title={reply.attendeeNames ?? undefined}>{reply.attendeeNames ?? '—'}</span>) : <span className="text-muted-foreground">—</span>}</div></TableCell>
+                    <TableCell><div className="admin-cell-lines">{row.rsvps.length ? row.rsvps.map(reply => <span key={reply.eventSlug} title={reply.recordedBy ? 'Recorded by ' + reply.recordedBy : undefined}>{SOURCE_LABELS[reply.source]}</span>) : '—'}</div></TableCell>
+                    <TableCell><div className="admin-cell-lines admin-date">{row.rsvps.length ? row.rsvps.map(reply => <span key={reply.eventSlug}>{formatDateTimeShort(new Date(reply.updatedAt), config.site.timezone)}</span>) : '—'}</div></TableCell>
+                    <TableCell><RecordResponseButton guestId={row.guest.id} displayName={row.guest.displayName} /></TableCell>
                   </TableRow>
                 ))}
               </TableBody>
