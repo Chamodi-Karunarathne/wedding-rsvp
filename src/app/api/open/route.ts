@@ -33,6 +33,10 @@ export async function POST(request: Request): Promise<Response> {
     // Avoid logging token/connection details from driver errors. Analytics is
     // optional, and neither the invitation nor the guest needs an error dialog.
     console.error('Invitation open tracking unavailable.');
+    return new Response(null, {
+      status: 503,
+      headers: { 'cache-control': 'no-store', 'retry-after': '30' },
+    });
   }
   return ignored();
 }

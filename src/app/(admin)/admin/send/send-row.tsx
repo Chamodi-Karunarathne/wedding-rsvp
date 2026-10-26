@@ -20,12 +20,13 @@ type Props = {
   guestId: string; displayName: string; side: Side; phone: string | null; invitationUrl: string;
   message: string; plainMessage: string; whatsappNumbers: string[]; state: DeliveryState;
   firstOpenedAt: string | null; lastOpenedAt: string | null;
+  openedAtIso: string | null;
   channels: { channel: DeliveryChannelName; status: DeliveryStatus }[];
 };
 type CopyTarget = 'whatsapp' | 'plain' | 'link';
 const statusLabels = { pending: 'Not sent', sent: 'Sent', delivered: 'Delivered' };
 
-export function SendRow({ guestId, displayName, side, phone, invitationUrl, message, plainMessage, whatsappNumbers, state, firstOpenedAt, lastOpenedAt, channels }: Props) {
+export function SendRow({ guestId, displayName, side, phone, invitationUrl, message, plainMessage, whatsappNumbers, state, firstOpenedAt, lastOpenedAt, openedAtIso, channels }: Props) {
   const router = useRouter();
   const id = useId();
   const [open, setOpen] = useState(false);
@@ -74,7 +75,7 @@ export function SendRow({ guestId, displayName, side, phone, invitationUrl, mess
         <TableCell><PhoneNumbers value={phone} /></TableCell>
         <TableCell><div className="admin-cell-badges">{channels.length ? channels.map(channel => <span key={channel.channel} className="admin-channel-tag" title={statusLabels[channel.status]}>{CHANNEL_LABELS[channel.channel]}</span>) : <span className="text-muted-foreground">None</span>}</div>{needsPhone && <span className="admin-warning-text">WhatsApp phone missing</span>}</TableCell>
         <TableCell><StatusBadge tone={state === 'responded' ? 'positive' : state === 'opened' ? 'warm' : 'neutral'}>{INVITATION_LABELS[state]}</StatusBadge></TableCell>
-        <TableCell><span className="admin-date">{openedAt ?? 'Not opened'}</span></TableCell>
+        <TableCell>{openedAt && openedAtIso ? <time className="admin-date" dateTime={openedAtIso}>{openedAt}</time> : <span className="admin-date">Not opened</span>}</TableCell>
         <TableCell><div className="admin-invitation-actions">
           {hasWhatsApp && (chosenNumber ? <>
             {whatsappNumbers.length > 1 && <select className="admin-select" aria-label={'WhatsApp number for ' + displayName} value={chosenNumber} onChange={event => setNumber(event.target.value)}>{whatsappNumbers.map(value => <option key={value} value={value}>{value}</option>)}</select>}

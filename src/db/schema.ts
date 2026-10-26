@@ -238,9 +238,9 @@ export const deliveryChannels = pgTable(
 /* -------------------------------------------------------------------------- */
 
 /**
- * The only analytics in the system. Written on SSR of /i/[token], skipping
- * known link-preview crawlers - otherwise WhatsApp's fetch would mark every
- * guest as having opened their invitation the moment it was sent.
+ * The only analytics in the system. Written by a visible guest page through
+ * /api/open, including returns to that page. Server renders, admin visits and
+ * link-preview crawlers never mark a household as having opened its invitation.
  */
 export const guestOpens = pgTable('guest_opens', {
   guestId: uuid('guest_id')

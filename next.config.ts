@@ -1,6 +1,10 @@
 import type { NextConfig } from 'next';
 
 const nextConfig: NextConfig = {
+  // Vercel's CDN supplies gzip/Brotli. Next's bundled compression redirects
+  // drain listeners to Gzip without matching once-listener removal, so streamed
+  // responses under backpressure can accumulate listeners on that stream.
+  compress: false,
   async headers() {
     return [
       {

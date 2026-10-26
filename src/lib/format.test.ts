@@ -1,9 +1,19 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { fromDateTimeLocalValue, toDateTimeLocalValue } from './format.ts';
+import { formatDateTimeShort, fromDateTimeLocalValue, toDateTimeLocalValue } from './format.ts';
 
 const COLOMBO = 'Asia/Colombo'; // UTC+05:30, no DST
 const LONDON = 'Europe/London'; // UTC+0 / +1, has DST
+
+describe('activity timestamp precision', () => {
+  it('distinguishes visits within one minute while retaining the wedding timezone', () => {
+    const first = new Date('2026-10-26T18:29:10Z');
+    const next = new Date('2026-10-26T18:29:20Z');
+    assert.equal(formatDateTimeShort(first, COLOMBO), '26 Oct 2026, 23:59');
+    assert.equal(formatDateTimeShort(first, COLOMBO, 'en-GB', 'second'), '26 Oct 2026, 23:59:10');
+    assert.equal(formatDateTimeShort(next, COLOMBO, 'en-GB', 'second'), '26 Oct 2026, 23:59:20');
+  });
+});
 
 describe('fromDateTimeLocalValue', () => {
   it('interprets wall time in the given zone, not the server zone', () => {

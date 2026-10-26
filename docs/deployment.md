@@ -5,6 +5,12 @@ Build with the final `NEXT_PUBLIC_SITE_URL=https://your-domain.example` already 
 That origin supplies invitation links, metadata and browser Origin validation;
 changing it requires rebuilding. HTTP loopback origins are accepted for local QA.
 
+Vercel's CDN handles gzip/Brotli compression, so `next.config.ts` disables Next's
+own compression middleware. The bundled middleware can accumulate `drain` once
+listeners on Gzip during streamed responses under backpressure. This avoids that
+path without raising listener limits or suppressing warnings. If self-hosting,
+configure compression in the reverse proxy. See [Vercel compression](https://vercel.com/docs/how-vercel-cdn-works/compression).
+
 ## Before activation
 
 - Apply `pnpm db:migrate` before enabling social delivery channels. Migration
@@ -158,7 +164,16 @@ genuine responses.
 - Open a synthetic invitation in a visible guest browser and verify the first/
   last link-open times in admin. Admin previews, WhatsApp previews and background
   prefetches must leave those times unchanged. Tracking failures must not block
-  the invitation or replies.
+  the invitation or replies. Return after switching tabs or restoring a page
+  from browser history: first-open remains fixed and last-open advances. Rapid
+  duplicate visibility/pageshow events are deduplicated for five seconds.
+  Temporary failures retry with a bounded budget and respect Retry-After;
+  storage failures return a retryable 503. A tracking request times out after
+  ten seconds, and a later visible return is queued while an earlier request
+  is pending. No heartbeat updates an idle page.
+  The Invitations table includes seconds and an ISO datetime, in the configured
+  wedding timezone. A recorded open is a visible browser visit, not proof of
+  guest identity or attendance.
 - Check logs for limiter-storage failures and database/5xx errors. Ensure logs
   redact invitation tokens, passwords, session cookies and database credentials.
 

@@ -104,6 +104,10 @@ export default async function AdminSendPage({ searchParams }: Props) {
             WhatsApp opens a ready-to-send message. Send it there, then mark it as sent here.
             Opening WhatsApp does not update the sending record.
           </p>
+          <p className="text-xs text-muted-foreground">
+            Last opened is the latest recorded visible visit or return to the invitation.
+            Admin visits and link previews do not count. Times use {config.site.timezone.replaceAll('_', ' ')}.
+          </p>
         </CardContent>
       </Card>
       <Card>
@@ -168,8 +172,9 @@ export default async function AdminSendPage({ searchParams }: Props) {
                       plainMessage={plainMessage}
                       whatsappNumbers={splitPhoneNumbers(row.guest.phone)}
                       state={invitationStatus(row)}
-                      firstOpenedAt={row.firstOpen ? formatDateTimeShort(row.firstOpen, config.site.timezone) : null}
-                      lastOpenedAt={row.lastOpen ? formatDateTimeShort(row.lastOpen, config.site.timezone) : null}
+                      firstOpenedAt={row.firstOpen ? formatDateTimeShort(row.firstOpen, config.site.timezone, 'en-GB', 'second') : null}
+                      lastOpenedAt={row.lastOpen ? formatDateTimeShort(row.lastOpen, config.site.timezone, 'en-GB', 'second') : null}
+                      openedAtIso={(row.lastOpen ?? row.firstOpen)?.toISOString() ?? null}
                       channels={row.channels.map((channel) => ({
                         channel: channel.channel,
                         status: channel.status,

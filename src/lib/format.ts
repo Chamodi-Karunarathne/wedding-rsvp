@@ -27,7 +27,7 @@ export function formatDate(date: Date, timeZone: string, locale = 'en-GB'): stri
   }).format(date);
 }
 
-export function formatDateTimeShort(date: Date, timeZone: string, locale = 'en-GB'): string {
+export function formatDateTimeShort(date: Date, timeZone: string, locale = 'en-GB', precision: 'minute' | 'second' = 'minute'): string {
   return new Intl.DateTimeFormat(locale, {
     timeZone,
     day: '2-digit',
@@ -35,6 +35,7 @@ export function formatDateTimeShort(date: Date, timeZone: string, locale = 'en-G
     year: 'numeric',
     hour: '2-digit',
     minute: '2-digit',
+    ...(precision === 'second' ? { second: '2-digit' as const } : {}),
     hour12: false,
   }).format(date);
 }
