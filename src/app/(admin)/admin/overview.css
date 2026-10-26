@@ -1,0 +1,71 @@
+.admin-wedding-countdown {
+  position: relative;
+  isolation: isolate;
+  display: grid;
+  grid-template-columns: 1fr 1.1fr;
+  align-items: center;
+  gap: 32px;
+  overflow: hidden;
+  padding: 34px 38px;
+  border: 1px solid #dfd3b8;
+  border-radius: 24px;
+  background: radial-gradient(ellipse at 100% 0%, #f6ead2 0%, transparent 58%), linear-gradient(115deg, #fffcf5, #f7f1e4);
+  box-shadow: 0 12px 30px -26px #735d2d;
+}
+.admin-wedding-countdown::before,
+.admin-wedding-countdown::after {
+  content: '';
+  position: absolute;
+  z-index: -1;
+  width: 230px;
+  height: 230px;
+  border: 1px solid rgb(173 147 88 / .16);
+  border-radius: 50%;
+  pointer-events: none;
+}
+.admin-wedding-countdown::before { right: -120px; top: -130px; }
+.admin-wedding-countdown::after { left: -145px; bottom: -175px; width: 320px; height: 320px; }
+.admin-countdown-mark { display: inline-flex; color: #90703a; margin-bottom: 9px; }
+.admin-countdown-eyebrow { margin: 0; font-size: 10px; letter-spacing: .18em; text-transform: uppercase; color: #796744; }
+.admin-countdown-intro h2 { margin: 6px 0 5px; font-family: var(--font-serif), Georgia, serif; font-size: clamp(25px, 2.6vw, 36px); font-weight: 400; line-height: 1.25; letter-spacing: -.035em; color: #50432c; }
+.admin-countdown-event { margin: 0 0 16px; color: #786c56; font-size: 13px; }
+.admin-countdown-details { display: flex; flex-wrap: wrap; gap: 7px 19px; color: #786c56; font-size: 12px; }
+.admin-countdown-details > span { display: inline-flex; align-items: center; gap: 7px; }
+.admin-countdown-details svg { flex: none; opacity: .75; }
+.admin-countdown-clock { min-width: 0; text-align: center; }
+.admin-countdown-digits { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin: 0; }
+.admin-countdown-unit { display: flex; flex-direction: column; align-items: center; justify-content: center; min-width: 0; padding: 17px 6px 14px; border: 1px solid rgb(180 156 107 / .22); border-radius: 15px; background: rgb(255 253 247 / .7); box-shadow: 0 5px 12px -12px #7b6534; }
+.admin-countdown-unit dd { order: 1; margin: 0; color: #75603a; font-family: var(--font-serif), Georgia, serif; font-size: clamp(28px, 3.6vw, 49px); font-weight: 400; line-height: 1.15; font-variant-numeric: tabular-nums; letter-spacing: -.05em; }
+.admin-countdown-unit dt { order: 2; margin-top: 8px; color: #786746; font-size: 9px; letter-spacing: .1em; text-transform: uppercase; }
+.admin-countdown-caption { margin: 15px 0 0; color: #76684e; font-size: 11px; letter-spacing: .015em; }
+.admin-countdown-finished { margin: 0; color: #8b7350; font-family: var(--font-serif), Georgia, serif; font-size: 25px; font-style: italic; }
+.admin-overview-section-heading { margin-bottom: 14px; display: flex; align-items: baseline; justify-content: space-between; gap: 14px; }
+.admin-overview-section-heading h2 { font-size: 15px; font-weight: 600; letter-spacing: -.02em; }
+.admin-overview-section-heading p { color: var(--muted-foreground); font-size: 12px; }
+.admin-overview-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+.admin-overview-grid [data-slot='card'] { height: 100%; }
+.admin-overview-action { display: flex; align-items: center; gap: 13px; min-height: 76px; padding: 12px; border: 1px solid transparent; border-radius: 12px; transition: border-color .18s, background .18s; }
+.admin-overview-action:hover { border-color: var(--border); background: #faf8f2; }
+.admin-overview-action:focus-visible { outline: 2px solid var(--ring); outline-offset: 2px; }
+.admin-overview-action-icon { flex: none; display: grid; place-items: center; width: 42px; height: 42px; border: 1px solid #e8e1d2; border-radius: 12px; background: #f6f1e7; color: #8a7447; }
+.admin-overview-reply-note { display: flex; align-items: center; gap: 9px; color: var(--muted-foreground); font-size: 12px; }
+@media (max-width: 900px) {
+  .admin-wedding-countdown { grid-template-columns: 1fr; gap: 25px; padding: 28px; }
+  .admin-countdown-intro { text-align: center; }
+  .admin-countdown-details { justify-content: center; }
+  .admin-countdown-event { margin-bottom: 12px; }
+  .admin-countdown-clock { width: min(100%, 520px); margin-inline: auto; }
+  .admin-countdown-unit dd { font-size: 43px; }
+  .admin-overview-grid { grid-template-columns: 1fr; }
+}
+@media (max-width: 480px) {
+  .admin-wedding-countdown { padding: 23px 17px; border-radius: 19px; gap: 22px; }
+  .admin-countdown-digits { gap: 7px; }
+  .admin-countdown-unit { padding: 15px 4px 12px; border-radius: 11px; }
+  .admin-countdown-unit dd { font-size: clamp(26px, 8vw, 36px); }
+  .admin-countdown-unit dt { font-size: 8px; letter-spacing: .045em; }
+  .admin-countdown-caption { font-size: 10px; }
+  .admin-overview-section-heading { display: block; }
+  .admin-overview-section-heading p { margin-top: 3px; }
+}
+@media (prefers-reduced-motion: reduce) { .admin-overview-action { transition: none; } }

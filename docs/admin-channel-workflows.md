@@ -61,11 +61,21 @@ dialog preserves drafts. Dialogs trap focus, restore it to their trigger and kee
 close controls accessible while long forms scroll. Auto-refresh pauses for any
 visible dialog, including content portaled outside the page's main element.
 
-Guests and Invitations use eight columns; Responses uses eleven. The wider admin
+Guests uses eight columns, Invitations seven and Responses eleven. The wider admin
 layout and separate phone/channel/reply/action columns keep rows compact.
 Mobile tables scroll within their own container rather than stacking every
 field into tall rows. Long names are clamped with full details in the editor;
 phone cells show two numbers with a count for additional contacts.
+
+The Invitations table combines sending controls under **Invitation**. A selected
+WhatsApp channel shows the direct-send button and, for several contacts, a number
+selector. Other channels offer **Copy message** using the plain-text template;
+mixed-channel households have both actions. Both message formats remain available
+in the sending details dialog.
+
+The overview displays a live countdown to the configured ceremony, using the
+wedding timezone for its wedding-day and past-date states. It preserves the
+guest totals and quick actions, with no per-second screen reader announcements.
 
 ## Clearing the guest list
 

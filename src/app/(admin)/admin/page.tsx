@@ -5,6 +5,7 @@ import {
   RiPhoneLine,
   RiGroupLine,
   RiSettings3Line,
+  RiCalendarCheckLine,
 } from '@remixicon/react';
 import { buttonVariants } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -16,6 +17,8 @@ import { formatDate } from '@/lib/format';
 import { CountsBlock } from './_components/counts';
 import { AdminPageHeader, EmptyState } from './_components/ui';
 import { invitationStatus, matchesReply } from './_components/presentation';
+import { WeddingCountdown } from './_components/wedding-countdown';
+import './overview.css';
 
 export const dynamic = 'force-dynamic';
 
@@ -28,20 +31,19 @@ export default async function AdminDashboard() {
   const summary = summarizeGuests(guests, events);
   const event = summary.perEvent[0]?.event;
   const now = new Date();
-  const days = event ? Math.ceil((event.startsAt.getTime() - now.getTime()) / 86400000) : null;
   const notSent = guests.filter((row) => invitationStatus(row) === 'not_sent').length;
   const waiting = guests.filter((row) => matchesReply(row, 'waiting')).length;
   const actions = [
     {
       label: 'Send invitations',
-      hint: 'Prepare personal WhatsApp messages',
+      hint: 'Prepare personal messages for every channel',
       href: '/admin/send',
       icon: RiMailLine,
     },
     {
       label: 'Record a phone reply',
       hint: 'Save an answer from a family member',
-      href: '/admin/rsvps#record-reply',
+      href: '/admin/rsvps',
       icon: RiPhoneLine,
     },
     {
@@ -58,24 +60,22 @@ export default async function AdminDashboard() {
     },
   ];
   return (
-    <div className="space-y-7">
+    <div className="admin-overview space-y-7">
       <AdminPageHeader
         eyebrow="Overview"
         title={'Wedding of ' + config.site.brideName + ' & ' + config.site.groomName}
-        description={
-          event
-            ? formatDate(event.startsAt, config.site.timezone) + ' · ' + event.venueName
-            : 'Your invitations and replies, all in one place.'
-        }
-      >
-        {days !== null && days >= 0 && (
-          <span className="rounded-full border border-border bg-white px-4 py-2 text-sm">
-            {days === 0 ? 'Today is the day' : days + ' days to go'}
-          </span>
-        )}
-      </AdminPageHeader>
+        description="Your invitations, replies and plans, all in one place."
+      />
+
+      {event && <WeddingCountdown startsAt={event.startsAt.toISOString()} initialNow={now.getTime()}
+        timeZone={config.site.timezone} dateLabel={formatDate(event.startsAt, config.site.timezone)}
+        venueName={event.venueName} eventName={event.name} />}
 
       <section aria-label="Wedding response totals" className="space-y-5">
+        <div className="admin-overview-section-heading">
+          <h2>Your guest list at a glance</h2>
+          <p>Live totals from your invitations and replies</p>
+        </div>
         {summary.perEvent.length > 0 ? (
           summary.perEvent.map((counts) => (
             <CountsBlock
@@ -94,7 +94,7 @@ export default async function AdminDashboard() {
         )}
       </section>
 
-      <div className="grid gap-5 lg:grid-cols-[1.15fr_1fr]">
+      <div className="admin-overview-grid">
         <Card>
           <CardHeader>
             <CardTitle>Needs your attention</CardTitle>
@@ -152,16 +152,16 @@ export default async function AdminDashboard() {
         </Card>
         <Card>
           <CardHeader>
-            <CardTitle>What would you like to do?</CardTitle>
+            <CardTitle>A little planning</CardTitle>
           </CardHeader>
           <CardContent className="grid gap-2">
             {actions.map(({ label, hint, href, icon: Icon }) => (
               <Link
                 href={href}
                 key={href}
-                className="flex min-h-16 items-center gap-3 rounded-xl p-2 hover:bg-muted"
+                className="admin-overview-action"
               >
-                <span className="rounded-lg bg-muted p-2.5 text-primary">
+                <span className="admin-overview-action-icon">
                   <Icon size={19} aria-hidden="true" />
                 </span>
                 <span className="min-w-0 flex-1">
@@ -174,9 +174,12 @@ export default async function AdminDashboard() {
           </CardContent>
         </Card>
       </div>
-      <p className="text-sm text-muted-foreground">
+      <p className="admin-overview-reply-note">
+        <RiCalendarCheckLine size={17} aria-hidden="true" className="shrink-0" />
+        <span>
         Replies requested by {formatDate(config.phase.rsvpDeadline, config.site.timezone)}. Late
         replies are still welcome.
+        </span>
       </p>
     </div>
   );
