@@ -1,5 +1,4 @@
 import { z } from 'zod';
-import { hasAdminSession } from '@/lib/api/guard';
 import { limitOpenToken, limitPublicRequest } from '@/lib/api/public-limits';
 import { jsonError, readJson, zodError } from '@/lib/api/respond';
 import { isCrawler } from '@/lib/domain/crawler';
@@ -14,7 +13,7 @@ const ignored = () => new Response(null, { status: 204, headers: { 'cache-contro
 /** The mounted invitation reports a visible visit; previews never count. */
 export async function POST(request: Request): Promise<Response> {
   const userAgent = request.headers.get('user-agent');
-  if (isCrawler(userAgent) || await hasAdminSession()) return ignored();
+  if (isCrawler(userAgent)) return ignored();
 
   const limited = await limitPublicRequest(request, 'open');
   if (limited) return limited;

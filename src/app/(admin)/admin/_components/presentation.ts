@@ -15,7 +15,6 @@ export const CHANNEL_LABELS: Record<DeliveryChannelName, string> = {
   instagram: 'Instagram',
   messenger: 'Messenger',
   wechat: 'WeChat',
-  in_person: 'In person',
 };
 
 export function needsWhatsAppPhone(row: GuestListRow) {

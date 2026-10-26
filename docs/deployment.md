@@ -1,4 +1,4 @@
-# Production deployment from an empty guest list
+# Production deployment
 
 Use Node 24.x, the pnpm version pinned in package.json, and a frozen lockfile.
 Build with the final `NEXT_PUBLIC_SITE_URL=https://your-domain.example` already set.
@@ -13,10 +13,12 @@ configure compression in the reverse proxy. See [Vercel compression](https://ver
 
 ## Before activation
 
-- Apply `pnpm db:migrate` before enabling social delivery channels. Migration
-  `0005_add_social_delivery_channels` widens the existing channel constraint and
-  preserves saved guests and legacy `in_person` records. No database reset or
-  phone backfill is required.
+- Apply `pnpm db:migrate` through `0006_retire_unused_delivery_values` before
+  activating this build. It removes only `in_person` delivery-channel rows,
+  changes `delivered` to `sent` while preserving their sending metadata, and
+  restricts channels/statuses to the active choices. Households, invitation
+  tokens, replies, messages and open timestamps are preserved. No database
+  reset or phone backfill is required.
 - Set production `DATABASE_URL` to a TLS-required, pooled Neon connection, and set
   strong `ADMIN_PASSWORD` and random `ADMIN_SESSION_SECRET` values in hosting secrets.
 - `vercel.json` pins functions to `sin1` (Singapore), matching the configured
@@ -29,12 +31,21 @@ configure compression in the reverse proxy. See [Vercel compression](https://ver
   The integration suite deliberately requires the loopback database
   `wedding_release_test`, role `release_test`, through `TEST_DATABASE_URL` and
   `RATE_LIMIT_TEST_DATABASE_URL`. It never reads the normal DATABASE_URL or .env.
-- Review the initialized event, venue, dates, names and reply contacts. Verify
-  the guest list and all operational tables are empty before importing real data.
+- Review the configured event, venue, dates, names and reply contacts. For an
+  existing production database, preserve the guest list and operational tables.
+  Verify an empty list only when initializing a genuinely new database.
 - Verify HTTPS/custom domain, backup retention, a tested restore, error monitoring,
   and the actual WhatsApp preview for Latin and Sinhala invitations.
 
-## Fresh-start setup
+## Existing production upgrades
+
+Production contains real data. Apply reviewed forward migrations with
+`pnpm db:migrate`, then activate the new build. Do not run `db:reset-test-data`,
+Clear All Guests or fresh-start cleanup as part of a production deployment.
+Migration `0006_retire_unused_delivery_values` is the only data adjustment for
+the retired channel/status and does not clear guest or RSVP data.
+
+## New empty database setup
 
 A fresh deployment initializes only the real ceremony and wedding configuration.
 It never inserts development guests. All real households are created or imported through
@@ -53,21 +64,9 @@ pnpm db:prepare
 and `messaging` settings. Repeating it preserves existing settings and guest data.
 It creates no guest, invitation, response or delivery records.
 
-For the existing database containing only test data, stop application traffic and
-use the explicit one-time reset instead:
-
-```sh
-pnpm db:migrate
-pnpm db:reset-test-data -- --confirm-test-data
-```
-
-The reset atomically clears all ten application tables, rebuilds one ceremony and
-three configuration keys, and verifies that every operational count is zero.
-It preserves the Drizzle migration ledger. Without the explicit confirmation flag
-it refuses to connect. Do not run it after real households have been imported.
-
 Verify the migration journal includes `0003_remove_guest_personal_note`,
-`0004_public_rate_limits` and `0005_add_social_delivery_channels`. The sign-in/reply endpoints require the limiter
+`0004_public_rate_limits`, `0005_add_social_delivery_channels` and
+`0006_retire_unused_delivery_values`. The sign-in/reply endpoints require the limiter
 table and return 503 if it is missing. Old application instances must be drained
 before migration 0003 drops the column they used.
 
@@ -78,9 +77,8 @@ through the same admin UI. Confirm the final permanent invitation/preview origin
 before sending links.
 
 For application rollback to code that still uses `guests.personal_note`, restore
-that nullable column before activating the older build. Test-data contents are
-deliberately discarded by this fresh start. Once real data exists, enable backups
-and rehearse restores; never use the test reset as a rollback mechanism.
+that nullable column before activating the older build. Keep backups and rehearse
+restores; never use the test reset as a rollback mechanism.
 
 Use `db:migrate` for production schema changes. `db:push` bypasses the reviewed
 migration history and must not update a production database. Guest imports and
@@ -161,9 +159,12 @@ genuine responses.
   Confirm ordinary duplicate submissions do not manufacture history.
 - Confirm late replies remain accepted, failed submissions remain retryable,
   keyboard focus stays visible, and telephone details survive script failure.
-- Open a synthetic invitation in a visible guest browser and verify the first/
-  last link-open times in admin. Admin previews, WhatsApp previews and background
-  prefetches must leave those times unchanged. Tracking failures must not block
+- Open a synthetic invitation in a visible browser and verify the first/last
+  link-open times in admin. Ordinary links count even with a signed-in admin
+  cookie. The **Preview invitation** action explicitly adds `?preview=1` and,
+  like messaging previews and background prefetches, leaves those times unchanged.
+  Real embedded browser user agents containing WhatsApp/Viber remain eligible;
+  bare messaging preview agents remain excluded. Tracking failures must not block
   the invitation or replies. Return after switching tabs or restoring a page
   from browser history: first-open remains fixed and last-open advances. Rapid
   duplicate visibility/pageshow events are deduplicated for five seconds.
@@ -174,6 +175,11 @@ genuine responses.
   The Invitations table includes seconds and an ISO datetime, in the configured
   wedding timezone. A recorded open is a visible browser visit, not proof of
   guest identity or attendance.
+- Verify response and invitation cards lead with guest counts and show household
+  counts underneath. Reserved-place totals drive invited/waiting/declined figures;
+  attendance uses the confirmed reply headcount. Check the overview's bride,
+  groom and **Both families** groups reconcile to its primary ceremony totals
+  without double-counting shared households.
 - Check logs for limiter-storage failures and database/5xx errors. Ensure logs
   redact invitation tokens, passwords, session cookies and database credentials.
 

@@ -263,7 +263,7 @@ describe('PostgreSQL service transactions in a disposable schema', () => {
 
   it('preserves delivery progress on repeated imports and matches preview/save headcount errors', async () => {
     const f = await fixture();
-    await pool.query("INSERT INTO delivery_channels (guest_id,channel,status,sent_at,sent_by,notes) VALUES ($1,'whatsapp','delivered','2026-10-01T00:00:00Z','Original sender','Original channel note')", [f.guest.id]);
+    await pool.query("INSERT INTO delivery_channels (guest_id,channel,status,sent_at,sent_by,notes) VALUES ($1,'whatsapp','sent','2026-10-01T00:00:00Z','Original sender','Original channel note')", [f.guest.id]);
     const csv = `display_name,side,max_party_size,channels\n${f.guest.displayName},bride,4,whatsapp|print`;
     const reviewed = async (text, dryRun = false) => {
       const check = await importGuestsCsv(text, { dryRun: true }, db);
@@ -278,7 +278,7 @@ describe('PostgreSQL service transactions in a disposable schema', () => {
       assert.equal(imported.ok && imported.data.updated, 1);
     }
     const channel = (await pool.query("SELECT * FROM delivery_channels WHERE guest_id=$1 AND channel='whatsapp'", [f.guest.id])).rows[0];
-    assert.equal(channel.status, 'delivered');
+    assert.equal(channel.status, 'sent');
     assert.equal(channel.sent_at.toISOString(), '2026-10-01T00:00:00.000Z');
     assert.equal(channel.sent_by, 'Original sender');
     assert.equal(channel.notes, 'Original channel note');
@@ -382,7 +382,7 @@ describe('PostgreSQL service transactions in a disposable schema', () => {
     assert.equal((await submitRsvpByGuestId(f.guest.id, answer(f.eventSlug, 3), db)).ok, true);
     await pool.query("INSERT INTO guest_messages(guest_id,body) VALUES ($1,'Deletion fixture message')", [f.guest.id]);
     await pool.query('INSERT INTO guest_opens(guest_id,first_open,last_open) VALUES ($1,now(),now())', [f.guest.id]);
-    await pool.query("INSERT INTO delivery_channels(guest_id,channel,status,sent_at,sent_by) VALUES ($1,'whatsapp','delivered',now(),'Deletion fixture')", [f.guest.id]);
+    await pool.query("INSERT INTO delivery_channels(guest_id,channel,status,sent_at,sent_by) VALUES ($1,'whatsapp','sent',now(),'Deletion fixture')", [f.guest.id]);
     for (const table of ['invitations', 'rsvps', 'rsvp_history', 'guest_messages', 'guest_opens', 'delivery_channels']) {
       assert.equal((await pool.query(`SELECT count(*) FROM "${table}" WHERE guest_id=$1`, [f.guest.id])).rows[0].count, '1');
     }

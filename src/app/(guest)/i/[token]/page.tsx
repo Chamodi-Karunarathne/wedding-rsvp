@@ -2,7 +2,6 @@ import { notFound } from 'next/navigation';
 import type { Metadata } from 'next';
 import { copyFor } from '@/lib/copy';
 import { formatDate, formatEventDateTime } from '@/lib/format';
-import { hasAdminSession } from '@/lib/api/guard';
 import { scriptOf } from '@/lib/domain/script';
 import { renderTemplate } from '@/lib/domain/template';
 import { loadInvitation } from '@/lib/services/invitation';
@@ -66,8 +65,9 @@ export default async function InvitationPage({ params, searchParams }: PageProps
   const invitation = result.data;
 
   // Analytics starts only when a guest actually mounts the visible page.
-  // Rendering, prefetching, and checking a link from admin never count.
-  const trackOpen = query.preview !== '1' && !(await hasAdminSession());
+  // Rendering and prefetching never count. Explicit previews are excluded,
+  // while an ordinary invitation link counts even in a signed-in browser.
+  const trackOpen = query.preview !== '1';
 
   const copy = copyFor(invitation.guest.language);
   const { guest, site } = invitation;

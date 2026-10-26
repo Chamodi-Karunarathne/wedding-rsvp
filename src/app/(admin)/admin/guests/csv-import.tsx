@@ -22,7 +22,7 @@ const columns = [
   ['side', 'Family: bride, groom or both (required)'],
   ['max_party_size', 'Places reserved, from 1 to 50. New/Replace uses 2 when blank; Update keeps the current value.'],
   ['phone', 'Phone numbers separated by commas. Quote the CSV cell when it contains multiple numbers.'],
-  ['channels', 'Sending methods: whatsapp, print, instagram, messenger, wechat (or legacy in_person)'],
+  ['channels', 'Sending methods: whatsapp, print, instagram, messenger, wechat'],
   ['events', 'Celebration names used by the website'],
   ['display_name_fallback', 'Shorter invitation name'],
   ['sort_name', 'Name to sort by'],

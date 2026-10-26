@@ -169,7 +169,7 @@ const collator = new Intl.Collator('en', { numeric: true, sensitivity: 'base' })
 const sideLabels: Record<Side, string> = { bride: "Bride's family", groom: "Groom's family", both: 'Both families' };
 const channelLabels: Record<DeliveryChannelName, string> = {
   whatsapp: 'WhatsApp', print: 'Printed card', instagram: 'Instagram', messenger: 'Messenger',
-  wechat: 'WeChat', in_person: 'In person',
+  wechat: 'WeChat',
 };
 const sourceLabels: Record<RsvpSource, string> = { self: 'Online', phone: 'By phone', admin: 'Entered by family' };
 type SortValue = string | number | null;

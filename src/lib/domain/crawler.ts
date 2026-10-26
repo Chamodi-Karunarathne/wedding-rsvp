@@ -8,7 +8,6 @@
  */
 
 const CRAWLER_PATTERNS = [
-  'whatsapp',
   'facebookexternalhit',
   'facebookcatalog',
   'meta-externalagent',
@@ -19,7 +18,6 @@ const CRAWLER_PATTERNS = [
   'discordbot',
   'linkedinbot',
   'skypeuripreview',
-  'viber',
   'googlebot',
   'bingbot',
   'applebot',
@@ -34,10 +32,15 @@ const CRAWLER_PATTERNS = [
   'preview',
 ] as const;
 
-/** Conservative by design: a false positive loses one open, a false negative
- *  corrupts the metric for every guest at once. */
+/** Messaging apps also add their name to real embedded browser user agents.
+ * A browser engine does not excuse a known bot marker, but the app name alone
+ * must not discard a guest's visible visit from that embedded browser. */
 export function isCrawler(userAgent: string | null | undefined): boolean {
   if (!userAgent) return true; // no UA at all is not a person with a browser
   const ua = userAgent.toLowerCase();
-  return CRAWLER_PATTERNS.some((pattern) => ua.includes(pattern));
+  if (CRAWLER_PATTERNS.some((pattern) => ua.includes(pattern))) return true;
+  const messagingApp = ua.includes('whatsapp') || ua.includes('viber');
+  const browserEngine = ua.includes('mozilla/5.0') &&
+    (ua.includes('applewebkit/') || ua.includes('gecko/'));
+  return messagingApp && !browserEngine;
 }

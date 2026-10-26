@@ -4,7 +4,7 @@ import './service-test-support.ts';
 import type { GuestListRow } from './guests.ts';
 import type { EventView, RsvpSource } from './types.ts';
 
-const { summarizeGuests } = await import('./dashboard.ts');
+const { summarizeEventSides, summarizeGuests } = await import('./dashboard.ts');
 
 const date = new Date('2026-12-03T03:45:00Z');
 const events: EventView[] = ['ceremony', 'reception'].map((slug, index) => ({
@@ -12,7 +12,7 @@ const events: EventView[] = ['ceremony', 'reception'].map((slug, index) => ({
   mapUrl: null, dressCode: null, sortOrder: index,
 }));
 
-function household(id: string, side: 'bride' | 'groom', channel: 'whatsapp' | 'print'): GuestListRow {
+function household(id: string, side: 'bride' | 'groom' | 'both', channel: 'whatsapp' | 'print'): GuestListRow {
   return {
     guest: {
       id, token: id, displayName: id, displayNameFallback: null, cardName: id, sortName: id,
@@ -42,8 +42,10 @@ describe('dashboard totals from a shared guest snapshot', () => {
     assert.equal(summary.totalGuests, 3);
     assert.equal(summary.respondedGuests, 2);
     assert.deepEqual(summary.perEvent.map(({ event, ...counts }) => ({ slug: event.slug, ...counts })), [
-      { slug: 'ceremony', invited: 3, attending: 1, declined: 1, noResponse: 1, headcount: 3 },
-      { slug: 'reception', invited: 1, attending: 1, declined: 0, noResponse: 0, headcount: 2 },
+      { slug: 'ceremony', invited: 3, attending: 1, declined: 1, noResponse: 1, headcount: 3,
+        invitedGuests: 12, waitingGuests: 4, declinedGuests: 4 },
+      { slug: 'reception', invited: 1, attending: 1, declined: 0, noResponse: 0, headcount: 2,
+        invitedGuests: 4, waitingGuests: 0, declinedGuests: 0 },
     ]);
   });
 
@@ -52,8 +54,50 @@ describe('dashboard totals from a shared guest snapshot', () => {
     assert.equal(summary.totalGuests, 1);
     assert.equal(summary.respondedGuests, 1);
     assert.deepEqual(summary.perEvent.map(({ event: _event, ...counts }) => counts), [
-      { invited: 1, attending: 1, declined: 0, noResponse: 0, headcount: 3 },
-      { invited: 1, attending: 1, declined: 0, noResponse: 0, headcount: 2 },
+      { invited: 1, attending: 1, declined: 0, noResponse: 0, headcount: 3,
+        invitedGuests: 4, waitingGuests: 0, declinedGuests: 0 },
+      { invited: 1, attending: 1, declined: 0, noResponse: 0, headcount: 2,
+        invitedGuests: 4, waitingGuests: 0, declinedGuests: 0 },
+    ]);
+  });
+
+  it('uses each household allowance for invited, waiting and declined places and actual party sizes for attendance', () => {
+    const bride = household('Bride', 'bride', 'whatsapp');
+    bride.eventSlugs.push('reception');
+    bride.rsvps = [reply('ceremony', true, 2, 'self'), reply('reception', false, 0, 'phone')];
+    const groom = household('Groom', 'groom', 'print');
+    groom.guest.maxPartySize = 7;
+    groom.rsvps = [reply('ceremony', false, 0, 'phone')];
+    const shared = household('Shared', 'both', 'print');
+    shared.guest.maxPartySize = 3;
+    const unassigned = household('Unassigned', 'both', 'whatsapp');
+    unassigned.eventSlugs = [];
+    unassigned.guest.maxPartySize = 9;
+    const receptionOnly = household('Reception only', 'groom', 'whatsapp');
+    receptionOnly.eventSlugs = ['reception'];
+    receptionOnly.guest.maxPartySize = 2;
+    receptionOnly.rsvps = [reply('reception', true, 1, 'admin')];
+    const mixed = [bride, groom, shared, unassigned, receptionOnly];
+    const summary = summarizeGuests(mixed, events);
+    assert.deepEqual(summary.perEvent.map(({ event, ...counts }) => ({ slug: event.slug, ...counts })), [
+      { slug: 'ceremony', invited: 3, attending: 1, declined: 1, noResponse: 1, headcount: 2,
+        invitedGuests: 14, waitingGuests: 3, declinedGuests: 7 },
+      { slug: 'reception', invited: 2, attending: 1, declined: 1, noResponse: 0, headcount: 1,
+        invitedGuests: 6, waitingGuests: 0, declinedGuests: 4 },
+    ]);
+    const sides = summarizeEventSides(mixed, events[0]!);
+    assert.deepEqual(sides, [
+      { side: 'bride', invitedGuests: 4, invitedHouseholds: 1, attendingGuests: 2, attendingHouseholds: 1 },
+      { side: 'groom', invitedGuests: 7, invitedHouseholds: 1, attendingGuests: 0, attendingHouseholds: 0 },
+      { side: 'both', invitedGuests: 3, invitedHouseholds: 1, attendingGuests: 0, attendingHouseholds: 0 },
+    ]);
+    assert.equal(sides.reduce((sum, side) => sum + side.invitedGuests, 0), summary.perEvent[0]!.invitedGuests);
+    assert.equal(sides.reduce((sum, side) => sum + side.attendingGuests, 0), summary.perEvent[0]!.headcount);
+    assert.equal(sides.reduce((sum, side) => sum + side.invitedHouseholds, 0), summary.perEvent[0]!.invited);
+    assert.deepEqual(summarizeEventSides(mixed, events[1]!), [
+      { side: 'bride', invitedGuests: 4, invitedHouseholds: 1, attendingGuests: 0, attendingHouseholds: 0 },
+      { side: 'groom', invitedGuests: 2, invitedHouseholds: 1, attendingGuests: 1, attendingHouseholds: 1 },
+      { side: 'both', invitedGuests: 0, invitedHouseholds: 0, attendingGuests: 0, attendingHouseholds: 0 },
     ]);
   });
 });

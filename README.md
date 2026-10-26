@@ -23,6 +23,9 @@ an explicitly configured, disposable local test database and private schemas.
 Use Node 24.x and the pinned pnpm version. See [the deployment runbook](docs/deployment.md)
 before deploying or migrating an existing guest database. Production requires the
 rate-limiter migration and the final HTTPS origin configured at build time.
+Apply migrations through `0006_retire_unused_delivery_values` before activating
+this build. It removes retired sending choices while preserving guest and RSVP
+data; do not reset an existing production database.
 
 ## Scripts
 
@@ -130,7 +133,7 @@ within the 1 MiB JSON request limit. A preview never saves guest data; changing
 the file or event choices requires a new preview.
 
 Supported sending channels are `whatsapp`, `print`, `instagram`, `messenger`,
-`wechat`, and legacy `in_person`. A phone cell may contain several comma-separated
+and `wechat`. A phone cell may contain several comma-separated
 numbers; quote that CSV cell. Each number is normalized separately and stored
 with its country code. The sample download includes both multi-number WhatsApp
 and phone-free social-channel examples. Semicolons, pipes or quoted commas can
@@ -169,14 +172,17 @@ One shared password, no user system. A signed httpOnly cookie carrying only an e
 
 The printed cards carry a reply date of 3 November 2026 and two phone numbers, so a real fraction of the answers arrive as calls that somebody has to key in. `/admin/rsvps` leads with a search-first **Record a response** flow: find the household, key in the answer, saved with `source = 'phone'` and `recorded_by`. It goes through the same endpoint, and therefore the same invariants, as a guest's own submission.
 
-The dashboard filters by source, so it stays visible which numbers came from guests and which were transcribed. That filter narrows the **list and the CSV only, never the counts** — an invitation with no answer has no source, so a source-filtered count table would understate every column and read as a catastrophe rather than a filter.
+The Responses page filters by source, so it stays visible which replies came
+from guests and which were transcribed. Its table, CSV and response totals follow
+the selected filters and event. The overview continues to show the complete
+guest list for each event.
 
 ## Sent, opened, responded
 
 Every guest arrives through a link somebody sent them, which makes `guest_opens` the only signal separating "has not seen it" from "seen it and not replied" — the difference between resending a link and picking up the phone. `/admin/send` shows all three as distinct states:
 
-- **sent** — a delivery channel is marked `sent` or `delivered`
-- **opened** — the invitation mounted in a visible browser tab; link previews, background prefetches, admin sessions and explicit previews do not count
+- **sent** — a delivery channel is marked `sent`
+- **opened** — the invitation mounted in a visible browser tab; link previews, background prefetches and explicit previews do not count
 - **responded** — an answer exists, however it arrived
 
 `deliveryState()` in `lib/domain/delivery.ts` is pure and tested. Each household shows the furthest point it has reached, so someone who telephoned without ever opening their link still reads as responded.
@@ -184,6 +190,13 @@ Every guest arrives through a link somebody sent them, which makes `guest_opens`
 The invitations list also shows link-open status separately from replies, with
 first/last visit times in the household details. `OpenTracker` reports a visible
 visit to `/api/open`; rendering HTML or copying a message/link records nothing.
+Ordinary invitation links count even when the browser is signed into admin.
+Use **Details → Preview invitation** to open `?preview=1` without recording a
+visit. Real WhatsApp/Viber embedded browsers remain eligible; messaging preview
+crawlers are excluded. Visible returns and browser-history restores update
+last-open while first-open stays fixed. Rapid duplicate events are coalesced;
+temporary failures retry within a bounded budget, and requests have a ten-second
+deadline. First/last times display seconds in the configured wedding timezone.
 The endpoint resolves the invitation token and updates `guest_opens` atomically,
 using database-clock earliest/latest timestamps. Tracking is best effort: a
 blocked script or failed request can miss a visit, and a forwarded link cannot
@@ -222,6 +235,15 @@ plain template is used for Instagram, Messenger, WeChat and other channels; both
 support the same guest/link/date placeholders. Adding/importing/editing guests,
 sending details and recording replies use shadcn dialogs. Guest, response and
 invitation tables have compact columns and horizontal scrolling on mobile.
+
+Summary cards lead with guest counts and show household counts beneath them.
+Invited, waiting and declined guest counts use reserved places; attending uses
+the number confirmed in replies. Invitation progress cards use reserved places
+once per invited household. Overview adds a family-side row with invited and
+attending guests for the bride's side, groom's side and shared **Both families**
+group. Shared households are counted separately so totals reconcile without
+double-counting. Sending statuses are **Not sent** and **Sent**; `in_person` and
+`delivered` are retired by migration `0006_retire_unused_delivery_values`.
 
 **Wedding Details → Advanced data maintenance** contains Clear All Guests. It
 requires typing `DELETE ALL GUESTS` and confirming the current household count;

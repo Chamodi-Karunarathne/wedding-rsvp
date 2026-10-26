@@ -95,7 +95,7 @@ describe('CSV import end to end against disposable PostgreSQL', () => {
 
   it('merges Update choices and replaces editable assignments only for Replace choices', async () => {
     const guest = await fixture({ phone: '0771234567,0777654321' });
-    await pool.query("INSERT INTO delivery_channels(guest_id,channel,status,sent_at,sent_by) VALUES($1,'whatsapp','delivered','2026-10-01T00:00:00Z','Keep sender')", [guest.id]);
+    await pool.query("INSERT INTO delivery_channels(guest_id,channel,status,sent_at,sent_by) VALUES($1,'whatsapp','sent','2026-10-01T00:00:00Z','Keep sender')", [guest.id]);
     const original = await sqlGuest(guest.id);
     const merge = `display_name,side,phone,language,max_party_size,notes,events,channels\n${guest.displayName},both,"0771234567,0772223333",,,,other,instagram`;
     const updated = expectSummary(await reviewedImport(merge, {}, db, 'update'));
@@ -106,7 +106,7 @@ describe('CSV import end to end against disposable PostgreSQL', () => {
     assert.equal(merged.notes, 'Original notes');
     assert.equal(merged.language, 'si');
     assert.equal((await pool.query('SELECT count(*) FROM invitations WHERE guest_id=$1', [guest.id])).rows[0].count, '2');
-    assert.equal((await pool.query("SELECT status FROM delivery_channels WHERE guest_id=$1 AND channel='whatsapp'", [guest.id])).rows[0].status, 'delivered');
+    assert.equal((await pool.query("SELECT status FROM delivery_channels WHERE guest_id=$1 AND channel='whatsapp'", [guest.id])).rows[0].status, 'sent');
     const replace = `display_name,side,events,channels\n${guest.displayName},groom,other,instagram`;
     const replaced = expectSummary(await reviewedImport(replace, {}, db, 'replace'));
     assert.equal(replaced.updated, 1);
@@ -258,7 +258,7 @@ describe('CSV import end to end against disposable PostgreSQL', () => {
   it('preserves omitted details, invitation tokens, recorded replies, messages, opens and sending progress', async () => {
     const guest = await fixture();
     await pool.query(`INSERT INTO delivery_channels(guest_id,channel,status,sent_at,sent_by,notes)
-      VALUES($1,'whatsapp','delivered','2026-10-01T00:00:00Z','Original sender','Channel note')`, [guest.id]);
+      VALUES($1,'whatsapp','sent','2026-10-01T00:00:00Z','Original sender','Channel note')`, [guest.id]);
     assert.equal((await submitRsvpByGuestId(guest.id, { responses: [{ eventSlug: 'ceremony', attending: true, partyCount: 4 }], message: 'Guest message' }, db)).ok, true);
     await pool.query("INSERT INTO guest_opens(guest_id,first_open,last_open) VALUES($1,'2026-10-01T00:00:00Z','2026-10-02T00:00:00Z')", [guest.id]);
     const before = {};
@@ -301,13 +301,13 @@ describe('CSV import end to end against disposable PostgreSQL', () => {
     const sortName = uniqueName();
     const guest = await fixture({ displayName: 'සිංහල Family, "Friends"', sortName, phone: '0771234567', notes: 'Line one\nLine two, with comma' });
     assert.equal((await submitRsvpByGuestId(guest.id, { responses: [{ eventSlug: 'ceremony', attending: true, partyCount: 3 }], message: 'Keep message' }, db)).ok, true);
-    await pool.query("INSERT INTO delivery_channels(guest_id,channel,status,sent_at,sent_by) VALUES($1,'whatsapp','delivered','2026-10-01T00:00:00Z','Keep sender')", [guest.id]);
+    await pool.query("INSERT INTO delivery_channels(guest_id,channel,status,sent_at,sent_by) VALUES($1,'whatsapp','sent','2026-10-01T00:00:00Z','Keep sender')", [guest.id]);
     const beforeGuest = await sqlGuest(guest.id);
     const before = {};
     for (const table of ['rsvps', 'rsvp_history', 'guest_messages', 'delivery_channels', 'invitations']) before[table] = (await pool.query(`SELECT * FROM ${table} WHERE guest_id=$1`, [guest.id])).rows;
     const csv = await buildGuestListCsv(db);
     assert.match(csv, /display_name_fallback,sort_name,side,language/);
-    assert.equal(csv.includes('whatsapp:delivered'), false);
+    assert.equal(csv.includes('whatsapp:sent'), false);
     const result = expectSummary(await reviewedImport(csv, {}, db));
     const saved = result.results.find((row) => row.token === guest.token);
     assert.equal(saved?.status, 'updated');

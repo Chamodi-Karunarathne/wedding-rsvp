@@ -1,15 +1,18 @@
 # Guest delivery and admin workflows
 
-26 October 2026, Asia/Colombo.
+27 October 2026, Asia/Colombo.
 
-Apply migration `0005_add_social_delivery_channels` with `pnpm db:migrate` before
-deploying the new channels. It widens one CHECK constraint without deleting
-guests or existing delivery records. The legacy `in_person` value remains valid.
+Apply migration `0006_retire_unused_delivery_values` with `pnpm db:migrate` before
+activating this build. It removes only retired `in_person` delivery-channel rows
+and changes `delivered` to `sent`, preserving the remaining sending metadata.
+Households, invitations, tokens, replies, messages and open timestamps remain
+intact. Do not reset the production database.
 
 ## Channels, contacts and messages
 
-Channels are `whatsapp`, `print`, `instagram`, `messenger`, `wechat` and legacy
-`in_person`. Guest creation/editing can select channels in the same transaction
+Channels are `whatsapp`, `print`, `instagram`, `messenger` and `wechat`.
+Sending statuses are **Not sent** (`pending`) and **Sent** (`sent`).
+Guest creation/editing can select channels in the same transaction
 as household details. Sending details can add/remove channels and change status.
 Retained channels keep their sent date, sender and notes.
 
@@ -86,9 +89,13 @@ Selecting an event scopes replies, reply sorting, response totals and response
 CSV columns to that event. A response and reply-method combination must match
 the same reply. Households with no event invitation are not treated as waiting.
 
-Response totals describe the filtered households. Invitation progress cards
-count the current filtered scope before the progress filter, and preserve the
-other choices when selected. Periodic refresh continues while filter sections
+Summary cards lead with guest counts and show households underneath. Invited,
+waiting and declined counts use reserved places (`max_party_size`); attending
+uses confirmed reply counts (`party_count`). Reserved places need not equal
+confirmed attendance. Response totals describe the filtered households and
+selected event. Invitation progress cards count reserved places once per invited
+household in the current filtered scope before the progress filter, and preserve
+the other choices when selected. Periodic refresh continues while filter sections
 are open and pauses while a filter input is focused or an editor/dialog is open.
 
 The Invitations table combines sending controls under **Invitation**. A selected
@@ -98,9 +105,23 @@ Other channels offer **Copy message** using the plain-text template; mixed-chann
 households distinguish **Copy WhatsApp** from **Copy plain text**. Both message
 formats remain available in the sending details dialog.
 
+The sending details dialog also offers **Preview invitation**, which opens the
+link with `?preview=1` and records no visit. Ordinary invitation links record
+visible visits even in a browser signed into admin. Link-preview crawlers and
+background renders/prefetches do not count. First-open stays fixed; last-open
+updates on visible returns and browser-history restores, with rapid duplicate
+events coalesced. Temporary failures retry with a bounded budget and a ten-second
+request deadline. First/last times include seconds in the wedding timezone;
+tracking is a visit signal, not proof of identity or attendance.
+
 The overview displays a live countdown to the configured ceremony, using the
 wedding timezone for its wedding-day and past-date states. It preserves the
 guest totals and quick actions, with no per-second screen reader announcements.
+Its four response cards show invited, attending, waiting and declined guests.
+A separate family-side row shows invited and attending guest totals for the
+bride's side, groom's side and shared **Both families** group, with household
+counts underneath. Shared households remain in their own group rather than
+being counted twice; the groups reconcile to the primary ceremony totals.
 
 ## Clearing the guest list
 

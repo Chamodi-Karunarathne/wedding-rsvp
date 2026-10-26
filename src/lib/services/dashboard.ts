@@ -28,7 +28,37 @@ export type EventCounts = {
   noResponse: number;
   /** Sum of party_count across attending households - the catering number. */
   headcount: number;
+  /** Reserved places across invited households; not the household count. */
+  invitedGuests: number;
+  /** Reserved places for invited households with no reply for this event. */
+  waitingGuests: number;
+  /** Reserved places released by households declining this event. */
+  declinedGuests: number;
 };
+
+export type SideCounts = {
+  side: Side;
+  invitedGuests: number;
+  invitedHouseholds: number;
+  attendingGuests: number;
+  attendingHouseholds: number;
+};
+
+/** Exclusive family groups: shared invitations belong only to `both`, so
+ * bride + groom + both reconciles with the event total without double counting. */
+export function summarizeEventSides(rows: readonly GuestListRow[], event: EventView): SideCounts[] {
+  return (['bride', 'groom', 'both'] as const).map(side => {
+    const invited = rows.filter(row => row.guest.side === side && row.eventSlugs.includes(event.slug));
+    const attending = invited.flatMap(row => row.rsvps.filter(reply => reply.eventSlug === event.slug && reply.attending));
+    return {
+      side,
+      invitedGuests: invited.reduce((total, row) => total + row.guest.maxPartySize, 0),
+      invitedHouseholds: invited.length,
+      attendingGuests: attending.reduce((total, reply) => total + reply.partyCount, 0),
+      attendingHouseholds: attending.length,
+    };
+  });
+}
 
 export type DashboardSummary = {
   filters: Required<DashboardFilters>;
@@ -89,19 +119,27 @@ export function summarizeGuests(
     let attending = 0;
     let declined = 0;
     let headcount = 0;
+    let invitedGuests = 0;
+    let waitingGuests = 0;
+    let declinedGuests = 0;
 
     for (const row of rows) {
       if (!row.eventSlugs.includes(event.slug)) continue;
       invited += 1;
+      invitedGuests += row.guest.maxPartySize;
 
       const rsvp = row.rsvps.find((r) => r.eventSlug === event.slug);
-      if (!rsvp) continue;
+      if (!rsvp) {
+        waitingGuests += row.guest.maxPartySize;
+        continue;
+      }
 
       if (rsvp.attending) {
         attending += 1;
         headcount += rsvp.partyCount;
       } else {
         declined += 1;
+        declinedGuests += row.guest.maxPartySize;
       }
     }
 
@@ -112,6 +150,9 @@ export function summarizeGuests(
       declined,
       noResponse: invited - attending - declined,
       headcount,
+      invitedGuests,
+      waitingGuests,
+      declinedGuests,
     };
   });
 

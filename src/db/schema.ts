@@ -25,8 +25,8 @@ import {
 export const SIDES = ['bride', 'groom', 'both'] as const;
 export const LOCALES = ['en', 'si'] as const;
 export const RSVP_SOURCES = ['self', 'admin', 'phone'] as const;
-export const DELIVERY_CHANNELS = ['whatsapp', 'print', 'instagram', 'messenger', 'wechat', 'in_person'] as const;
-export const DELIVERY_STATUSES = ['pending', 'sent', 'delivered'] as const;
+export const DELIVERY_CHANNELS = ['whatsapp', 'print', 'instagram', 'messenger', 'wechat'] as const;
+export const DELIVERY_STATUSES = ['pending', 'sent'] as const;
 
 export type Side = (typeof SIDES)[number];
 export type Locale = (typeof LOCALES)[number];
@@ -239,8 +239,8 @@ export const deliveryChannels = pgTable(
 
 /**
  * The only analytics in the system. Written by a visible guest page through
- * /api/open, including returns to that page. Server renders, admin visits and
- * link-preview crawlers never mark a household as having opened its invitation.
+ * /api/open, including returns to that page. Server renders, explicit previews
+ * and link-preview crawlers never count; an admin session does not hide a visit.
  */
 export const guestOpens = pgTable('guest_opens', {
   guestId: uuid('guest_id')

@@ -30,14 +30,13 @@ describe('deliveryState', () => {
     );
   });
 
-  it('counts both sent and delivered as sent', () => {
+  it('counts a sent invitation as sent', () => {
     assert.equal(deliveryState({ ...NEVER, channels: [{ status: 'sent' }] }), 'sent');
-    assert.equal(deliveryState({ ...NEVER, channels: [{ status: 'delivered' }] }), 'sent');
   });
 
   it('takes the furthest channel, not the first', () => {
     assert.equal(
-      deliveryState({ ...NEVER, channels: [{ status: 'pending' }, { status: 'delivered' }] }),
+      deliveryState({ ...NEVER, channels: [{ status: 'pending' }, { status: 'sent' }] }),
       'sent',
     );
   });
@@ -57,7 +56,7 @@ describe('deliveryState', () => {
   it('reports responded for a guest who never opened the link', () => {
     // The whole point of the phone flow: an answer that skipped the website.
     assert.equal(
-      deliveryState({ channels: [{ status: 'delivered' }], firstOpen: null, hasResponse: true }),
+      deliveryState({ channels: [{ status: 'sent' }], firstOpen: null, hasResponse: true }),
       'responded',
     );
   });
@@ -65,7 +64,7 @@ describe('deliveryState', () => {
   it('is a high-water mark, so opening after responding stays responded', () => {
     assert.equal(
       deliveryState({
-        channels: [{ status: 'delivered' }],
+        channels: [{ status: 'sent' }],
         firstOpen: OPENED_AT,
         hasResponse: true,
       }),

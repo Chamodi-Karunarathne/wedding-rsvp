@@ -60,7 +60,9 @@ export function toDeliveryChannelView(row: DeliveryChannelRow): DeliveryChannelV
   return {
     id: row.id,
     channel: row.channel,
-    status: row.status,
+    // During deployment, historical completed statuses project as Sent until
+    // the forward migration normalizes their stored value.
+    status: row.status === 'pending' ? 'pending' : 'sent',
     sentAt: row.sentAt,
     sentBy: row.sentBy,
     notes: row.notes,

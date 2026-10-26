@@ -14,9 +14,6 @@ import { splitPhoneNumbers } from './phone.ts';
 export const DELIVERY_STATES = ['not_sent', 'sent', 'opened', 'responded'] as const;
 export type DeliveryState = (typeof DELIVERY_STATES)[number];
 
-/** Statuses that mean the invitation actually left our hands. */
-const SENT_STATUSES = new Set(['sent', 'delivered']);
-
 export type DeliveryProgress = {
   channels: readonly { status: string }[];
   /** From guest_opens. Null means nobody has loaded their invitation. */
@@ -34,7 +31,7 @@ export type DeliveryProgress = {
 export function deliveryState(progress: DeliveryProgress): DeliveryState {
   if (progress.hasResponse) return 'responded';
   if (progress.firstOpen) return 'opened';
-  if (progress.channels.some((channel) => SENT_STATUSES.has(channel.status))) return 'sent';
+  if (progress.channels.some((channel) => channel.status === 'sent')) return 'sent';
   return 'not_sent';
 }
 

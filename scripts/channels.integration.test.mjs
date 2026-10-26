@@ -26,9 +26,13 @@ const { buildGuestListCsv } = await import('../src/lib/services/exports.ts');
 const { parseCsvWithHeader } = await import('../src/lib/domain/csv.ts');
 const { deliveryNeedsPhone } = await import('../src/lib/domain/delivery.ts');
 const { guestInputSchema } = await import('../src/lib/domain/guest-input.ts');
+const { deliveryChannelSchema } = await import('../src/lib/api/schemas.ts');
 const db = drizzle(pool, { schema });
 let legacy;
 let originalLegacyChannel;
+let expandedLegacyChannel;
+let normalizedLegacyChannel;
+let legacyRelatedRecords;
 
 before(async () => {
   await admin.query(`CREATE SCHEMA "${namespace}"`);
@@ -38,6 +42,17 @@ before(async () => {
     if (file.startsWith('0005_')) {
       legacy = (await pool.query("INSERT INTO guests(token,display_name,sort_name,side) VALUES($1,'Legacy channel household','Legacy channel household','both') RETURNING *", [randomUUID()])).rows[0];
       originalLegacyChannel = (await pool.query("INSERT INTO delivery_channels(guest_id,channel,status,sent_at,sent_by,notes) VALUES($1,'in_person','delivered','2026-10-01T00:00:00Z','Original sender','Keep delivery metadata') RETURNING *", [legacy.id])).rows[0];
+    }
+    if (file.startsWith('0006_')) {
+      expandedLegacyChannel = (await pool.query('SELECT * FROM delivery_channels WHERE id=$1', [originalLegacyChannel.id])).rows[0];
+      normalizedLegacyChannel = (await pool.query("INSERT INTO delivery_channels(guest_id,channel,status,sent_at,sent_by,notes) VALUES($1,'whatsapp','delivered','2026-10-02T00:00:00Z','Retained sender','Retained delivery note') RETURNING *", [legacy.id])).rows[0];
+      const event = (await pool.query("INSERT INTO events(slug,name,starts_at,venue_name,venue_address) VALUES('retirement-ceremony','Migration ceremony','2026-12-03T03:45:00Z','Migration venue','Migration address') RETURNING id")).rows[0];
+      await pool.query('INSERT INTO invitations(guest_id,event_id) VALUES($1,$2)', [legacy.id, event.id]);
+      await pool.query("INSERT INTO rsvps(guest_id,event_id,attending,party_count,attendee_names,source,recorded_by) VALUES($1,$2,true,2,'Retained names','phone','Family')", [legacy.id, event.id]);
+      await pool.query("INSERT INTO rsvp_history(guest_id,event_id,attending,party_count,source,recorded_by) VALUES($1,$2,false,0,'admin','Family')", [legacy.id, event.id]);
+      await pool.query("INSERT INTO guest_messages(guest_id,body) VALUES($1,'Retained message')", [legacy.id]);
+      await pool.query("INSERT INTO guest_opens(guest_id,first_open,last_open) VALUES($1,'2026-10-01T01:00:00Z','2026-10-02T01:00:00Z')", [legacy.id]);
+      legacyRelatedRecords = await readLegacyRelatedRecords();
     }
     const sql = fs.readFileSync(path.join(directory, file), 'utf8')
       .replaceAll('REFERENCES "public".', `REFERENCES "${namespace}".`);
@@ -59,12 +74,35 @@ async function fixture(extra = {}) {
 }
 const readGuest = async id => (await pool.query('SELECT * FROM guests WHERE id=$1', [id])).rows[0];
 const readChannels = async id => (await pool.query('SELECT * FROM delivery_channels WHERE guest_id=$1 ORDER BY channel', [id])).rows;
+async function readLegacyRelatedRecords() {
+  const records = { guest: (await pool.query('SELECT * FROM guests WHERE id=$1', [legacy.id])).rows[0] };
+  for (const table of ['invitations', 'rsvps', 'rsvp_history', 'guest_messages', 'guest_opens']) {
+    records[table] = (await pool.query(`SELECT * FROM ${table} WHERE guest_id=$1`, [legacy.id])).rows;
+  }
+  return records;
+}
 
 describe('channel migration and multiple phones in disposable PostgreSQL', () => {
-  it('widens the channel constraint without changing legacy delivery metadata', async () => {
-    assert.deepEqual((await readChannels(legacy.id))[0], originalLegacyChannel);
-    const guest = await fixture({ channels: ['whatsapp', 'print', 'instagram', 'messenger', 'wechat', 'in_person'] });
+  it('retains historical expansion behavior and retires only unused delivery values', async () => {
+    assert.deepEqual(expandedLegacyChannel, originalLegacyChannel, 'Migration0005 must remain reproducible');
+    assert.deepEqual(await readChannels(legacy.id), [{ ...normalizedLegacyChannel, status: 'sent' }]);
+    assert.deepEqual(await readLegacyRelatedRecords(), legacyRelatedRecords, 'Guest tokens, invitations, replies, history, messages and opens must survive retirement');
+    const guest = await fixture({ channels: ['whatsapp', 'print', 'instagram', 'messenger', 'wechat'] });
     assert.deepEqual((await readChannels(guest.id)).map(channel => channel.channel).sort(), [...schema.DELIVERY_CHANNELS].sort());
+  });
+
+  it('rejects retired values at both API and database boundaries', async () => {
+    const guest = await fixture();
+    assert.equal(guestInputSchema.safeParse({ displayName: 'Guest', sortName: 'Guest', side: 'both', maxPartySize: 2, channels: ['in_person'] }).success, false);
+    assert.equal(deliveryChannelSchema.safeParse({ guestId: guest.id, channel: 'whatsapp', status: 'delivered' }).success, false);
+    assert.equal(deliveryChannelSchema.safeParse({ guestId: guest.id, channel: 'in_person', status: 'sent' }).success, false);
+    for (const [channel, status] of [['in_person', 'sent'], ['print', 'delivered']]) {
+      await assert.rejects(pool.query('INSERT INTO delivery_channels(guest_id,channel,status) VALUES($1,$2,$3)', [guest.id, channel, status]), error => error.code === '23514');
+      const result = await setDeliveryChannel(guest.id, channel, { status }, db);
+      assert.equal(result.ok, false);
+      assert.equal(result.error.code, 'validation');
+    }
+    assert.deepEqual(await readChannels(guest.id), []);
   });
 
   it('stores each number independently and keeps WhatsApp missing-phone invites eligible for repair', async () => {
@@ -84,7 +122,7 @@ describe('channel migration and multiple phones in disposable PostgreSQL', () =>
   it('replaces manual channel assignments atomically while preserving progress for retained channels', async () => {
     const guest = await fixture({ channels: ['whatsapp', 'instagram'] });
     assert.equal(deliveryNeedsPhone({ phone: guest.phone, channels: await readChannels(guest.id) }), true);
-    assert.equal((await setDeliveryChannel(guest.id, 'instagram', { status: 'delivered', sentBy: 'Original sender', notes: 'Original channel note' }, db)).ok, true);
+    assert.equal((await setDeliveryChannel(guest.id, 'instagram', { status: 'sent', sentBy: 'Original sender', notes: 'Original channel note' }, db)).ok, true);
     const original = (await readChannels(guest.id)).find(channel => channel.channel === 'instagram');
     assert.equal((await updateGuest(guest.id, { channels: ['instagram', 'wechat'] }, db)).ok, true);
     const updated = await readChannels(guest.id);

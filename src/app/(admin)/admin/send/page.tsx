@@ -49,6 +49,7 @@ export default async function AdminSendPage({ searchParams }: Props) {
     rsvpBy: formatDate(config.phase.rsvpDeadline, config.site.timezone),
   };
   const rows = filterAndSortGuests(guests, { ...filters, state: 'all' })
+    .filter(row => row.eventSlugs.length > 0)
     .map((row) => ({ row, state: invitationStatus(row) }));
   const missingPhoneCount = filterAndSortGuests(guests, { ...filters, state: 'needs_phone' }).length;
   const filtered = filterAndSortGuests(guests, filters);
@@ -73,7 +74,10 @@ export default async function AdminSendPage({ searchParams }: Props) {
       {missingPhoneCount > 0 && <p className="admin-warning"><Link href={tableHref('/admin/send', filters, { state: 'needs_phone' })} className="underline">{missingPhoneCount} {missingPhoneCount === 1 ? 'household needs' : 'households need'} a WhatsApp phone number.</Link> Add a number or choose another channel in sending details.</p>}
       <section aria-label="Invitation progress">
         <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-          {DELIVERY_STATES.map((state) => (
+          {DELIVERY_STATES.map((state) => {
+            const households = rows.filter(row => row.state === state);
+            const guestCount = households.reduce((total, { row }) => total + row.guest.maxPartySize, 0);
+            return (
             <Link
               key={state}
               href={tableHref('/admin/send', filters, { state })}
@@ -84,15 +88,18 @@ export default async function AdminSendPage({ searchParams }: Props) {
               >
                 <CardContent>
                   <span className="text-sm font-medium">{INVITATION_LABELS[state]}</span>
-                  <strong>{rows.filter((row) => row.state === state).length}</strong>
+                  <strong>{guestCount.toLocaleString('en-GB')}</strong>
+                  <p>{guestCount === 1 ? 'Guest' : 'Guests'} invited · {households.length} {households.length === 1 ? 'household' : 'households'}</p>
                   <p>{hints[state]}</p>
                 </CardContent>
               </Card>
             </Link>
-          ))}
+            );
+          })}
         </div>
         <p className="mt-3 text-xs text-muted-foreground">
-          Each household appears at its furthest point: Not sent → Sent → Opened → Replied. A phone
+          Guest counts use reserved places, counted once per invited household. Each household
+          appears at its furthest point: Not sent → Sent → Opened → Replied. A phone
           reply counts as Replied even if the link was never opened. Counts follow the filters
           below except invitation progress.
         </p>
@@ -106,7 +113,8 @@ export default async function AdminSendPage({ searchParams }: Props) {
           </p>
           <p className="text-xs text-muted-foreground">
             Last opened is the latest recorded visible visit or return to the invitation.
-            Admin visits and link previews do not count. Times use {config.site.timezone.replaceAll('_', ' ')}.
+            Ordinary links count even when you’re signed in. Explicit previews and link previews do not count.
+            Times use {config.site.timezone.replaceAll('_', ' ')}.
           </p>
         </CardContent>
       </Card>

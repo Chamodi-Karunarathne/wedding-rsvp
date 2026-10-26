@@ -68,7 +68,7 @@ async function populateEveryTable() {
   await pool.query("INSERT INTO rsvp_history(guest_id,event_id,attending,party_count,source) VALUES ($1,$2,true,1,'self')", [guest.id, event.id]);
   await pool.query("INSERT INTO guest_messages(guest_id,body) VALUES ($1,'Test message')", [guest.id]);
   await pool.query('INSERT INTO guest_opens(guest_id,first_open,last_open) VALUES ($1,now(),now())', [guest.id]);
-  await pool.query("INSERT INTO delivery_channels(guest_id,channel,status,sent_at,sent_by) VALUES ($1,'whatsapp','delivered',now(),'Test sender')", [guest.id]);
+  await pool.query("INSERT INTO delivery_channels(guest_id,channel,status,sent_at,sent_by) VALUES ($1,'whatsapp','sent',now(),'Test sender')", [guest.id]);
   await pool.query("INSERT INTO api_rate_limits(scope,key_hash,requests,window_ends_at) VALUES ('test-scope',repeat('a',64),9,now()+interval '1 hour')");
   return { eventId: event.id, guestId: guest.id };
 }

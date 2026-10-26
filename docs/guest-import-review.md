@@ -1,6 +1,6 @@
 # Guest import review
 
-Updated 26 October 2026, Asia/Colombo. This review covers the admin file picker and paste
+Updated 27 October 2026, Asia/Colombo. This review covers the admin file picker and paste
 input, API boundary, CSV parsing, preview, matching, database writes and exports.
 Testing uses an explicitly guarded disposable loopback PostgreSQL database;
 production guest data is not used for write tests.
@@ -60,9 +60,16 @@ event with a reply. A row's explicit events override the default checkboxes.
 
 Phone cells support quoted comma-separated numbers. Each is normalized and
 deduplicated individually. Channels accept WhatsApp, print, Instagram, Messenger,
-WeChat and legacy in_person values. Phone-free social guests are valid. Missing
+and WeChat. The retired `in_person` value is rejected by new imports. Phone-free
+social guests are valid. Missing
 WhatsApp numbers produce warnings, not rejected registrations; the warning is
 derived from current channel/phone data and clears automatically when repaired.
+
+Before activating this build, apply `0006_retire_unused_delivery_values` with
+`pnpm db:migrate`. The forward migration removes only old `in_person` delivery
+rows and converts `delivered` to `sent` without changing remaining metadata.
+It does not clear guests, invitation tokens, replies, messages or open records.
+Do not run a production data reset.
 
 Structural file errors reject the complete file. Row errors skip only invalid
 households. The result reports actual creates, updates and errors; a preview

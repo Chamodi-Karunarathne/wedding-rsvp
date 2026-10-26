@@ -70,4 +70,12 @@ describe('CSV import validation before writes', () => {
     assert.equal(result.ok, true);
     if (result.ok) assert.deepEqual(result.data.results.map((row) => row.row), [3, 5]);
   });
+
+  it('rejects a retired sending channel during both preview and save', async () => {
+    for (const dryRun of [true, false]) {
+      const result = await importGuestsCsv('display_name,side,channels\nPerson,bride,in_person', { dryRun }, readOnlyDb);
+      assert.equal(result.ok && result.data.errors, 1);
+      if (result.ok) assert.match(result.data.results[0]!.message ?? '', /in_person/);
+    }
+  });
 });

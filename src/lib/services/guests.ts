@@ -1,6 +1,8 @@
 import { and, asc, eq, inArray, notInArray } from 'drizzle-orm';
 import { getDb, type DbLike, type Tx } from '@/db/client';
 import {
+  DELIVERY_CHANNELS,
+  DELIVERY_STATUSES,
   deliveryChannels,
   events,
   guestMessages,
@@ -82,7 +84,8 @@ export async function listDeliveryChannels(
     .select()
     .from(deliveryChannels)
     .where(eq(deliveryChannels.guestId, guestId));
-  return rows.map(toDeliveryChannelView);
+  return rows.filter(row => (DELIVERY_CHANNELS as readonly string[]).includes(row.channel))
+    .map(toDeliveryChannelView);
 }
 
 /* -------------------------------------------------------------------------- */
@@ -382,6 +385,9 @@ export async function listGuests(db: DbLike = getDb()): Promise<GuestListRow[]> 
 
   const channelsByGuest = new Map<string, DeliveryChannelView[]>();
   for (const row of channelRows) {
+    // Older app instances may still exist while the forward migration rolls
+    // out. Retired memberships never return to active controls or CSV exports.
+    if (!(DELIVERY_CHANNELS as readonly string[]).includes(row.channel)) continue;
     const list = channelsByGuest.get(row.guestId) ?? [];
     list.push(toDeliveryChannelView(row));
     channelsByGuest.set(row.guestId, list);
@@ -443,9 +449,15 @@ async function replaceDeliveryChannels(guestId: string, channels: DeliveryChanne
 export async function setDeliveryChannel(
   guestId: string,
   channel: DeliveryChannelName,
-  patch: { status?: 'pending' | 'sent' | 'delivered'; sentBy?: string | null; notes?: string | null },
+  patch: { status?: 'pending' | 'sent'; sentBy?: string | null; notes?: string | null },
   db: DbLike = getDb(),
 ): Promise<Result<DeliveryChannelView>> {
+  if (!(DELIVERY_CHANNELS as readonly string[]).includes(channel)) {
+    return serviceError('validation', 'Choose a supported sending channel.', 'channel');
+  }
+  if (patch.status !== undefined && !(DELIVERY_STATUSES as readonly string[]).includes(patch.status)) {
+    return serviceError('validation', 'Choose Not sent or Sent.', 'status');
+  }
   return withTransaction(db, async (tx) => {
     if (!await lockGuest(tx, { id: guestId })) return serviceError('not_found', 'No such guest.');
     const status = patch.status ?? 'pending';

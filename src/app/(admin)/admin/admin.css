@@ -474,9 +474,6 @@
 }
 
 @media (max-width: 767px) {
-  .admin-counts .admin-stat-highlight {
-    grid-column: 1 / -1;
-  }
   .admin-phone-selected {
     flex-direction: column;
   }
