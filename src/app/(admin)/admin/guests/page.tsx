@@ -4,13 +4,14 @@ import { Table, TableBody, TableHead, TableHeader, TableRow } from '@/components
 import { listEvents } from '@/lib/services/events';
 import { listGuests } from '@/lib/services/guests';
 import { getConfig } from '@/lib/services/config';
+import { filterAndSortGuests, parseTableFilters, tableHref, type TableSearchParams } from '@/lib/domain/admin-tables';
 import { GuestRow } from './guest-row';
 import { AddGuest, ImportGuests } from './guest-tools';
-import { AdminPageHeader, EmptyState, SearchFilters } from '../_components/ui';
-import { matchesReply, matchesSearch, SIDE_LABELS } from '../_components/presentation';
+import { AdminPageHeader, EmptyState } from '../_components/ui';
+import { SortableHead, TableControls } from '../_components/table-controls';
 
 export const dynamic = 'force-dynamic';
-type Props = { searchParams: Promise<{ q?: string; status?: string; side?: string }> };
+type Props = { searchParams: Promise<TableSearchParams> };
 
 export default async function AdminGuestsPage({ searchParams }: Props) {
   const [allGuests, events, config, params] = await Promise.all([
@@ -19,15 +20,8 @@ export default async function AdminGuestsPage({ searchParams }: Props) {
     getConfig(),
     searchParams,
   ]);
-  const query = params.q ?? '';
-  const status = params.status ?? 'all';
-  const side = params.side ?? 'all';
-  const guests = allGuests.filter(
-    (row) =>
-      matchesSearch(row, query) &&
-      matchesReply(row, status) &&
-      (side === 'all' || row.guest.side === side),
-  );
+  const filters = parseTableFilters(params, events.map(event => event.slug), 'guests');
+  const guests = filterAndSortGuests(allGuests, filters);
   return (
     <div className="space-y-5">
       <AdminPageHeader
@@ -38,7 +32,7 @@ export default async function AdminGuestsPage({ searchParams }: Props) {
         <AddGuest events={events} />
         <ImportGuests events={events} />
         <a
-          href="/api/admin/export/guests"
+          href={tableHref('/api/admin/export/guests', filters)}
           className={buttonVariants({ variant: 'outline', className: 'admin-button' })}
         >
           Download guest list
@@ -46,50 +40,21 @@ export default async function AdminGuestsPage({ searchParams }: Props) {
       </AdminPageHeader>
       <Card>
         <CardContent>
-          <SearchFilters
-            key={query + status + side}
-            action="/admin/guests"
-            query={query}
-            filters={[
-              {
-                name: 'status',
-                label: 'Show',
-                value: status,
-                options: [
-                  { value: 'all', label: 'All guests' },
-                  { value: 'not_sent', label: 'Invitation not sent' },
-                  { value: 'needs_phone', label: 'WhatsApp phone missing' },
-                  { value: 'waiting', label: 'Waiting for reply' },
-                  { value: 'coming', label: 'Coming' },
-                  { value: 'declined', label: 'Unable to attend' },
-                ],
-              },
-              {
-                name: 'side',
-                label: 'Family',
-                value: side,
-                options: [
-                  { value: 'all', label: 'Both sides' },
-                  ...Object.entries(SIDE_LABELS).map(([value, label]) => ({ value, label })),
-                ],
-              },
-            ]}
-          />
+          <TableControls action="/admin/guests" view="guests" filters={filters} events={events} />
         </CardContent>
       </Card>
       <Card>
         <CardHeader>
           <CardTitle>
-            {guests.length} {guests.length === 1 ? 'household' : 'households'}
-            {query || status !== 'all' || side !== 'all' ? ' found' : ' on the list'}
+            {guests.length} of {allGuests.length} {allGuests.length === 1 ? 'household' : 'households'} shown
           </CardTitle>
         </CardHeader>
         <CardContent>
           {guests.length === 0 ? (
             <EmptyState
               title={
-                query
-                  ? 'No guests found for “' + query + '”'
+                filters.q
+                  ? 'No guests found for “' + filters.q + '”'
                   : allGuests.length === 0
                     ? 'Your guest list starts here'
                     : 'No guests match these filters'
@@ -104,9 +69,11 @@ export default async function AdminGuestsPage({ searchParams }: Props) {
             <Table className="admin-table admin-guests">
               <TableHeader>
                 <TableRow>
-                  {['Guest / Family', 'Family', 'Phone numbers', 'Reserved', 'Channels', 'Invitation', 'Reply', 'Actions'].map((heading) => (
-                    <TableHead key={heading}>{heading}</TableHead>
-                  ))}
+                  {([
+                    ['Guest / Family', 'name'], ['Family', 'side'], ['Phone numbers', 'phone'],
+                    ['Reserved', 'reserved'], ['Channels', 'channels'], ['Invitation', 'state'], ['Reply', 'response'],
+                  ] as const).map(([label, column]) => <SortableHead key={column} label={label} column={column} action="/admin/guests" filters={filters} />)}
+                  <TableHead>Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -114,6 +81,7 @@ export default async function AdminGuestsPage({ searchParams }: Props) {
                   <GuestRow
                     key={row.guest.id}
                     row={row}
+                    displayEvent={filters.event}
                     events={events}
                     timezone={config.site.timezone}
                   />

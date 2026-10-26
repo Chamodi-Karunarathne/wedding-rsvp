@@ -37,7 +37,7 @@ export function AdminAutoRefresh() {
       // Closed disclosures have no client rects. Visible non-filter forms are
       // editors, including Wedding Details and a selected phone response.
       const editing = Array.from(main.querySelectorAll(
-        'form:not(.admin-filters), details[open], fieldset[data-admin-editing]',
+        'form:not(.admin-filters):not(.admin-table-controls), details[open]:not(.admin-table-more), fieldset[data-admin-editing]',
       ))
         .some(element => element.getClientRects().length > 0 &&
           (element.tagName === 'FORM' || element.hasAttribute('data-admin-editing') ||

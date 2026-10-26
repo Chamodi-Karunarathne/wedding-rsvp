@@ -1,7 +1,7 @@
 import { toCsv } from '@/lib/domain/csv';
 import { deliveryState } from '@/lib/domain/delivery';
 import { invitationUrl } from '@/lib/domain/urls';
-import { applyFilters, type DashboardFilters } from './dashboard';
+import { filterAndSortGuests, parseTableFilters, type TableSearchParams } from '@/lib/domain/admin-tables';
 import { listGuests } from './guests';
 import { listEvents } from './events';
 import { getDb, type DbLike } from '@/db/client';
@@ -9,8 +9,13 @@ import { getDb, type DbLike } from '@/db/client';
 /** PERMANENT. CSV exports. All go through domain/csv, so all carry a BOM. */
 
 /** Editable household data with the exact columns accepted by guest import. */
-export async function buildGuestListCsv(db: DbLike = getDb()): Promise<string> {
-  const rows = await listGuests(db);
+export async function buildGuestListCsv(
+  db: DbLike = getDb(),
+  rawParams: TableSearchParams = {},
+): Promise<string> {
+  const [allRows, events] = await Promise.all([listGuests(db), listEvents(db)]);
+  const filters = parseTableFilters(rawParams, events.map((event) => event.slug), 'guests');
+  const rows = filterAndSortGuests(allRows, filters);
   return toCsv([
     ['display_name', 'display_name_fallback', 'sort_name', 'side', 'language',
       'max_party_size', 'phone', 'events', 'channels', 'notes'],
@@ -23,10 +28,15 @@ export async function buildGuestListCsv(db: DbLike = getDb()): Promise<string> {
   ]);
 }
 
-/** Full RSVP state, one row per guest, one column pair per event. */
-export async function buildRsvpExportCsv(filters: DashboardFilters = {}): Promise<string> {
-  const [allRows, events] = await Promise.all([listGuests(), listEvents()]);
-  const rows = applyFilters(allRows, filters);
+/** Full RSVP state for the selected households and events, in the displayed order. */
+export async function buildRsvpExportCsv(
+  rawParams: TableSearchParams = {},
+  db: DbLike = getDb(),
+): Promise<string> {
+  const [allRows, allEvents] = await Promise.all([listGuests(db), listEvents(db)]);
+  const filters = parseTableFilters(rawParams, allEvents.map((event) => event.slug), 'rsvps');
+  const rows = filterAndSortGuests(allRows, filters);
+  const events = allEvents.filter((event) => filters.event === 'all' || filters.event === event.slug);
 
   const header = [
     'display_name',
@@ -88,21 +98,30 @@ export async function buildRsvpExportCsv(filters: DashboardFilters = {}): Promis
  * personally over WhatsApp or email, including the few who also receive a
  * printed card, because the card does not reference the site.
  */
-export async function buildSendListCsv(origin?: string): Promise<string> {
-  const rows = await listGuests();
+export async function buildSendListCsv(
+  origin?: string,
+  rawParams: TableSearchParams = {},
+  db: DbLike = getDb(),
+): Promise<string> {
+  const [allRows, events] = await Promise.all([listGuests(db), listEvents(db)]);
+  const filters = parseTableFilters(rawParams, events.map((event) => event.slug), 'send');
+  const rows = filterAndSortGuests(allRows, filters);
 
   const header = [
     'display_name',
+    'side',
     'phone',
     'invitation_url',
     'channels',
     'state',
     'first_open',
+    'last_open',
     'notes',
   ];
 
   const body = rows.map((row) => [
     row.guest.displayName,
+    row.guest.side,
     row.guest.phone ?? '',
     invitationUrl(row.guest.token, origin),
     row.channels.map((c) => `${c.channel}:${c.status}`).join('|'),
@@ -112,6 +131,7 @@ export async function buildSendListCsv(origin?: string): Promise<string> {
       hasResponse: row.rsvps.length > 0,
     }),
     row.firstOpen?.toISOString() ?? '',
+    row.lastOpen?.toISOString() ?? '',
     row.guest.notes ?? '',
   ]);
 

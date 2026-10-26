@@ -3,20 +3,27 @@ import { buttonVariants } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { DELIVERY_STATES } from '@/lib/domain/delivery';
+import {
+  filterAndSortGuests,
+  parseTableFilters,
+  tableHref,
+  type TableSearchParams,
+} from '@/lib/domain/admin-tables';
 import { renderTemplate } from '@/lib/domain/template';
 import { invitationUrl } from '@/lib/domain/urls';
 import { splitPhoneNumbers } from '@/lib/domain/phone';
 import { formatDate, formatDateTimeShort, formatEventDateTime } from '@/lib/format';
 import { getConfig } from '@/lib/services/config';
-import { getPrimaryEvent } from '@/lib/services/events';
+import { listEvents } from '@/lib/services/events';
 import { listGuests } from '@/lib/services/guests';
 import { SendRow } from './send-row';
-import { AdminPageHeader, EmptyState, SearchFilters } from '../_components/ui';
-import { INVITATION_LABELS, invitationStatus, matchesSearch, needsWhatsAppPhone } from '../_components/presentation';
+import { AdminPageHeader, EmptyState } from '../_components/ui';
+import { INVITATION_LABELS, invitationStatus } from '../_components/presentation';
+import { SortableHead, TableControls } from '../_components/table-controls';
 import { WorkflowDialog } from '../_components/workflow-dialog';
 
 export const dynamic = 'force-dynamic';
-type Props = { searchParams: Promise<{ q?: string; state?: string }> };
+type Props = { searchParams: Promise<TableSearchParams> };
 const hints = {
   not_sent: 'No sending record or reply yet',
   sent: 'Marked sent, not opened or replied',
@@ -25,27 +32,26 @@ const hints = {
 };
 
 export default async function AdminSendPage({ searchParams }: Props) {
-  const [guests, config, event, params] = await Promise.all([
+  const [guests, config, events, params] = await Promise.all([
     listGuests(),
     getConfig(),
-    getPrimaryEvent(),
+    listEvents(),
     searchParams,
   ]);
-  const query = params.q ?? '';
-  const stateFilter = params.state ?? 'all';
+  const filters = parseTableFilters(params, events.map((event) => event.slug), 'send');
+  const query = filters.q;
+  const stateFilter = filters.state;
+  const event = events[0];
   const sharedVars = {
     brideName: config.site.brideName,
     groomName: config.site.groomName,
     date: event ? formatEventDateTime(event.startsAt, config.site.timezone) : '',
     rsvpBy: formatDate(config.phase.rsvpDeadline, config.site.timezone),
   };
-  const rows = guests.map((row) => ({ row, state: invitationStatus(row) }));
-  const missingPhoneCount = guests.filter(needsWhatsAppPhone).length;
-  const filtered = rows.filter(
-    ({ row, state }) =>
-      matchesSearch(row, query) && (stateFilter === 'all' || stateFilter === state ||
-        (stateFilter === 'needs_phone' && needsWhatsAppPhone(row))),
-  );
+  const rows = filterAndSortGuests(guests, { ...filters, state: 'all' })
+    .map((row) => ({ row, state: invitationStatus(row) }));
+  const missingPhoneCount = filterAndSortGuests(guests, { ...filters, state: 'needs_phone' }).length;
+  const filtered = filterAndSortGuests(guests, filters);
   return (
     <div className="space-y-5">
       <AdminPageHeader
@@ -58,19 +64,19 @@ export default async function AdminSendPage({ searchParams }: Props) {
           <Link href="/admin/config#invitation-message" className={buttonVariants({ variant: 'outline' })}>Edit message templates</Link>
         </WorkflowDialog>
         <a
-          href="/api/admin/export/send"
+          href={tableHref('/api/admin/export/send', filters)}
           className={buttonVariants({ variant: 'outline', className: 'admin-button' })}
         >
           Download invitation list
         </a>
       </AdminPageHeader>
-      {missingPhoneCount > 0 && <p className="admin-warning"><Link href="/admin/send?state=needs_phone" className="underline">{missingPhoneCount} {missingPhoneCount === 1 ? 'household needs' : 'households need'} a WhatsApp phone number.</Link> Add a number or choose another channel in sending details.</p>}
+      {missingPhoneCount > 0 && <p className="admin-warning"><Link href={tableHref('/admin/send', filters, { state: 'needs_phone' })} className="underline">{missingPhoneCount} {missingPhoneCount === 1 ? 'household needs' : 'households need'} a WhatsApp phone number.</Link> Add a number or choose another channel in sending details.</p>}
       <section aria-label="Invitation progress">
         <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
           {DELIVERY_STATES.map((state) => (
             <Link
               key={state}
-              href={'/admin/send?state=' + state}
+              href={tableHref('/admin/send', filters, { state })}
               className="rounded-2xl focus-visible:outline-2 focus-visible:outline-ring"
             >
               <Card
@@ -87,28 +93,13 @@ export default async function AdminSendPage({ searchParams }: Props) {
         </div>
         <p className="mt-3 text-xs text-muted-foreground">
           Each household appears at its furthest point: Not sent → Sent → Opened → Replied. A phone
-          reply counts as Replied even if the link was never opened.
+          reply counts as Replied even if the link was never opened. Counts follow the filters
+          below except invitation progress.
         </p>
       </section>
       <Card>
         <CardContent className="space-y-4">
-          <SearchFilters
-            key={query + stateFilter}
-            action="/admin/send"
-            query={query}
-            filters={[
-              {
-                name: 'state',
-                label: 'Invitation progress',
-                value: stateFilter,
-                options: [
-                  { value: 'all', label: 'All invitations' },
-                  { value: 'needs_phone', label: 'WhatsApp phone missing' },
-                  ...DELIVERY_STATES.map((value) => ({ value, label: INVITATION_LABELS[value] })),
-                ],
-              },
-            ]}
-          />
+          <TableControls action="/admin/send" view="send" filters={filters} events={events} />
           <p className="text-sm text-muted-foreground">
             WhatsApp opens a ready-to-send message. Send it there, then mark it as sent here.
             Opening WhatsApp does not update the sending record.
@@ -118,7 +109,7 @@ export default async function AdminSendPage({ searchParams }: Props) {
       <Card>
         <CardHeader>
           <CardTitle>
-            {filtered.length} {filtered.length === 1 ? 'invitation' : 'invitations'}
+            {filtered.length} of {guests.length} {guests.length === 1 ? 'invitation' : 'invitations'} shown
             {stateFilter !== 'all'
               ? ' · ' + (stateFilter === 'needs_phone' ? 'WhatsApp phone missing' : INVITATION_LABELS[stateFilter as keyof typeof INVITATION_LABELS] ?? 'All')
               : ''}
@@ -130,27 +121,32 @@ export default async function AdminSendPage({ searchParams }: Props) {
               title={
                 query
                   ? 'No guests found for “' + query + '”'
-                  : stateFilter === 'not_sent'
-                    ? 'No invitations waiting to be sent'
-                    : 'No invitations here yet'
+                  : guests.length === 0
+                    ? 'No invitations here yet'
+                    : 'No invitations match these filters'
               }
               description={
                 guests.length === 0
                   ? 'Add guests to your list to prepare their personal invitations.'
-                  : 'Try another search or choose All invitations.'
+                  : 'Try another search or clear the filters.'
               }
             />
           ) : (
             <Table className="admin-table admin-invitations">
               <TableHeader>
                 <TableRow>
-                  {['Guest / Family', 'Phone numbers', 'Channels', 'Progress', 'Last opened', 'Invitation', 'Actions'].map((heading) => (
-                    <TableHead key={heading}>{heading}</TableHead>
-                  ))}
+                  <SortableHead label="Guest / Family" column="name" action="/admin/send" filters={filters} />
+                  <SortableHead label="Which side" column="side" action="/admin/send" filters={filters} />
+                  <SortableHead label="Phone numbers" column="phone" action="/admin/send" filters={filters} />
+                  <SortableHead label="Channels" column="channels" action="/admin/send" filters={filters} />
+                  <SortableHead label="Progress" column="state" action="/admin/send" filters={filters} />
+                  <SortableHead label="Last opened" column="opened" action="/admin/send" filters={filters} />
+                  <TableHead>Invitation</TableHead>
+                  <TableHead>Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filtered.map(({ row, state }) => {
+                {filtered.map((row) => {
                   const url = invitationUrl(row.guest.token);
                   const message = renderTemplate(config.messaging.whatsappTemplate, {
                     ...sharedVars,
@@ -165,12 +161,13 @@ export default async function AdminSendPage({ searchParams }: Props) {
                       key={row.guest.id}
                       guestId={row.guest.id}
                       displayName={row.guest.displayName}
+                      side={row.guest.side}
                       phone={row.guest.phone}
                       invitationUrl={url}
                       message={message}
                       plainMessage={plainMessage}
                       whatsappNumbers={splitPhoneNumbers(row.guest.phone)}
-                      state={state}
+                      state={invitationStatus(row)}
                       firstOpenedAt={row.firstOpen ? formatDateTimeShort(row.firstOpen, config.site.timezone) : null}
                       lastOpenedAt={row.lastOpen ? formatDateTimeShort(row.lastOpen, config.site.timezone) : null}
                       channels={row.channels.map((channel) => ({

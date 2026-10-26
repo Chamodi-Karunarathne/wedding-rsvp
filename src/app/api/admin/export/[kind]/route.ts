@@ -1,16 +1,16 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { requireAdmin } from '@/lib/api/guard';
 import { buildGuestListCsv, buildRsvpExportCsv, buildSendListCsv } from '@/lib/services/exports';
-import type { DashboardFilters, } from '@/lib/services/dashboard';
-import type { DeliveryChannelName, RsvpSource, Side } from '@/lib/services/types';
+import type { TableSearchParams } from '@/lib/domain/admin-tables';
 
 /**
  * PERMANENT. CSV downloads.
  *
- *   /api/admin/export/rsvps  - full RSVP state, honours ?side=, ?channel=
- *                              and ?source=
- *   /api/admin/export/send   - the send list
+ *   /api/admin/export/rsvps  - full RSVP state for the selected event scope
+ *   /api/admin/export/send   - invitation links and delivery progress
  *   /api/admin/export/guests - editable guest list for CSV re-import
+ *
+ * Every download honors the corresponding table's filters and sorting.
  */
 
 export const runtime = 'nodejs';
@@ -42,14 +42,17 @@ export async function GET(
   }
 
   const params = request.nextUrl.searchParams;
-  const filters: DashboardFilters = {
-    side: (params.get('side') as Side | 'all' | null) ?? 'all',
-    channel: (params.get('channel') as DeliveryChannelName | 'all' | null) ?? 'all',
-    source: (params.get('source') as RsvpSource | 'all' | null) ?? 'all',
-  };
+  // Match page searchParams exactly: repeated keys remain arrays so the shared
+  // parser can discard ambiguous values rather than choosing one silently.
+  const filters: TableSearchParams = Object.fromEntries(
+    Array.from(new Set(params.keys()), (key) => {
+      const values = params.getAll(key);
+      return [key, values.length === 1 ? values[0] : values];
+    }),
+  );
 
-  const csv = kind === 'guests' ? await buildGuestListCsv()
-    : kind === 'send' ? await buildSendListCsv() : await buildRsvpExportCsv(filters);
+  const csv = kind === 'guests' ? await buildGuestListCsv(undefined, filters)
+    : kind === 'send' ? await buildSendListCsv(undefined, filters) : await buildRsvpExportCsv(filters);
 
   const stamp = new Date().toISOString().slice(0, 10);
 

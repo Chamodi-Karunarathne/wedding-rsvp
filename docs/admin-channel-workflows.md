@@ -61,11 +61,35 @@ dialog preserves drafts. Dialogs trap focus, restore it to their trigger and kee
 close controls accessible while long forms scroll. Auto-refresh pauses for any
 visible dialog, including content portaled outside the page's main element.
 
-Guests uses eight columns, Invitations seven and Responses eleven. The wider admin
+Guests uses eight columns, Invitations eight and Responses eleven. Invitations
+includes **Which side** alongside the household name. The wider admin
 layout and separate phone/channel/reply/action columns keep rows compact.
 Mobile tables scroll within their own container rather than stacking every
 field into tall rows. Long names are clamped with full details in the editor;
 phone cells show two numbers with a count for additional contacts.
+
+All three lists share search and filters for family side, channel, response,
+invitation progress, invited event, reply method, phone availability and whether
+the invitation link has been opened. Open **More filters** for additional fields;
+active additional filters open that section automatically. Select **Apply filters**
+to use all choices together, or **Reset all** to clear filters and sorting.
+Search includes household/card/sort names, phone numbers, attendee names and notes.
+Local and international phone searches work across all saved numbers.
+
+Click a data column heading to sort ascending, then click again to reverse it.
+**Sort by** also offers dates added, guest details updated, latest reply and last
+opened. Missing values stay at the end in either direction, with stable name/ID
+ordering for ties. Filters and sort order are encoded in the URL and survive
+refreshes, bookmarks and browser navigation. CSV downloads use the same filters
+and row order; the editable guest CSV retains its import-compatible columns.
+Selecting an event scopes replies, reply sorting, response totals and response
+CSV columns to that event. A response and reply-method combination must match
+the same reply. Households with no event invitation are not treated as waiting.
+
+Response totals describe the filtered households. Invitation progress cards
+count the current filtered scope before the progress filter, and preserve the
+other choices when selected. Periodic refresh continues while filter sections
+are open and pauses while a filter input is focused or an editor/dialog is open.
 
 The Invitations table combines sending controls under **Invitation**. A selected
 WhatsApp channel shows direct sending, WhatsApp message copying and, for several

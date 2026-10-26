@@ -10,14 +10,14 @@ import { TableCell, TableRow } from '@/components/ui/table';
 import { Textarea } from '@/components/ui/textarea';
 import { whatsappSendUrl } from '@/lib/domain/urls';
 import type { DeliveryState } from '@/lib/domain/delivery';
-import type { DeliveryChannelName, DeliveryStatus } from '@/lib/services/types';
+import type { DeliveryChannelName, DeliveryStatus, Side } from '@/lib/services/types';
 import { postJson } from '../_components/api';
-import { CHANNEL_LABELS, INVITATION_LABELS } from '../_components/presentation';
+import { CHANNEL_LABELS, INVITATION_LABELS, SIDE_LABELS } from '../_components/presentation';
 import { Feedback, StatusBadge } from '../_components/ui';
 import { PhoneNumbers } from '../_components/phone-numbers';
 
 type Props = {
-  guestId: string; displayName: string; phone: string | null; invitationUrl: string;
+  guestId: string; displayName: string; side: Side; phone: string | null; invitationUrl: string;
   message: string; plainMessage: string; whatsappNumbers: string[]; state: DeliveryState;
   firstOpenedAt: string | null; lastOpenedAt: string | null;
   channels: { channel: DeliveryChannelName; status: DeliveryStatus }[];
@@ -25,7 +25,7 @@ type Props = {
 type CopyTarget = 'whatsapp' | 'plain' | 'link';
 const statusLabels = { pending: 'Not sent', sent: 'Sent', delivered: 'Delivered' };
 
-export function SendRow({ guestId, displayName, phone, invitationUrl, message, plainMessage, whatsappNumbers, state, firstOpenedAt, lastOpenedAt, channels }: Props) {
+export function SendRow({ guestId, displayName, side, phone, invitationUrl, message, plainMessage, whatsappNumbers, state, firstOpenedAt, lastOpenedAt, channels }: Props) {
   const router = useRouter();
   const id = useId();
   const [open, setOpen] = useState(false);
@@ -70,6 +70,7 @@ export function SendRow({ guestId, displayName, phone, invitationUrl, message, p
     <Dialog open={open} onOpenChange={value => { if (!busy) { setOpen(value); if (value) setLoaded(true); } }}>
       <TableRow>
         <TableCell><span className="admin-name" title={displayName}>{displayName}</span></TableCell>
+        <TableCell>{SIDE_LABELS[side]}</TableCell>
         <TableCell><PhoneNumbers value={phone} /></TableCell>
         <TableCell><div className="admin-cell-badges">{channels.length ? channels.map(channel => <span key={channel.channel} className="admin-channel-tag" title={statusLabels[channel.status]}>{CHANNEL_LABELS[channel.channel]}</span>) : <span className="text-muted-foreground">None</span>}</div>{needsPhone && <span className="admin-warning-text">WhatsApp phone missing</span>}</TableCell>
         <TableCell><StatusBadge tone={state === 'responded' ? 'positive' : state === 'opened' ? 'warm' : 'neutral'}>{INVITATION_LABELS[state]}</StatusBadge></TableCell>

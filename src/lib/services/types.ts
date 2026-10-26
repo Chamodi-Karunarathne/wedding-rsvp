@@ -43,6 +43,9 @@ export type GuestView = {
   phone: string | null;
   /** Free-text, admin-only. Never rendered to the guest. */
   notes: string | null;
+  /** Available on persisted households for admin date ordering. */
+  createdAt?: Date;
+  updatedAt?: Date;
 };
 
 export type EventView = {

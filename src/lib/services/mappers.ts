@@ -24,6 +24,8 @@ export function toGuestView(row: GuestRow): GuestView {
     maxPartySize: row.maxPartySize,
     phone: row.phone,
     notes: row.notes,
+    createdAt: row.createdAt,
+    updatedAt: row.updatedAt,
   };
 }
 

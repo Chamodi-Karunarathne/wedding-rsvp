@@ -19,7 +19,12 @@ const GuestEditor = dynamic(() => import('./guest-editor').then(module => module
   loading: () => <p role="status">Loading guest details…</p>,
 });
 
-export function GuestRow({ row, events, timezone }: { row: GuestListRow; events: EventView[]; timezone: string }) {
+export function GuestRow({ row, events, timezone, displayEvent = 'all' }: {
+  row: GuestListRow;
+  events: EventView[];
+  timezone: string;
+  displayEvent?: string;
+}) {
   const router = useRouter();
   const deleteInFlight = useRef(false);
   const [open, setOpen] = useState(false);
@@ -49,7 +54,8 @@ export function GuestRow({ row, events, timezone }: { row: GuestListRow; events:
   }
   if (removed) return null;
   const state = invitationStatus(row);
-  const invited = events.filter(event => row.eventSlugs.includes(event.slug));
+  const invited = events.filter(event => row.eventSlugs.includes(event.slug) &&
+    (displayEvent === 'all' || event.slug === displayEvent));
   return (
     <Dialog open={open} onOpenChange={value => { if (!deleting) { setOpen(value); if (value) setLoaded(true); else setConfirmDelete(false); } }}>
       <TableRow>
