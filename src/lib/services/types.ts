@@ -39,6 +39,7 @@ export type GuestView = {
   side: Side;
   language: Locale;
   maxPartySize: number;
+  /** Canonical comma-separated numbers; split with splitPhoneNumbers for actions. */
   phone: string | null;
   /** Free-text, admin-only. Never rendered to the guest. */
   notes: string | null;

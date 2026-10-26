@@ -2,6 +2,7 @@ import { deliveryState } from '@/lib/domain/delivery';
 import type { GuestListRow } from '@/lib/services/guests';
 import type { DeliveryChannelName, RsvpSource, Side } from '@/lib/services/types';
 import type { Phase } from '@/lib/domain/phase';
+import { splitPhoneNumbers } from '@/lib/domain/phone';
 
 export const SIDE_LABELS: Record<Side, string> = {
   bride: "Bride's family",
@@ -11,8 +12,16 @@ export const SIDE_LABELS: Record<Side, string> = {
 export const CHANNEL_LABELS: Record<DeliveryChannelName, string> = {
   whatsapp: 'WhatsApp',
   print: 'Printed card',
+  instagram: 'Instagram',
+  messenger: 'Messenger',
+  wechat: 'WeChat',
   in_person: 'In person',
 };
+
+export function needsWhatsAppPhone(row: GuestListRow) {
+  return row.channels.some((channel) => channel.channel === 'whatsapp') &&
+    splitPhoneNumbers(row.guest.phone).length === 0;
+}
 export const SOURCE_LABELS: Record<RsvpSource, string> = {
   self: 'Online',
   phone: 'By phone',
@@ -50,6 +59,7 @@ export function matchesSearch(row: GuestListRow, query: string) {
 }
 
 export function matchesReply(row: GuestListRow, status: string) {
+  if (status === 'needs_phone') return needsWhatsAppPhone(row);
   if (status === 'waiting')
     return row.eventSlugs.some((slug) => !row.rsvps.some((reply) => reply.eventSlug === slug));
   if (status === 'coming') return row.rsvps.some((reply) => reply.attending);

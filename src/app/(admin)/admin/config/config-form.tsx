@@ -27,11 +27,12 @@ type Props = {
     timezone: string;
     rsvpContacts: { name: string; phone: string; side: string }[];
   };
-  messaging: { whatsappTemplate: string };
+  messaging: { whatsappTemplate: string; plainTextTemplate: string };
   derivedPhase: Phase;
   previewVars: { date: string; rsvpBy: string };
 };
 type Key = 'phase' | 'site' | 'messaging';
+type MessageKey = 'whatsappTemplate' | 'plainTextTemplate';
 type State = { busy: boolean; error: string | null; success: string | null };
 const automatic = 'automatic';
 const scheduleFields = [
@@ -63,6 +64,7 @@ const inserts = [
 export function ConfigForm({ phase, site, messaging, derivedPhase, previewVars }: Props) {
   const router = useRouter();
   const messageRef = useRef<HTMLTextAreaElement>(null);
+  const plainMessageRef = useRef<HTMLTextAreaElement>(null);
   const [phaseForm, setPhaseForm] = useState(phase);
   const [siteForm, setSiteForm] = useState(site);
   const [messagingForm, setMessagingForm] = useState(messaging);
@@ -113,22 +115,19 @@ export function ConfigForm({ phase, site, messaging, derivedPhase, previewVars }
     }));
     changed('site');
   }
-  function insert(value: string) {
-    const start = messageRef.current?.selectionStart ?? messagingForm.whatsappTemplate.length;
-    const end = messageRef.current?.selectionEnd ?? start;
-    setMessagingForm({
-      whatsappTemplate:
-        messagingForm.whatsappTemplate.slice(0, start) +
-        value +
-        messagingForm.whatsappTemplate.slice(end),
-    });
+  function insert(field: MessageKey, value: string) {
+    const ref = field === 'whatsappTemplate' ? messageRef : plainMessageRef;
+    const template = messagingForm[field];
+    const start = ref.current?.selectionStart ?? template.length;
+    const end = ref.current?.selectionEnd ?? start;
+    setMessagingForm(prev => ({ ...prev, [field]: template.slice(0, start) + value + template.slice(end) }));
     changed('messaging');
     requestAnimationFrame(() => {
-      messageRef.current?.focus();
-      messageRef.current?.setSelectionRange(start + value.length, start + value.length);
+      ref.current?.focus();
+      ref.current?.setSelectionRange(start + value.length, start + value.length);
     });
   }
-  const preview = renderTemplate(messagingForm.whatsappTemplate, {
+  const preview = (template: string) => renderTemplate(template, {
     ...previewVars,
     brideName: siteForm.brideName,
     groomName: siteForm.groomName,
@@ -386,10 +385,10 @@ export function ConfigForm({ phase, site, messaging, derivedPhase, previewVars }
       </Card>
       <Card id="invitation-message" className="scroll-mt-28">
         <CardHeader>
-          <CardTitle>WhatsApp invitation message</CardTitle>
+          <CardTitle>Invitation messages</CardTitle>
           <CardDescription>
-            The message you prepare when sending an invitation. Each guest’s name and link are
-            filled in automatically.
+            Use a WhatsApp message and a separate plain-text message for other channels. Each
+            guest’s name and invitation link are filled in automatically.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -401,20 +400,26 @@ export function ConfigForm({ phase, site, messaging, derivedPhase, previewVars }
             className="space-y-5"
           >
             <fieldset disabled={states.messaging.busy} className="space-y-4">
-              <div className="grid gap-5 lg:grid-cols-2">
+              {([
+                ['whatsappTemplate', 'WhatsApp message', 'WhatsApp formatting is supported here.'],
+                ['plainTextTemplate', 'Plain-text message', 'For Instagram, Messenger, WeChat and other channels. Use ordinary text, without WhatsApp formatting markers.'],
+              ] as const).map(([field, label, hint]) => (
+              <div key={field} id={field === 'plainTextTemplate' ? 'plain-invitation-message' : undefined} className="grid gap-5 border-b border-border pb-5 last:border-0 lg:grid-cols-2">
                 <div className="space-y-3">
-                  <Label htmlFor="whatsapp-message">Your message</Label>
+                  <Label htmlFor={field}>{label}</Label>
                   <Textarea
-                    ref={messageRef}
-                    id="whatsapp-message"
+                    ref={field === 'whatsappTemplate' ? messageRef : plainMessageRef}
+                    id={field}
                     rows={10}
-                    value={messagingForm.whatsappTemplate}
+                    maxLength={2000}
+                    value={messagingForm[field]}
                     onChange={(e) => {
-                      setMessagingForm({ whatsappTemplate: e.target.value });
+                      setMessagingForm(prev => ({ ...prev, [field]: e.target.value }));
                       changed('messaging');
                     }}
                     required
                   />
+                  <p className="text-xs text-muted-foreground">{hint}</p>
                   <p className="text-xs text-muted-foreground">
                     Insert a personal detail at the cursor:
                   </p>
@@ -424,7 +429,7 @@ export function ConfigForm({ phase, site, messaging, derivedPhase, previewVars }
                         type="button"
                         variant="outline"
                         key={value}
-                        onClick={() => insert(value)}
+                        onClick={() => insert(field, value)}
                       >
                         {label}
                       </Button>
@@ -444,18 +449,19 @@ export function ConfigForm({ phase, site, messaging, derivedPhase, previewVars }
                 <div className="space-y-3">
                   <p className="font-medium">Message preview</p>
                   <p className="whitespace-pre-wrap rounded-xl border border-border bg-[#f4f5ee] p-5">
-                    {preview}
+                    {preview(messagingForm[field])}
                   </p>
                   <p className="text-xs text-muted-foreground">
                     The preview uses the saved wedding and reply dates. Existing messages already
-                    sent in WhatsApp stay as they are.
+                    sent to guests stay as they are.
                   </p>
                 </div>
               </div>
+              ))}
             </fieldset>
             <Feedback error={states.messaging.error} success={states.messaging.success} />
             <Button type="submit" disabled={states.messaging.busy}>
-              {states.messaging.busy ? 'Saving message…' : 'Save invitation message'}
+              {states.messaging.busy ? 'Saving messages…' : 'Save invitation messages'}
             </Button>
           </form>
         </CardContent>

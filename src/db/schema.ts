@@ -25,7 +25,7 @@ import {
 export const SIDES = ['bride', 'groom', 'both'] as const;
 export const LOCALES = ['en', 'si'] as const;
 export const RSVP_SOURCES = ['self', 'admin', 'phone'] as const;
-export const DELIVERY_CHANNELS = ['whatsapp', 'print', 'in_person'] as const;
+export const DELIVERY_CHANNELS = ['whatsapp', 'print', 'instagram', 'messenger', 'wechat', 'in_person'] as const;
 export const DELIVERY_STATUSES = ['pending', 'sent', 'delivered'] as const;
 
 export type Side = (typeof SIDES)[number];
@@ -78,6 +78,7 @@ export const guests = pgTable(
     side: text('side', { enum: SIDES }).notNull(),
     language: text('language', { enum: LOCALES }).notNull().default('en'),
     maxPartySize: integer('max_party_size').notNull().default(2),
+    // Comma-separated canonical international numbers; existing single values remain valid.
     phone: text('phone'),
     // Free-text, admin-only. Anything ad hoc the family wants recorded
     // against a household - dietary needs, "calls the landline", anything.

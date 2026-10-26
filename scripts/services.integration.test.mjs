@@ -265,8 +265,16 @@ describe('PostgreSQL service transactions in a disposable schema', () => {
     const f = await fixture();
     await pool.query("INSERT INTO delivery_channels (guest_id,channel,status,sent_at,sent_by,notes) VALUES ($1,'whatsapp','delivered','2026-10-01T00:00:00Z','Original sender','Original channel note')", [f.guest.id]);
     const csv = `display_name,side,max_party_size,channels\n${f.guest.displayName},bride,4,whatsapp|print`;
+    const reviewed = async (text, dryRun = false) => {
+      const check = await importGuestsCsv(text, { dryRun: true }, db);
+      assert.equal(check.ok, true);
+      const decisions = check.data.results.filter((row) => row.duplicate).map((row) => ({
+        row: row.row, guestId: row.duplicate.guestId, updatedAt: row.duplicate.updatedAt, action: 'update',
+      }));
+      return importGuestsCsv(text, { dryRun, decisions }, db);
+    };
     for (let run = 0; run < 2; run += 1) {
-      const imported = await importGuestsCsv(csv, {}, db);
+      const imported = await reviewed(csv);
       assert.equal(imported.ok && imported.data.updated, 1);
     }
     const channel = (await pool.query("SELECT * FROM delivery_channels WHERE guest_id=$1 AND channel='whatsapp'", [f.guest.id])).rows[0];
@@ -277,8 +285,8 @@ describe('PostgreSQL service transactions in a disposable schema', () => {
     assert.equal((await pool.query('SELECT token FROM guests WHERE id=$1', [f.guest.id])).rows[0].token, f.guest.token);
     assert.equal((await submitRsvpByGuestId(f.guest.id, answer(f.eventSlug, 4), db)).ok, true);
     const smallCsv = `display_name,side,max_party_size\n${f.guest.displayName},bride,2`;
-    const preview = await importGuestsCsv(smallCsv, { dryRun: true }, db);
-    const save = await importGuestsCsv(smallCsv, {}, db);
+    const preview = await reviewed(smallCsv, true);
+    const save = await reviewed(smallCsv);
     assert.equal(preview.ok && preview.data.errors, 1);
     assert.equal(save.ok && save.data.errors, 1);
     assert.equal(preview.data.results[0].message, save.data.results[0].message);
@@ -291,7 +299,12 @@ describe('PostgreSQL service transactions in a disposable schema', () => {
     try {
       const newName = `Next ${randomUUID()}`;
       const csv = `display_name,side,max_party_size,channels\n${f.guest.displayName},bride,4,print\n${newName},groom,2,whatsapp`;
-      const imported = await importGuestsCsv(csv, {}, db);
+      const preview = await importGuestsCsv(csv, { dryRun: true }, db);
+      assert.equal(preview.ok, true);
+      const decisions = preview.data.results.filter((row) => row.duplicate).map((row) => ({
+        row: row.row, guestId: row.duplicate.guestId, updatedAt: row.duplicate.updatedAt, action: 'update',
+      }));
+      const imported = await importGuestsCsv(csv, { decisions }, db);
       assert.equal(imported.ok && imported.data.errors, 1);
       assert.equal(imported.ok && imported.data.created, 1);
       assert.equal((await pool.query('SELECT notes FROM guests WHERE id=$1', [f.guest.id])).rows[0].notes, 'Original notes');

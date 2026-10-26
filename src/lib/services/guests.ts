@@ -1,4 +1,4 @@
-import { and, asc, eq, inArray } from 'drizzle-orm';
+import { and, asc, eq, inArray, notInArray } from 'drizzle-orm';
 import { getDb, type DbLike, type Tx } from '@/db/client';
 import {
   deliveryChannels,
@@ -9,12 +9,12 @@ import {
   rsvps,
 } from '@/db/schema';
 import { generateToken } from '@/lib/domain/ids';
-import { normalizePhone } from '@/lib/domain/phone';
+import { normalizePhones, phoneListError } from '@/lib/domain/phone';
 import { ok, serviceError, type Result } from '@/lib/domain/result';
 import { toDeliveryChannelView, toEventView, toGuestView, toRsvpView } from './mappers';
 import { listOpens } from './opens';
 import { lockGuest, withTransaction } from './transactions';
-import type { DeliveryChannelView, EventView, GuestView, RsvpView, Side } from './types';
+import type { DeliveryChannelName, DeliveryChannelView, EventView, GuestView, RsvpView, Side } from './types';
 
 /** PERMANENT. Guest reads and writes. */
 
@@ -133,12 +133,16 @@ export type GuestInput = {
   notes?: string | null;
   /** Event slugs this guest is invited to. Replaces the existing set. */
   eventSlugs?: string[];
+  /** Omitted leaves membership unchanged; supplied replaces the channel set. */
+  channels?: DeliveryChannelName[];
 };
 
 export async function createGuest(
   input: GuestInput,
   db: DbLike = getDb(),
 ): Promise<Result<GuestView>> {
+  const phoneError = phoneListError(input.phone);
+  if (phoneError) return serviceError('validation', phoneError, 'phone');
   return withTransaction(db, async (tx) => {
     const planned = input.eventSlugs !== undefined
       ? await resolveInvitations(input.eventSlugs, tx)
@@ -158,13 +162,14 @@ export async function createGuest(
         side: input.side,
         language: input.language ?? 'en',
         maxPartySize: input.maxPartySize ?? 2,
-        phone: normalizePhone(input.phone),
+        phone: normalizePhones(input.phone),
         notes: input.notes ?? null,
       })
       .returning();
 
     if (!row) return serviceError('internal', 'Guest insert returned no row.');
     if (planned.data) await replaceInvitations(row.id, planned.data.eventIds, tx);
+    if (input.channels !== undefined) await ensureDeliveryChannels(row.id, input.channels, tx);
     return ok(toGuestView(row));
   });
 }
@@ -174,6 +179,8 @@ export async function updateGuest(
   input: Partial<GuestInput>,
   db: DbLike = getDb(),
 ): Promise<Result<GuestView>> {
+  const phoneError = phoneListError(input.phone);
+  if (phoneError) return serviceError('validation', phoneError, 'phone');
   return withTransaction(db, async (tx) => {
     const prepared = await prepareGuestUpdate(guestId, input, tx);
     if (!prepared.ok) return prepared;
@@ -189,7 +196,7 @@ export async function updateGuest(
         ...(input.side !== undefined && { side: input.side }),
         ...(input.language !== undefined && { language: input.language }),
         ...(input.maxPartySize !== undefined && { maxPartySize: input.maxPartySize }),
-        ...(input.phone !== undefined && { phone: normalizePhone(input.phone) }),
+        ...(input.phone !== undefined && { phone: normalizePhones(input.phone) }),
         ...(input.notes !== undefined && { notes: input.notes }),
         updatedAt: new Date(),
       })
@@ -200,6 +207,7 @@ export async function updateGuest(
     if (prepared.data.invitations) {
       await replaceInvitations(guestId, prepared.data.invitations.eventIds, tx);
     }
+    if (input.channels !== undefined) await replaceDeliveryChannels(guestId, input.channels, tx);
     return ok(toGuestView(row));
   });
 }
@@ -423,47 +431,62 @@ export async function ensureDeliveryChannels(
     .onConflictDoNothing({ target: [deliveryChannels.guestId, deliveryChannels.channel] });
 }
 
+/** Keep sending history for retained channels; only remove deselected memberships. */
+async function replaceDeliveryChannels(guestId: string, channels: DeliveryChannelName[], tx: Tx): Promise<void> {
+  const unique = [...new Set(channels)];
+  await tx.delete(deliveryChannels).where(unique.length
+    ? and(eq(deliveryChannels.guestId, guestId), notInArray(deliveryChannels.channel, unique))
+    : eq(deliveryChannels.guestId, guestId));
+  await ensureDeliveryChannels(guestId, unique, tx);
+}
+
 export async function setDeliveryChannel(
   guestId: string,
-  channel: 'whatsapp' | 'print' | 'in_person',
+  channel: DeliveryChannelName,
   patch: { status?: 'pending' | 'sent' | 'delivered'; sentBy?: string | null; notes?: string | null },
   db: DbLike = getDb(),
 ): Promise<Result<DeliveryChannelView>> {
-  const status = patch.status ?? 'pending';
-  const sentAt = status === 'pending' ? null : new Date();
+  return withTransaction(db, async (tx) => {
+    if (!await lockGuest(tx, { id: guestId })) return serviceError('not_found', 'No such guest.');
+    const status = patch.status ?? 'pending';
+    const sentAt = status === 'pending' ? null : new Date();
 
-  const [row] = await db
-    .insert(deliveryChannels)
-    .values({
-      guestId,
-      channel,
-      status,
-      sentAt,
-      sentBy: patch.sentBy ?? null,
-      notes: patch.notes ?? null,
-    })
-    .onConflictDoUpdate({
-      target: [deliveryChannels.guestId, deliveryChannels.channel],
-      set: {
+    const [row] = await tx
+      .insert(deliveryChannels)
+      .values({
+        guestId,
+        channel,
         status,
         sentAt,
         sentBy: patch.sentBy ?? null,
-        ...(patch.notes !== undefined && { notes: patch.notes }),
-      },
-    })
-    .returning();
+        notes: patch.notes ?? null,
+      })
+      .onConflictDoUpdate({
+        target: [deliveryChannels.guestId, deliveryChannels.channel],
+        set: {
+          status,
+          sentAt,
+          sentBy: patch.sentBy ?? null,
+          ...(patch.notes !== undefined && { notes: patch.notes }),
+        },
+      })
+      .returning();
 
-  if (!row) return serviceError('internal', 'Delivery channel upsert returned no row.');
-  return ok(toDeliveryChannelView(row));
+    if (!row) return serviceError('internal', 'Delivery channel upsert returned no row.');
+    return ok(toDeliveryChannelView(row));
+  });
 }
 
 export async function removeDeliveryChannel(
   guestId: string,
-  channel: 'whatsapp' | 'print' | 'in_person',
+  channel: DeliveryChannelName,
   db: DbLike = getDb(),
 ): Promise<Result<{ ok: true }>> {
-  await db
-    .delete(deliveryChannels)
-    .where(and(eq(deliveryChannels.guestId, guestId), eq(deliveryChannels.channel, channel)));
-  return ok({ ok: true });
+  return withTransaction(db, async (tx) => {
+    if (!await lockGuest(tx, { id: guestId })) return serviceError('not_found', 'No such guest.');
+    await tx
+      .delete(deliveryChannels)
+      .where(and(eq(deliveryChannels.guestId, guestId), eq(deliveryChannels.channel, channel)));
+    return ok({ ok: true });
+  });
 }

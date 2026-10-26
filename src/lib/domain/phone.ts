@@ -9,6 +9,10 @@
  */
 
 const DEFAULT_COUNTRY_CODE = '94'; // Sri Lanka
+export const PHONE_LIST_MAX_LENGTH = 500;
+
+const PHONE_CHARACTERS = /^\+?[\d\s().-]+$/;
+const USABLE_PHONE = /^\+[1-9]\d{6,14}$/;
 
 /**
  * Returns E.164-ish digits with a leading '+', or null for empty input.
@@ -46,6 +50,42 @@ export function normalizePhone(raw: string | null | undefined): string | null {
   return `+${digits}`;
 }
 
+/** Normalize each comma-separated number independently, retaining first-use order. */
+export function splitPhoneNumbers(raw: string | null | undefined): string[] {
+  const phones = new Set<string>();
+  for (const part of (raw ?? '').split(',')) {
+    const value = part.trim();
+    if (!value || !PHONE_CHARACTERS.test(value)) continue;
+    const phone = normalizePhone(value);
+    if (phone && USABLE_PHONE.test(phone)) phones.add(phone);
+  }
+  return [...phones];
+}
+
+/** Canonical storage keeps compatibility with the existing nullable text column. */
+export function normalizePhones(raw: string | null | undefined): string | null {
+  const phones = splitPhoneNumbers(raw);
+  return phones.length ? phones.join(', ') : null;
+}
+
+/** Empty is allowed, including WhatsApp invites that need a persistent warning. */
+export function phoneListError(raw: string | null | undefined): string | null {
+  if (raw === null || raw === undefined || raw.trim() === '') return null;
+  if (raw.length > PHONE_LIST_MAX_LENGTH) return `Phone numbers must contain at most ${PHONE_LIST_MAX_LENGTH} characters.`;
+  for (const part of raw.split(',')) {
+    const value = part.trim();
+    if (!value) continue;
+    const phone = normalizePhone(value);
+    if (value.length > 40 || !PHONE_CHARACTERS.test(value) || !phone || !USABLE_PHONE.test(phone)) {
+      return 'Enter valid phone numbers separated by commas, for example 0771234567, +94771234568.';
+    }
+  }
+  if ((normalizePhones(raw)?.length ?? 0) > PHONE_LIST_MAX_LENGTH) {
+    return `Normalized phone numbers must contain at most ${PHONE_LIST_MAX_LENGTH} characters.`;
+  }
+  return null;
+}
+
 /**
  * The de-duplication key for CSV import.
  *
@@ -55,5 +95,5 @@ export function normalizePhone(raw: string | null | undefined): string | null {
  */
 export function importKey(sortName: string, phone: string | null | undefined): string {
   const name = sortName.trim().toLowerCase().replace(/\s+/g, ' ');
-  return `${name}\u0000${normalizePhone(phone) ?? ''}`;
+  return `${name}\u0000${splitPhoneNumbers(phone).sort().join(',')}`;
 }

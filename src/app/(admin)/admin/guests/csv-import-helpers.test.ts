@@ -8,7 +8,7 @@ import {
 
 function summary() {
   return {
-    created: 1, updated: 1, skipped: 0, errors: 1, dryRun: true,
+    created: 1, updated: 1, duplicates: 0, skipped: 0, errors: 1, dryRun: true,
     results: [
       { row: 2, status: 'created', displayName: 'New family' },
       { row: 3, status: 'updated', displayName: 'Existing family' },
@@ -34,6 +34,20 @@ describe('CSV import response validation', () => {
     const unsafeMessage = summary();
     Object.assign(unsafeMessage.results[2]!, { message: { detail: 'bad' } });
     assert.equal(readImportSummary(unsafeMessage, true), null);
+  });
+
+  it('requires complete duplicate identity/version metadata before offering choices', () => {
+    const duplicate = {
+      created: 0, updated: 0, duplicates: 1, skipped: 0, errors: 0, dryRun: true,
+      results: [{ row: 2, status: 'duplicate', displayName: 'Family', duplicate: {
+        guestId: '00000000-0000-4000-8000-000000000001', updatedAt: '2026-10-26T00:00:00.000Z', displayName: 'Existing family', phone: null,
+      } }],
+    };
+    assert.equal(readImportSummary(duplicate, true), duplicate);
+    assert.equal(readImportSummary({ ...duplicate, results: [{ row: 2, status: 'duplicate', displayName: 'Family' }] }, true), null);
+    const invalidVersion = structuredClone(duplicate);
+    invalidVersion.results[0]!.duplicate.updatedAt = 'invalid';
+    assert.equal(readImportSummary(invalidVersion, true), null);
   });
 
   it('counts encoded JSON bytes so escaped or multibyte text cannot bypass the limit', () => {

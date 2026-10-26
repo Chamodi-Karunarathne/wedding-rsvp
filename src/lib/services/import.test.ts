@@ -37,7 +37,7 @@ describe('CSV import validation before writes', () => {
   } as unknown as DbLike;
 
   it('enforces the same text lengths as manual guest entry for preview and save', async () => {
-    for (const [column, length] of [['display_name', 301], ['sort_name', 301], ['display_name_fallback', 301], ['phone', 41], ['notes', 4001]] as const) {
+    for (const [column, length] of [['display_name', 301], ['sort_name', 301], ['display_name_fallback', 301], ['phone', 501], ['notes', 4001]] as const) {
       const header = column === 'display_name' ? 'display_name,side' : `display_name,side,${column}`;
       const line = column === 'display_name' ? `${'A'.repeat(length)},bride` : `Person,bride,${'1'.repeat(length)}`;
       for (const dryRun of [true, false]) {

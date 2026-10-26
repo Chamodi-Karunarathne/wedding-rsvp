@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { deliveryState } from './delivery.ts';
+import { deliveryNeedsPhone, deliveryState } from './delivery.ts';
 
 const NEVER: { channels: { status: string }[]; firstOpen: Date | null; hasResponse: boolean } = {
   channels: [],
@@ -9,6 +9,16 @@ const NEVER: { channels: { status: string }[]; firstOpen: Date | null; hasRespon
 };
 
 const OPENED_AT = new Date('2026-11-01T10:00:00.000Z');
+
+describe('deliveryNeedsPhone', () => {
+  it('keeps WhatsApp missing-number warnings derived from current phone/channel data', () => {
+    assert.equal(deliveryNeedsPhone({ phone: null, channels: [{ channel: 'whatsapp' }] }), true);
+    assert.equal(deliveryNeedsPhone({ phone: 'N/A', channels: [{ channel: 'whatsapp' }] }), true);
+    assert.equal(deliveryNeedsPhone({ phone: '0771234567, 0712223333', channels: [{ channel: 'whatsapp' }] }), false);
+    assert.equal(deliveryNeedsPhone({ phone: null, channels: [{ channel: 'instagram' }, { channel: 'print' }] }), false);
+    assert.equal(deliveryNeedsPhone({ phone: null, channels: [] }), false);
+  });
+});
 
 describe('deliveryState', () => {
   it('is not_sent until a channel actually goes out', () => {

@@ -1,5 +1,6 @@
 import { z } from 'zod';
-import { LOCALES, SIDES } from '@/db/schema';
+import { DELIVERY_CHANNELS, LOCALES, SIDES } from '@/db/schema';
+import { PHONE_LIST_MAX_LENGTH, phoneListError } from './phone.ts';
 
 /** Shared by manual guest entry and CSV import, including CSV previews. */
 export const guestInputSchema = z.object({
@@ -9,7 +10,10 @@ export const guestInputSchema = z.object({
   side: z.enum(SIDES),
   language: z.enum(LOCALES).optional(),
   maxPartySize: z.number().int().min(1).max(50),
-  phone: z.string().max(40).nullable().optional(),
+  phone: z.string().max(PHONE_LIST_MAX_LENGTH).refine((value) => phoneListError(value) === null, {
+    message: 'Enter valid phone numbers separated by commas.',
+  }).nullable().optional(),
+  channels: z.array(z.enum(DELIVERY_CHANNELS)).max(DELIVERY_CHANNELS.length).optional(),
   notes: z.string().max(4000).nullable().optional(),
   eventSlugs: z.array(z.string().min(1)).max(20).optional(),
 });

@@ -82,6 +82,14 @@ export const siteSettingsInputSchema = z.object({
 
 export const messagingConfigInputSchema = z.object({
   whatsappTemplate: z.string().min(1).max(2000),
+  plainTextTemplate: z.string().min(1).max(2000),
+});
+
+export const deliveryChannelDeleteSchema = deliveryChannelSchema.pick({ guestId: true, channel: true });
+
+export const clearGuestsSchema = z.object({
+  confirmation: z.literal('DELETE ALL GUESTS'),
+  expectedCount: z.number().int().min(0),
 });
 
 export const csvImportSchema = z.object({
@@ -89,6 +97,12 @@ export const csvImportSchema = z.object({
   /** Event slugs applied to every imported row that does not specify its own. */
   defaultEventSlugs: z.array(z.string().min(1)).max(20).optional(),
   dryRun: z.boolean().optional(),
+  decisions: z.array(z.object({
+    row: z.number().int().min(2),
+    guestId: z.string().uuid(),
+    updatedAt: z.string().datetime(),
+    action: z.enum(['update', 'replace', 'discard']),
+  })).max(1000).optional(),
 });
 
 export type CsvImportRequest = z.infer<typeof csvImportSchema>;

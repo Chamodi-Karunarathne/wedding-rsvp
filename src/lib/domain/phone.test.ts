@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { importKey, normalizePhone } from './phone.ts';
+import { importKey, normalizePhone, normalizePhones, phoneListError, splitPhoneNumbers } from './phone.ts';
 
 describe('normalizePhone', () => {
   it('returns null for empty input', () => {
@@ -53,6 +53,10 @@ describe('normalizePhone', () => {
 });
 
 describe('importKey', () => {
+  it('is independent of phone-list order, formatting and repeats', () => {
+    assert.equal(importKey('Family', '0771234567, 0712223333'),
+      importKey('family', '+94712223333, 94771234567, 0771234567'));
+  });
   it('is stable across phone formatting', () => {
     assert.equal(
       importKey('Perera, Ranjani', '077 123 4567'),
@@ -80,5 +84,37 @@ describe('importKey', () => {
       importKey('Silva, Kamal', '0771234567'),
       importKey('Silva, Kamal', '0777654321'),
     );
+  });
+});
+
+describe('phone lists', () => {
+  it('normalizes every number independently, deduplicates and preserves preferred order', () => {
+    assert.deepEqual(splitPhoneNumbers('077 123 4567, +94 71 222 3333, 94771234567, 44 7700 900123'),
+      ['+94771234567', '+94712223333', '+447700900123']);
+    assert.equal(normalizePhones('077 123 4567, 0712223333'), '+94771234567, +94712223333');
+    assert.equal(normalizePhones('+94771234567, +94712223333'), '+94771234567, +94712223333');
+  });
+
+  it('accepts optional blanks and does not treat malformed entries as usable phones', () => {
+    for (const value of [null, undefined, '', ' , , ']) {
+      assert.equal(normalizePhones(value), null);
+      assert.equal(phoneListError(value), null);
+    }
+    assert.deepEqual(splitPhoneNumbers('N/A, 123, 0, 7.71E+08'), []);
+  });
+
+  it('rejects one bad entry in a list without silently accepting its good companion', () => {
+    for (const value of ['0771234567, N/A', '0771234567, 7.71E+08', '123', '+00000000', '1'.repeat(501)]) {
+      assert.ok(phoneListError(value), value);
+    }
+    assert.equal(phoneListError('0771234567, +94712223333'), null);
+  });
+
+  it('checks the canonical length too, so a saved list can always be edited again', () => {
+    const phones = Array.from({ length: 45 }, (_, index) => `077${String(index).padStart(7, '0')}`).join(',');
+    assert.ok(phones.length <= 500);
+    const error = phoneListError(phones);
+    assert.ok(error);
+    assert.match(error, /Normalized phone numbers/);
   });
 });

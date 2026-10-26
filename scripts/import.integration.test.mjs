@@ -58,6 +58,13 @@ const expectSummary = (result) => {
   return result.data;
 };
 const sqlGuest = async (id) => (await pool.query('SELECT * FROM guests WHERE id=$1', [id])).rows[0];
+async function reviewedImport(csv, options = {}, database = db, action = 'update') {
+  const preview = expectSummary(await importGuestsCsv(csv, { ...options, dryRun: true }, database));
+  const decisions = preview.results.filter((row) => row.duplicate).map((row) => ({
+    row: row.row, guestId: row.duplicate.guestId, updatedAt: row.duplicate.updatedAt, action,
+  }));
+  return importGuestsCsv(csv, { ...options, decisions }, database);
+}
 async function fixture(input = {}) {
   const name = uniqueName();
   const result = await createGuest({
@@ -70,6 +77,121 @@ async function fixture(input = {}) {
 }
 
 describe('CSV import end to end against disposable PostgreSQL', () => {
+  it('requires an explicit duplicate decision and keeps discarded rows unchanged', async () => {
+    const guest = await fixture({ phone: '0771234567' });
+    const before = await sqlGuest(guest.id);
+    const csv = `display_name,side,phone,notes\n${guest.displayName},groom,0771234567,Incoming notes`;
+    for (const dryRun of [true, false]) {
+      const result = expectSummary(await importGuestsCsv(csv, { dryRun }, db));
+      assert.equal(result.duplicates, 1);
+      assert.equal(result.updated, 0);
+      assert.equal(result.results[0].duplicate.guestId, guest.id);
+      assert.deepEqual(await sqlGuest(guest.id), before);
+    }
+    const discarded = expectSummary(await reviewedImport(csv, {}, db, 'discard'));
+    assert.equal(discarded.skipped, 1);
+    assert.deepEqual(await sqlGuest(guest.id), before);
+  });
+
+  it('merges Update choices and replaces editable assignments only for Replace choices', async () => {
+    const guest = await fixture({ phone: '0771234567,0777654321' });
+    await pool.query("INSERT INTO delivery_channels(guest_id,channel,status,sent_at,sent_by) VALUES($1,'whatsapp','delivered','2026-10-01T00:00:00Z','Keep sender')", [guest.id]);
+    const original = await sqlGuest(guest.id);
+    const merge = `display_name,side,phone,language,max_party_size,notes,events,channels\n${guest.displayName},both,"0771234567,0772223333",,,,other,instagram`;
+    const updated = expectSummary(await reviewedImport(merge, {}, db, 'update'));
+    assert.equal(updated.updated, 1);
+    const merged = await sqlGuest(guest.id);
+    assert.equal(merged.phone, '+94771234567, +94777654321, +94772223333');
+    assert.equal(merged.max_party_size, 4);
+    assert.equal(merged.notes, 'Original notes');
+    assert.equal(merged.language, 'si');
+    assert.equal((await pool.query('SELECT count(*) FROM invitations WHERE guest_id=$1', [guest.id])).rows[0].count, '2');
+    assert.equal((await pool.query("SELECT status FROM delivery_channels WHERE guest_id=$1 AND channel='whatsapp'", [guest.id])).rows[0].status, 'delivered');
+    const replace = `display_name,side,events,channels\n${guest.displayName},groom,other,instagram`;
+    const replaced = expectSummary(await reviewedImport(replace, {}, db, 'replace'));
+    assert.equal(replaced.updated, 1);
+    const saved = await sqlGuest(guest.id);
+    assert.equal(saved.token, original.token);
+    assert.equal(saved.created_at.toISOString(), original.created_at.toISOString());
+    assert.equal(saved.phone, null);
+    assert.equal(saved.notes, null);
+    assert.equal(saved.max_party_size, 2);
+    assert.equal(saved.language, 'en');
+    assert.deepEqual((await pool.query('SELECT channel FROM delivery_channels WHERE guest_id=$1', [guest.id])).rows, [{ channel: 'instagram' }]);
+    assert.deepEqual((await pool.query('SELECT event_id FROM invitations WHERE guest_id=$1', [guest.id])).rows, [{ event_id: otherEventId }]);
+  });
+
+  it('supports comma-quoted phone/channel cells and warns rather than rejects missing WhatsApp numbers', async () => {
+    const prefix = uniqueName();
+    const csv = `display_name,side,phone,channels\n${prefix} multiple,bride,"0771234567,94777654321","whatsapp,print,instagram,messenger,wechat"\n${prefix} missing,groom,,whatsapp\n${prefix} optional,both,,wechat`;
+    const preview = expectSummary(await importGuestsCsv(csv, { dryRun: true }, db));
+    assert.equal(preview.created, 3);
+    assert.equal(preview.results[1].warnings.length, 1);
+    assert.equal(preview.results[2].warnings, undefined);
+    const saved = expectSummary(await importGuestsCsv(csv, {}, db));
+    assert.equal(saved.created, 3);
+    assert.equal(saved.errors, 0);
+    const multi = (await pool.query('SELECT id,phone FROM guests WHERE token=$1', [saved.results[0].token])).rows[0];
+    assert.equal(multi.phone, '+94771234567, +94777654321');
+    assert.equal((await pool.query('SELECT count(*) FROM delivery_channels WHERE guest_id=$1', [multi.id])).rows[0].count, '5');
+    const fix = `display_name,side,phone,channels\n${prefix} missing,groom,0771112222,whatsapp`;
+    const fixed = expectSummary(await reviewedImport(fix, {}, db, 'update'));
+    assert.equal(fixed.updated, 1);
+    assert.equal(fixed.results[0].warnings, undefined);
+    assert.equal((await pool.query('SELECT count(*) FROM guests WHERE display_name=$1', [`${prefix} missing`])).rows[0].count, '1');
+  });
+
+  it('rejects merged phone lists over the editable limit in preview and save without changing the household', async () => {
+    const phone = (index) => `+9477${String(index).padStart(7, '0')}`;
+    const storedPhones = Array.from({ length: 20 }, (_, index) => phone(index)).join(', ');
+    const incomingPhones = [phone(0), ...Array.from({ length: 20 }, (_, index) => phone(index + 20))].join(', ');
+    assert.ok(storedPhones.length <= 500 && incomingPhones.length <= 500);
+    const guest = await fixture({ phone: storedPhones });
+    const original = await sqlGuest(guest.id);
+    const nextName = uniqueName();
+    const csv = `display_name,side,phone\n${guest.displayName},groom,"${incomingPhones}"\n${nextName},bride,`;
+    for (const dryRun of [true, false]) {
+      const result = expectSummary(await reviewedImport(csv, { dryRun }, db, 'update'));
+      assert.equal(result.errors, 1);
+      assert.equal(result.created, 1);
+      assert.match(result.results[0].message, /phone:.*500/);
+      assert.deepEqual(await sqlGuest(guest.id), original);
+    }
+    assert.equal((await pool.query('SELECT count(*) FROM guests WHERE display_name=$1', [nextName])).rows[0].count, '1');
+  });
+
+  it('rejects stale or wrong guest decisions after preview without changing either guest', async () => {
+    const guest = await fixture();
+    const csv = `display_name,side\n${guest.displayName},groom`;
+    const preview = expectSummary(await importGuestsCsv(csv, { dryRun: true }, db));
+    const duplicate = preview.results[0].duplicate;
+    await updateGuest(guest.id, { notes: 'Changed since preview' }, db);
+    const before = await sqlGuest(guest.id);
+    const stale = expectSummary(await importGuestsCsv(csv, { decisions: [{ row: 2, guestId: duplicate.guestId, updatedAt: duplicate.updatedAt, action: 'replace' }] }, db));
+    assert.equal(stale.errors, 1);
+    assert.match(stale.results[0].message, /changed after the preview/);
+    assert.deepEqual(await sqlGuest(guest.id), before);
+    const wrong = expectSummary(await importGuestsCsv(csv, { decisions: [{ row: 2, guestId: randomUUID(), updatedAt: before.updated_at.toISOString(), action: 'update' }] }, db));
+    assert.equal(wrong.errors, 1);
+    assert.deepEqual(await sqlGuest(guest.id), before);
+  });
+
+  it('flags two phone subsets targeting one existing household, including across batch boundaries', async () => {
+    const guest = await fixture({ phone: '0771234567,0777654321' });
+    const prefix = uniqueName();
+    const filler = Array.from({ length: 24 }, (_, index) => `${prefix} ${index},bride,`).join('\n');
+    const csv = `display_name,side,phone\n${guest.displayName},bride,0771234567\n${filler}\n${guest.displayName},bride,0777654321`;
+    const preview = expectSummary(await importGuestsCsv(csv, { dryRun: true }, db));
+    assert.equal(preview.created, 24);
+    assert.equal(preview.duplicates, 1);
+    assert.equal(preview.errors, 1);
+    assert.match(preview.results.at(-1).message, /same existing household as row 2/);
+    const saved = expectSummary(await reviewedImport(csv, {}, db, 'update'));
+    assert.equal(saved.created, 24);
+    assert.equal(saved.updated, 1);
+    assert.equal(saved.errors, 1);
+  });
+
   it('stores canonical phones when manually creating and editing households', async () => {
     for (const raw of ['077 123 4567', '94771234567', '771234567', '+94 77 123 4567']) {
       const guest = await fixture({ phone: raw });
@@ -100,7 +222,7 @@ describe('CSV import end to end against disposable PostgreSQL', () => {
     assert.equal(saved.language, 'si');
     assert.equal((await pool.query('SELECT event_id FROM invitations WHERE guest_id=$1', [saved.id])).rows[0].event_id, eventId);
     assert.equal((await pool.query('SELECT count(*) FROM delivery_channels WHERE guest_id=$1', [saved.id])).rows[0].count, '2');
-    const second = expectSummary(await importGuestsCsv(csv.replace('077 123 4567', '+94 77 123 4567'), {}, db));
+    const second = expectSummary(await reviewedImport(csv.replace('077 123 4567', '+94 77 123 4567'), {}, db));
     assert.equal(second.updated, 1);
     assert.equal(second.created, 0);
     assert.equal(second.results[0].token, saved.token);
@@ -114,7 +236,7 @@ describe('CSV import end to end against disposable PostgreSQL', () => {
     assert.equal(first.created, 1);
     assert.equal(first.errors, 1);
     assert.match(first.results[1].message, /row 2/);
-    const again = expectSummary(await importGuestsCsv(csv, {}, db));
+    const again = expectSummary(await reviewedImport(csv, {}, db));
     assert.equal(again.updated, 1);
     assert.equal(again.errors, 1);
   });
@@ -145,8 +267,8 @@ describe('CSV import end to end against disposable PostgreSQL', () => {
     }
     const csv = `display_name,side,channels\n${guest.displayName},both,whatsapp|print`;
     for (const dryRun of [true, false, false]) {
-      const result = expectSummary(await importGuestsCsv(csv, { dryRun }, db));
-      assert.equal(result.updated, 1);
+      const result = expectSummary(await reviewedImport(csv, { dryRun }, db));
+      assert.equal(result[dryRun ? 'duplicates' : 'updated'], 1);
       assert.equal(result.results[0].token, guest.token);
     }
     const saved = await sqlGuest(guest.id);
@@ -162,17 +284,17 @@ describe('CSV import end to end against disposable PostgreSQL', () => {
     assert.equal((await pool.query("SELECT status FROM delivery_channels WHERE guest_id=$1 AND channel='print'", [guest.id])).rows[0].status, 'pending');
   });
 
-  it('allows explicitly blank optional columns to clear/reset documented values', async () => {
+  it('uses CSV defaults and replaces assignments for an explicit Replace decision', async () => {
     const guest = await fixture();
     const csv = `display_name,side,display_name_fallback,language,max_party_size,notes\n${guest.displayName},bride,,,,`;
-    const saved = expectSummary(await importGuestsCsv(csv, {}, db));
+    const saved = expectSummary(await reviewedImport(csv, {}, db, 'replace'));
     assert.equal(saved.updated, 1);
     const row = await sqlGuest(guest.id);
     assert.equal(row.display_name_fallback, null);
     assert.equal(row.language, 'en');
     assert.equal(row.max_party_size, 2);
     assert.equal(row.notes, null);
-    assert.equal((await pool.query('SELECT event_id FROM invitations WHERE guest_id=$1', [guest.id])).rows[0].event_id, eventId);
+    assert.equal((await pool.query('SELECT count(*) FROM invitations WHERE guest_id=$1', [guest.id])).rows[0].count, '0');
   });
 
   it('roundtrips the editable guest export without losing names, notes, tokens, replies or delivery progress', async () => {
@@ -186,7 +308,7 @@ describe('CSV import end to end against disposable PostgreSQL', () => {
     const csv = await buildGuestListCsv(db);
     assert.match(csv, /display_name_fallback,sort_name,side,language/);
     assert.equal(csv.includes('whatsapp:delivered'), false);
-    const result = expectSummary(await importGuestsCsv(csv, {}, db));
+    const result = expectSummary(await reviewedImport(csv, {}, db));
     const saved = result.results.find((row) => row.token === guest.token);
     assert.equal(saved?.status, 'updated');
     const afterGuest = await sqlGuest(guest.id);
@@ -204,8 +326,8 @@ describe('CSV import end to end against disposable PostgreSQL', () => {
       `display_name,side,max_party_size\n${guest.displayName},groom,2`,
       `display_name,side,events\n${guest.displayName},groom,other`,
     ]) {
-      const preview = expectSummary(await importGuestsCsv(csv, { dryRun: true }, db));
-      const saved = expectSummary(await importGuestsCsv(csv, {}, db));
+      const preview = expectSummary(await reviewedImport(csv, { dryRun: true }, db, 'replace'));
+      const saved = expectSummary(await reviewedImport(csv, {}, db, 'replace'));
       assert.equal(preview.errors, 1);
       assert.equal(saved.errors, 1);
       assert.equal(preview.results[0].message, saved.results[0].message);
@@ -221,7 +343,7 @@ describe('CSV import end to end against disposable PostgreSQL', () => {
     await pool.query("ALTER TABLE delivery_channels ADD CONSTRAINT import_channel_failure CHECK(channel <> 'print') NOT VALID");
     try {
       const csv = `display_name,side,notes,events,channels\n${guest.displayName},groom,Changed,other,print\n${next},both,New,ceremony,whatsapp`;
-      const result = expectSummary(await importGuestsCsv(csv, {}, db));
+      const result = expectSummary(await reviewedImport(csv, {}, db, 'replace'));
       assert.equal(result.errors, 1);
       assert.equal(result.created, 1);
       assert.equal(result.results[0].status, 'error');
@@ -243,14 +365,37 @@ describe('CSV import end to end against disposable PostgreSQL', () => {
     } finally { await pool.query('ALTER TABLE delivery_channels DROP CONSTRAINT import_new_failure'); }
   });
 
+  it('rolls back the complete upload if infrastructure fails after an earlier batch', async () => {
+    const prefix = uniqueName();
+    const blockedName = `${prefix} stop`;
+    await pool.query(`CREATE FUNCTION import_simulated_outage() RETURNS trigger LANGUAGE plpgsql AS $$
+      BEGIN
+        IF NEW.display_name = TG_ARGV[0] THEN
+          RAISE EXCEPTION 'Simulated transport failure' USING ERRCODE = '08006';
+        END IF;
+        RETURN NEW;
+      END
+    $$`);
+    await pool.query(`CREATE TRIGGER import_simulated_outage BEFORE INSERT ON guests FOR EACH ROW EXECUTE FUNCTION import_simulated_outage('${blockedName}')`);
+    try {
+      const names = [...Array.from({ length: 25 }, (_, index) => `${prefix} ${index}`), blockedName];
+      const csv = 'display_name,side\n' + names.map((name) => `${name},bride`).join('\n');
+      await assert.rejects(importGuestsCsv(csv, { defaultEventSlugs: ['ceremony'] }, db));
+      assert.equal((await pool.query('SELECT count(*) FROM guests WHERE display_name LIKE $1', [`${prefix}%`])).rows[0].count, '0');
+    } finally {
+      await pool.query('DROP TRIGGER import_simulated_outage ON guests');
+      await pool.query('DROP FUNCTION import_simulated_outage()');
+    }
+  });
+
   it('serializes concurrent overlapping uploads without duplicating households or invitation tokens', async () => {
     const prefix = uniqueName();
     const csv = 'display_name,side\n' + Array.from({ length: 70 }, (_, i) => `${prefix} ${i},bride`).join('\n');
     const results = (await Promise.all([importGuestsCsv(csv, { defaultEventSlugs: ['ceremony'] }, db), importGuestsCsv(csv, { defaultEventSlugs: ['ceremony'] }, db)])).map(expectSummary);
     assert.equal(results.reduce((sum, result) => sum + result.created, 0), 70);
-    assert.equal(results.reduce((sum, result) => sum + result.updated, 0), 70);
+    assert.equal(results.reduce((sum, result) => sum + result.duplicates, 0), 70);
+    assert.equal(results.reduce((sum, result) => sum + result.updated, 0), 0);
     assert.equal(results.reduce((sum, result) => sum + result.errors, 0), 0);
-    assert.deepEqual(results[0].results.map((row) => row.token), results[1].results.map((row) => row.token));
     assert.equal((await pool.query('SELECT count(*) FROM guests WHERE display_name LIKE $1', [`${prefix}%`])).rows[0].count, '70');
   });
 
@@ -264,7 +409,10 @@ describe('CSV import end to end against disposable PostgreSQL', () => {
       await left.query('SELECT id FROM guests WHERE id=$1 FOR UPDATE', [guest.id]);
       await left.query("INSERT INTO rsvps(guest_id,event_id,attending,party_count) VALUES($1,$2,true,4)", [guest.id, eventId]);
       const pid = (await right.query('SELECT pg_backend_pid() AS pid')).rows[0].pid;
-      importing = importGuestsCsv(`display_name,side,max_party_size\n${guest.displayName},bride,2`, {}, drizzle(right, { schema }));
+      const before = await sqlGuest(guest.id);
+      importing = importGuestsCsv(`display_name,side,max_party_size\n${guest.displayName},bride,2`, { decisions: [
+        { row: 2, guestId: guest.id, updatedAt: before.updated_at.toISOString(), action: 'update' },
+      ] }, drizzle(right, { schema }));
       const deadline = Date.now() + 4000;
       let blocked = false;
       while (Date.now() < deadline) {
@@ -290,12 +438,12 @@ describe('CSV import end to end against disposable PostgreSQL', () => {
     for (const status of ['created', 'updated']) {
       const startQueries = queryCount;
       const start = performance.now();
-      const result = expectSummary(await importGuestsCsv(csv, {}, db));
+      const result = expectSummary(await (status === 'created' ? importGuestsCsv(csv, {}, db) : reviewedImport(csv, {}, db)));
       const elapsed = Math.round(performance.now() - start);
       const queries = queryCount - startQueries;
       assert.equal(result[status], 1000);
       assert.equal(result.errors, 0);
-      assert.ok(queries <= 500, `1000 rows should use bulk writes, got ${queries} queries.`);
+      assert.ok(queries <= 1250, `1000 reviewed rows should use bulk writes, got ${queries} queries.`);
       console.log(`CSV1000 ${status}: ${elapsed}ms, ${queries} SQL statements (loopback PostgreSQL).`);
     }
   });

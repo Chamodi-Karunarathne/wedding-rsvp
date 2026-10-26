@@ -1,0 +1,2 @@
+ALTER TABLE "delivery_channels" DROP CONSTRAINT "delivery_channels_channel_valid";--> statement-breakpoint
+ALTER TABLE "delivery_channels" ADD CONSTRAINT "delivery_channels_channel_valid" CHECK (channel IN ('whatsapp', 'print', 'instagram', 'messenger', 'wechat', 'in_person'));

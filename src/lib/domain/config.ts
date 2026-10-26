@@ -63,10 +63,18 @@ export const siteSettingsSchema = z.object({
   rsvpContacts: z.array(rsvpContactSchema).max(4).default([]),
 });
 
+export const DEFAULT_PLAIN_TEXT_TEMPLATE =
+  'Dear {{name}},\n\n' +
+  '{{brideName}} and {{groomName}} invite you to their wedding on {{date}}.\n\n' +
+  'Open your invitation and reply here:\n{{url}}\n\n' +
+  'Please reply by {{rsvpBy}}. With love.';
+
 export const messagingConfigSchema = z.object({
   /** Placeholders: {{name}}, {{url}}, {{brideName}}, {{groomName}}, {{date}},
    *  {{rsvpBy}}. */
   whatsappTemplate: z.string().min(1),
+  /** A separate plain message for Instagram, Messenger, WeChat and printed delivery. */
+  plainTextTemplate: z.string().min(1).default(DEFAULT_PLAIN_TEXT_TEMPLATE),
 });
 
 export type PhaseConfigValues = z.infer<typeof phaseConfigSchema>;
@@ -163,6 +171,7 @@ export function readSiteSettings(value: unknown): SiteSettings {
  * will be, repeatedly, and never at a convenient moment.
  */
 export const DEFAULT_MESSAGING_CONFIG: MessagingConfig = {
+  plainTextTemplate: DEFAULT_PLAIN_TEXT_TEMPLATE,
   whatsappTemplate:
     'Dear {{name}},\n\n' +
     '{{brideName}} and {{groomName}} would be delighted if you could join them ' +

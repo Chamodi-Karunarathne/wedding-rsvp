@@ -7,18 +7,22 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import type { EventView } from '@/lib/services/types';
-import type { ImportSummary } from '@/lib/services/import';
+import type { ImportDecision, ImportDuplicateAction, ImportSummary } from '@/lib/services/import';
+import { toCsv } from '@/lib/domain/csv';
 import { postJson } from '../_components/api';
 import { Feedback } from '../_components/ui';
 import { CSV_IMPORT_BODY_LIMIT_BYTES, importPayloadError, readImportSummary } from './csv-import-helpers';
-const template =
-  'display_name,side,max_party_size,phone,channels,notes\nThe Fernando Family,bride,4,0771234567,whatsapp,\n';
+const template = toCsv([
+  ['display_name', 'display_name_fallback', 'sort_name', 'side', 'language', 'max_party_size', 'phone', 'events', 'channels', 'notes'],
+  ['The Fernando Family', '', '', 'bride', 'en', 4, '0771234567,0777654321', '', 'whatsapp;print', ''],
+  ['The Jayasinghe Family', '', '', 'groom', 'en', 2, '', '', 'instagram;messenger;wechat', ''],
+]);
 const columns = [
   ['display_name', 'Guest or family name (required)'],
   ['side', 'Family: bride, groom or both (required)'],
-  ['max_party_size', 'Places reserved, from 1 to 50. Blank uses 2.'],
-  ['phone', 'Phone number'],
-  ['channels', 'Sending method: whatsapp, print or in_person'],
+  ['max_party_size', 'Places reserved, from 1 to 50. New/Replace uses 2 when blank; Update keeps the current value.'],
+  ['phone', 'Phone numbers separated by commas. Quote the CSV cell when it contains multiple numbers.'],
+  ['channels', 'Sending methods: whatsapp, print, instagram, messenger, wechat (or legacy in_person)'],
   ['events', 'Celebration names used by the website'],
   ['display_name_fallback', 'Shorter invitation name'],
   ['sort_name', 'Name to sort by'],
@@ -34,15 +38,20 @@ export function CsvImport({ events }: { events: EventView[] }) {
   const [error, setError] = useState<string | null>(null);
   const [running, setRunning] = useState<'preview' | 'import' | null>(null);
   const [readingFile, setReadingFile] = useState(false);
+  const [decisions, setDecisions] = useState<Record<number, ImportDecision>>({});
   const inputVersion = useRef(0);
   const pending = useRef(false);
   const fileReading = useRef(false);
   const fileInput = useRef<HTMLInputElement>(null);
-  const canImport = summary?.dryRun === true && summary.created + summary.updated > 0;
+  const duplicateRows = summary?.results.filter((row) => row.status === 'duplicate') ?? [];
+  const unresolved = duplicateRows.filter((row) => !decisions[row.row] ||
+    decisions[row.row]!.guestId !== row.duplicate?.guestId || decisions[row.row]!.updatedAt !== row.duplicate?.updatedAt);
+  const canImport = summary?.dryRun === true && summary.created + summary.updated + duplicateRows.length > 0 && unresolved.length === 0;
 
   function invalidatePreview() {
     inputVersion.current += 1;
     setSummary(null);
+    setDecisions({});
     setError(null);
   }
 
@@ -51,14 +60,14 @@ export function CsvImport({ events }: { events: EventView[] }) {
     pending.current = true;
     try {
       if (!dryRun && !window.confirm(
-        `Import this guest list?\n\n${summary!.created} to add, ${summary!.updated} to update` +
+        `Import this guest list?\n\n${summary!.created} to add, ${duplicateRows.length} duplicate decisions to apply` +
         (summary!.errors ? `, ${summary!.errors} rows with errors will be skipped.` : '.') +
-        '\n\nMatching guests will be updated. Omitted optional detail columns keep existing values; blank cells in included columns can clear or reset them. The selected celebrations may change their invitations. Sending progress and already shared invitation links will stay the same.',
+        '\n\nUpdate merges nonblank details and adds sending methods/celebrations. Replace uses the CSV details and assignments, including defaults for blank or omitted fields. Discard leaves the existing guest unchanged. Shared invitation links and recorded replies are preserved.',
       )) return;
 
       setSummary(null);
       setError(null);
-      const body = { csv, defaultEventSlugs: defaultSlugs, dryRun };
+      const body = { csv, defaultEventSlugs: defaultSlugs, dryRun, decisions: Object.values(decisions) };
       const payloadError = importPayloadError(body);
       if (payloadError) {
         setError(payloadError);
@@ -83,6 +92,11 @@ export function CsvImport({ events }: { events: EventView[] }) {
         return;
       }
       setSummary(checked);
+      setDecisions((current) => Object.fromEntries(checked.results.flatMap((row) => {
+        const choice = current[row.row];
+        return row.duplicate && choice && choice.guestId === row.duplicate.guestId && choice.updatedAt === row.duplicate.updatedAt
+          ? [[row.row, choice]] : [];
+      })));
       if (!dryRun) router.refresh();
     } finally {
       pending.current = false;
@@ -127,7 +141,7 @@ export function CsvImport({ events }: { events: EventView[] }) {
     <div className="space-y-5" aria-busy={running !== null || readingFile}>
       <div className="flex flex-wrap items-center gap-3">
         <a
-          href={'data:text/csv;charset=utf-8,' + encodeURIComponent('\uFEFF' + template)}
+          href={'data:text/csv;charset=utf-8,' + encodeURIComponent(template)}
           download="wedding-guest-list-template.csv"
           className={buttonVariants({ variant: 'outline', className: 'admin-button' })}
         >
@@ -154,7 +168,8 @@ export function CsvImport({ events }: { events: EventView[] }) {
             ))}
           </dl>
           <p className="text-sm text-muted-foreground">
-            For more than one sending method or celebration, separate values with a semicolon.{' '}
+            For more than one sending method or celebration, separate values with a semicolon.
+            Multiple phones use commas inside one quoted CSV cell, as in the sample.{' '}
             {events.length > 0 && (
               <>
                 Celebrations available:{' '}
@@ -163,17 +178,20 @@ export function CsvImport({ events }: { events: EventView[] }) {
             )}
           </p>
           <p className="text-sm text-muted-foreground">
-            Existing households are matched by name to sort by and phone number. If the sort name is
-            omitted, the guest name is used. Include the same phone number when updating; changing
-            either matching value creates a new household. To change these values, edit the guest
-            directly instead.
+            Existing households are matched by sort name and normalized phone numbers. The guest
+            name supplies a missing sort name. A unique same-name household also matches when a
+            phone is missing or the numbers overlap. Ambiguous matches need correction in Guests.
+            Every existing match asks you to Update, Replace or Discard the incoming entry.
           </p>
           <p className="text-sm text-muted-foreground">
-            Omitted optional detail columns keep existing values. Blank cells in included columns
-            can clear notes or shorter names, reset reserved places to 2, or reset language to English.
-            The celebrations selected below apply when a row has no celebrations of its own; leaving
-            both empty keeps existing invitations. Sending methods are added, and sending progress
-            and shared invitation links are preserved.
+            Update keeps blank or omitted details and adds selected celebrations/sending methods.
+            Replace resets editable details and replaces assignments from this CSV; a blank allowance
+            uses 2 and a blank language uses English. Neither choice changes a shared invitation
+            link or deletes a recorded reply. Discard keeps the household unchanged.
+          </p>
+          <p className="text-sm text-muted-foreground">
+            A phone is needed only for WhatsApp. A WhatsApp household without a phone is still
+            registered and flagged until you add a number or change its sending method.
           </p>
         </div>
       </details>
@@ -258,16 +276,29 @@ export function CsvImport({ events }: { events: EventView[] }) {
             {summary.dryRun ? 'List checked: ' : 'Import complete: '}
             {summary.created} {summary.dryRun ? 'to add' : 'added'}, {summary.updated}{' '}
             {summary.dryRun ? 'to update' : 'updated'}
+            {summary.duplicates > 0 ? ', ' + summary.duplicates + ' duplicates to review' : ''}
             {summary.skipped > 0 ? ', ' + summary.skipped + ' skipped' : ''}, {summary.errors}{' '}
             {summary.errors === 1 ? 'row needs' : 'rows need'} attention.
           </p>
           {summary.dryRun && (
             <p className="text-sm text-muted-foreground">
               Nothing has been saved yet. Check the rows below, then choose Import guests. Rows with
-              errors will be skipped; other details are checked again when saved.
+              errors will be skipped; other details and duplicate choices are checked again when saved.
             </p>
           )}
-          {summary.dryRun && summary.created + summary.updated === 0 && (
+          {summary.dryRun && unresolved.length > 0 && (
+            <p role="status" className="text-sm text-amber-800">
+              Choose Update, Replace or Discard for all {unresolved.length} unresolved duplicates to continue.
+            </p>
+          )}
+          {summary.dryRun && summary.duplicates > 0 && (
+            <p className="text-sm text-muted-foreground">
+              Update merges nonblank fields and adds assignments. Replace uses CSV defaults and
+              replaces assignments. Discard keeps the existing household. Recheck the list after
+              choosing an action to validate it before saving.
+            </p>
+          )}
+          {summary.dryRun && summary.created + summary.updated + duplicateRows.length === 0 && (
             <p className="text-sm text-muted-foreground">
               There are no valid guests to import. Correct the rows below, then check the list again.
             </p>
@@ -279,7 +310,7 @@ export function CsvImport({ events }: { events: EventView[] }) {
               aria-label={summary.dryRun ? 'Guest list preview' : 'Guest import results'}
               tabIndex={0}
             >
-              <table className="w-full table-fixed text-left text-sm">
+              <table className="w-full min-w-[38rem] text-left text-sm">
                 <caption className="sr-only">
                   {summary.dryRun ? 'Guest list preview' : 'Guest import results'}
                 </caption>
@@ -287,7 +318,7 @@ export function CsvImport({ events }: { events: EventView[] }) {
                   <tr className="border-b border-border">
                     <th scope="col" className="w-14 px-3 py-2 font-medium">Row</th>
                     <th scope="col" className="px-3 py-2 font-medium">Guest or family</th>
-                    <th scope="col" className="w-32 px-3 py-2 font-medium">{summary.dryRun ? 'Planned action' : 'Result'}</th>
+                    <th scope="col" className="w-44 px-3 py-2 font-medium">{summary.dryRun ? 'Planned action' : 'Result'}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -296,12 +327,36 @@ export function CsvImport({ events }: { events: EventView[] }) {
                       <td className="px-3 py-2 align-top">{row.row}</td>
                       <td className="px-3 py-2 align-top break-words">
                         {row.displayName || 'Unnamed household'}
+                        {row.duplicate && <p className="mt-1 text-xs text-muted-foreground">Existing: {row.duplicate.displayName}{row.duplicate.phone ? ` · ${row.duplicate.phone}` : ' · No phone'}</p>}
                         {row.message && <p className={row.status === 'error' ? 'mt-1 text-destructive' : 'mt-1 text-muted-foreground'}>{row.message}</p>}
+                        {row.warnings?.map((warning) => <p key={warning} className="mt-1 text-xs text-amber-800">{warning}</p>)}
                       </td>
                       <td className={`px-3 py-2 align-top whitespace-nowrap${row.status === 'error' ? ' text-destructive' : ''}`}>
-                        {row.status === 'created' ? (summary.dryRun ? 'Will add' : 'Added')
-                          : row.status === 'updated' ? (summary.dryRun ? 'Will update' : 'Updated')
-                            : row.status === 'error' ? 'Needs attention' : 'Skipped'}
+                        {summary.dryRun && row.duplicate ? (
+                          <select
+                            className="admin-select w-full"
+                            aria-label={`Duplicate action for row ${row.row}`}
+                            value={decisions[row.row]?.action ?? ''}
+                            disabled={running !== null}
+                            onChange={(event) => {
+                              const action = event.target.value as ImportDuplicateAction | '';
+                              setDecisions((current) => {
+                                const next = { ...current };
+                                if (!action) delete next[row.row];
+                                else next[row.row] = { row: row.row, guestId: row.duplicate!.guestId, updatedAt: row.duplicate!.updatedAt, action };
+                                return next;
+                              });
+                            }}
+                          >
+                            <option value="">Choose an action</option>
+                            <option value="update">Update</option>
+                            <option value="replace">Replace</option>
+                            <option value="discard">Discard</option>
+                          </select>
+                        ) : row.status === 'created' ? (summary.dryRun ? 'Will add' : 'Added')
+                          : row.status === 'updated' ? (row.action === 'replace' ? 'Replaced' : 'Updated')
+                            : row.status === 'duplicate' ? 'Needs a decision'
+                              : row.status === 'error' ? 'Needs attention' : 'Discarded'}
                       </td>
                     </tr>
                   ))}

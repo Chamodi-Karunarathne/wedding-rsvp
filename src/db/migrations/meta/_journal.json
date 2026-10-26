@@ -36,6 +36,13 @@
       "when": 1792652047474,
       "tag": "0004_public_rate_limits",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1793012020317,
+      "tag": "0005_add_social_delivery_channels",
+      "breakpoints": true
     }
   ]
 }

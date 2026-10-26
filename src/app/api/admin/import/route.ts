@@ -30,6 +30,7 @@ export async function POST(request: Request): Promise<NextResponse> {
     const result = await importGuestsCsv(parsed.data.csv, {
       ...(parsed.data.defaultEventSlugs && { defaultEventSlugs: parsed.data.defaultEventSlugs }),
       ...(parsed.data.dryRun !== undefined && { dryRun: parsed.data.dryRun }),
+      ...(parsed.data.decisions && { decisions: parsed.data.decisions }),
     });
 
     return result.ok
@@ -37,7 +38,8 @@ export async function POST(request: Request): Promise<NextResponse> {
       : jsonError(result.error);
   } catch {
     // Database errors can contain connection details and guest parameters.
-    // A later batch may fail after earlier rows were committed successfully.
+    // Apply uses one transaction; a dropped commit response can still leave
+    // the caller uncertain, so ask them to review the list before retrying.
     console.error('Guest import could not complete.');
     return jsonError({
       code: 'internal',

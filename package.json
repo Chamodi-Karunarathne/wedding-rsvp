@@ -13,7 +13,7 @@
     "start": "next start",
     "typecheck": "tsc --noEmit",
     "test": "node --test \"src/**/*.test.ts\"",
-    "test:integration": "node --test scripts/services.integration.test.mjs scripts/import.integration.test.mjs scripts/prepare.integration.test.mjs src/lib/services/rate-limits.integration.test.ts",
+    "test:integration": "node --test scripts/services.integration.test.mjs scripts/import.integration.test.mjs scripts/channels.integration.test.mjs scripts/clear-guests.integration.test.mjs scripts/prepare.integration.test.mjs src/lib/services/rate-limits.integration.test.ts",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
     "db:prepare": "node --env-file-if-exists=.env src/db/prepare.ts prepare",

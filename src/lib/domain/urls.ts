@@ -1,4 +1,4 @@
-import { normalizePhone } from './phone.ts';
+import { splitPhoneNumbers } from './phone.ts';
 
 /**
  * PERMANENT, and partly set in ink.
@@ -59,6 +59,7 @@ export function invitationUrl(token: string, origin = siteOrigin()): string {
  * going directly to its destination preserves Unicode for both web and app handoff.
  */
 export function whatsappSendUrl(phoneE164: string, message: string): string {
-  const number = (normalizePhone(phoneE164) ?? '').replace(/[^\d]/g, '');
+  // A household may have several contacts; never concatenate them into one destination.
+  const number = (splitPhoneNumbers(phoneE164)[0] ?? '').replace(/[^\d]/g, '');
   return `https://api.whatsapp.com/send?phone=${number}&text=${encodeURIComponent(message)}`;
 }

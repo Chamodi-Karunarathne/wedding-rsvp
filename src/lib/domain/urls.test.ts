@@ -36,6 +36,11 @@ describe('invitation URL', () => {
 });
 
 describe('whatsappSendUrl', () => {
+  it('uses a single normalized destination if a contact list reaches the builder', () => {
+    const url = new URL(whatsappSendUrl('0771234567, 0712345678', 'Hello'));
+    assert.equal(url.searchParams.get('phone'), '94771234567');
+  });
+
   it('strips formatting from the number and encodes the message', () => {
     const url = whatsappSendUrl('+94 77 123 4567', 'Hello & welcome');
     assert.equal(url, 'https://api.whatsapp.com/send?phone=94771234567&text=Hello%20%26%20welcome');

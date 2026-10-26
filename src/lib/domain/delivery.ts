@@ -1,3 +1,5 @@
+import { splitPhoneNumbers } from './phone.ts';
+
 /**
  * PERMANENT. Pure, dependency-free, and unit tested.
  *
@@ -42,3 +44,11 @@ export const DELIVERY_STATE_LABELS: Record<DeliveryState, string> = {
   opened: 'opened',
   responded: 'responded',
 };
+
+/** Derived from current data so adding a number or removing WhatsApp clears it. */
+export function deliveryNeedsPhone(guest: {
+  phone: string | null | undefined;
+  channels: readonly { channel: string }[];
+}): boolean {
+  return guest.channels.some(({ channel }) => channel === 'whatsapp') && splitPhoneNumbers(guest.phone).length === 0;
+}

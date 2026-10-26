@@ -1,8 +1,8 @@
 import type { NextResponse } from 'next/server';
 import { jsonError, jsonOk, readJson, zodError } from '@/lib/api/respond';
 import { requireAdmin } from '@/lib/api/guard';
-import { deliveryChannelSchema } from '@/lib/api/schemas';
-import { setDeliveryChannel } from '@/lib/services/guests';
+import { deliveryChannelDeleteSchema, deliveryChannelSchema } from '@/lib/api/schemas';
+import { removeDeliveryChannel, setDeliveryChannel } from '@/lib/services/guests';
 
 /** PERMANENT. Mark-as-sent for the send list. */
 
@@ -28,4 +28,15 @@ export async function POST(request: Request): Promise<NextResponse> {
   });
 
   return result.ok ? jsonOk({ channel: result.data }) : jsonError(result.error);
+}
+
+export async function DELETE(request: Request): Promise<NextResponse> {
+  const denied = await requireAdmin();
+  if (denied) return denied;
+  const body = await readJson(request);
+  if (!body.ok) return jsonError(body.error);
+  const parsed = deliveryChannelDeleteSchema.safeParse(body.data);
+  if (!parsed.success) return zodError(parsed.error);
+  const result = await removeDeliveryChannel(parsed.data.guestId, parsed.data.channel);
+  return result.ok ? jsonOk({ removed: result.data }) : jsonError(result.error);
 }
