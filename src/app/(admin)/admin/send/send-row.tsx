@@ -1,6 +1,7 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { useEffect, useId, useState } from 'react';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
@@ -35,12 +36,13 @@ export function SendRow({ guestId, displayName, phone, invitationUrl, message, p
   const [copied, setCopied] = useState<CopyTarget | null>(null);
   const [manualCopy, setManualCopy] = useState<CopyTarget | null>(null);
   const [number, setNumber] = useState(whatsappNumbers[0] ?? '');
-  const [messageStyle, setMessageStyle] = useState<'whatsapp' | 'plain'>(channels.some(channel => channel.channel !== 'whatsapp') ? 'plain' : 'whatsapp');
   const [method, setMethod] = useState<DeliveryChannelName>('whatsapp');
   const [confirmReset, setConfirmReset] = useState<DeliveryChannelName | null>(null);
   const [confirmRemove, setConfirmRemove] = useState<DeliveryChannelName | null>(null);
   const available = (Object.keys(CHANNEL_LABELS) as DeliveryChannelName[]).filter(name => !channels.some(channel => channel.channel === name));
-  const needsPhone = channels.some(channel => channel.channel === 'whatsapp') && whatsappNumbers.length === 0;
+  const hasWhatsApp = channels.some(channel => channel.channel === 'whatsapp');
+  const showPlainMessage = !hasWhatsApp || channels.some(channel => channel.channel !== 'whatsapp');
+  const needsPhone = hasWhatsApp && whatsappNumbers.length === 0;
   const chosenNumber = whatsappNumbers.includes(number) ? number : whatsappNumbers[0];
   useEffect(() => { if (!copied) return; const timer = window.setTimeout(() => setCopied(null), 2500); return () => window.clearTimeout(timer); }, [copied]);
   async function update(channel: DeliveryChannelName, status: DeliveryStatus) {
@@ -72,13 +74,14 @@ export function SendRow({ guestId, displayName, phone, invitationUrl, message, p
         <TableCell><div className="admin-cell-badges">{channels.length ? channels.map(channel => <span key={channel.channel} className="admin-channel-tag" title={statusLabels[channel.status]}>{CHANNEL_LABELS[channel.channel]}</span>) : <span className="text-muted-foreground">None</span>}</div>{needsPhone && <span className="admin-warning-text">WhatsApp phone missing</span>}</TableCell>
         <TableCell><StatusBadge tone={state === 'responded' ? 'positive' : state === 'opened' ? 'warm' : 'neutral'}>{INVITATION_LABELS[state]}</StatusBadge></TableCell>
         <TableCell><span className="admin-date">{openedAt ?? 'Not opened'}</span></TableCell>
-        <TableCell>
-          {chosenNumber ? <div className="admin-whatsapp-action">
+        <TableCell><div className="admin-invitation-actions">
+          {hasWhatsApp && (chosenNumber ? <>
             {whatsappNumbers.length > 1 && <select className="admin-select" aria-label={'WhatsApp number for ' + displayName} value={chosenNumber} onChange={event => setNumber(event.target.value)}>{whatsappNumbers.map(value => <option key={value} value={value}>{value}</option>)}</select>}
             <a href={whatsappSendUrl(chosenNumber, message)} target="_blank" rel="noreferrer noopener" className={buttonVariants({ className: 'admin-button' })} aria-label={'WhatsApp for ' + displayName}>WhatsApp</a>
-          </div> : <span className="text-muted-foreground">{needsPhone ? 'Add a number' : '—'}</span>}
+          </> : <Link href={'/admin/guests?q=' + encodeURIComponent(displayName)} className={buttonVariants({ variant: 'outline', className: 'admin-button' })} aria-label={'Add WhatsApp number for ' + displayName}>Add number</Link>)}
+          {showPlainMessage && <Button type="button" variant="outline" onClick={() => copy('plain')} aria-label={'Copy plain text message for ' + displayName}>{copied === 'plain' ? 'Copied' : 'Copy message'}</Button>}
+        </div>
         </TableCell>
-        <TableCell><div className="admin-message-action"><select className="admin-select" aria-label={'Message style for ' + displayName} value={messageStyle} onChange={event => setMessageStyle(event.target.value as 'whatsapp' | 'plain')}><option value="whatsapp">WhatsApp</option><option value="plain">Plain text</option></select><Button type="button" variant="outline" onClick={() => copy(messageStyle)} aria-label={'Copy ' + (messageStyle === 'plain' ? 'plain text message' : 'WhatsApp message') + ' for ' + displayName}>{copied === messageStyle ? 'Copied' : 'Copy'}</Button></div></TableCell>
         <TableCell><div className="admin-row-actions"><Button type="button" variant="outline" onClick={() => copy('link')}>{copied === 'link' ? 'Copied' : 'Copy link'}</Button><DialogTrigger render={<Button type="button" variant="outline" />} aria-label={'Sending details for ' + displayName}>Details</DialogTrigger></div><span role="status" className="sr-only">{copied ? 'Copied ' + (copied === 'link' ? 'invitation link' : 'message') + ' for ' + displayName : ''}</span></TableCell>
       </TableRow>
       {loaded && <DialogContent keepMounted className="admin-dialog-wide" showCloseButton={!busy}>

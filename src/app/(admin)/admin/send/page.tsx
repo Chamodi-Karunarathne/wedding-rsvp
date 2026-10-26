@@ -40,6 +40,7 @@ export default async function AdminSendPage({ searchParams }: Props) {
     rsvpBy: formatDate(config.phase.rsvpDeadline, config.site.timezone),
   };
   const rows = guests.map((row) => ({ row, state: invitationStatus(row) }));
+  const missingPhoneCount = guests.filter(needsWhatsAppPhone).length;
   const filtered = rows.filter(
     ({ row, state }) =>
       matchesSearch(row, query) && (stateFilter === 'all' || stateFilter === state ||
@@ -63,7 +64,7 @@ export default async function AdminSendPage({ searchParams }: Props) {
           Download invitation list
         </a>
       </AdminPageHeader>
-      {guests.some(needsWhatsAppPhone) && <p className="admin-warning"><Link href="/admin/send?state=needs_phone" className="underline">{guests.filter(needsWhatsAppPhone).length} households need a WhatsApp phone number.</Link> Add a number or choose another channel in sending details.</p>}
+      {missingPhoneCount > 0 && <p className="admin-warning"><Link href="/admin/send?state=needs_phone" className="underline">{missingPhoneCount} {missingPhoneCount === 1 ? 'household needs' : 'households need'} a WhatsApp phone number.</Link> Add a number or choose another channel in sending details.</p>}
       <section aria-label="Invitation progress">
         <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
           {DELIVERY_STATES.map((state) => (
@@ -143,7 +144,7 @@ export default async function AdminSendPage({ searchParams }: Props) {
             <Table className="admin-table admin-invitations">
               <TableHeader>
                 <TableRow>
-                  {['Guest / Family', 'Phone numbers', 'Channels', 'Progress', 'Last opened', 'WhatsApp', 'Message', 'Actions'].map((heading) => (
+                  {['Guest / Family', 'Phone numbers', 'Channels', 'Progress', 'Last opened', 'Invitation', 'Actions'].map((heading) => (
                     <TableHead key={heading}>{heading}</TableHead>
                   ))}
                 </TableRow>

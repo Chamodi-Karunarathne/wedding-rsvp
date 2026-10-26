@@ -495,7 +495,7 @@
 .admin-shell .admin-table .admin-select { min-height: 34px; padding: 6px 8px; font-size: 12px; }
 .admin-shell .admin-table .admin-status { padding: 3px 7px; white-space: nowrap; font-size: 11px; }
 .admin-shell .admin-guests { min-width: 1170px; }
-.admin-shell .admin-invitations { min-width: 1380px; }
+.admin-shell .admin-invitations { min-width: 1200px; }
 .admin-shell .admin-responses { min-width: 1480px; }
 .admin-shell .admin-guests th:nth-child(4), .admin-shell .admin-responses th:nth-child(6), .admin-shell .admin-responses th:nth-child(7) { width: 70px; }
 .admin-shell .admin-table td:nth-child(2) { font-size: 12px; }
@@ -506,11 +506,9 @@
 .admin-channel-tag { display: inline-flex; padding: 2px 6px; background: var(--muted); border: 1px solid var(--border); border-radius: 5px; font-size: 11px; line-height: 1.35; white-space: nowrap; }
 .admin-date { display: block; min-width: 110px; max-width: 145px; font-size: 11px; color: var(--muted-foreground); font-variant-numeric: tabular-nums; }
 .admin-clamp-text { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; max-width: 190px; }
-.admin-row-actions, .admin-message-action, .admin-whatsapp-action { display: flex; align-items: center; gap: 5px; }
-.admin-message-action { min-width: 174px; }
-.admin-message-action select { width: 109px !important; }
-.admin-whatsapp-action { min-width: 85px; }
-.admin-whatsapp-action select { width: 138px !important; }
+.admin-row-actions, .admin-invitation-actions { display: flex; align-items: center; gap: 6px; }
+.admin-invitation-actions { min-width: 115px; white-space: nowrap; }
+.admin-invitation-actions select { width: 138px !important; flex-shrink: 0; }
 .admin-row-actions { min-width: 143px; }
 .admin-warning-text { display: block; margin-top: 4px; color: #8b570a; font-size: 11px; font-weight: 500; line-height: 1.35; }
 .admin-warning { padding: 12px 16px; border: 1px solid #e9d1a7; border-radius: 10px; color: #754b11; background: #fff7e9; }
