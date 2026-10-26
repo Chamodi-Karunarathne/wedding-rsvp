@@ -210,8 +210,9 @@ Two things it touches outside `/admin`, both in `src/app/globals.css` and both f
 The root layout no longer sets a width. Guest pages get their reading column from `(guest)/layout.tsx` and `not-found.tsx` sets its own; the console needs the full width for its tables.
 
 Invitations separates household details, channels, progress and actions into
-compact columns. **Invitation** offers direct WhatsApp sending when that channel
-is selected and plain-text message copying for other channels. **Details** opens
+compact columns. **Invitation** offers direct WhatsApp sending and formatted
+message copying when that channel is selected, plus plain-text message copying
+for other channels. **Details** opens
 the sending records and both copy formats in a dialog. Copying works without a
 phone number; a selected text field supports manual copying when clipboard
 access is unavailable.

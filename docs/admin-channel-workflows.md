@@ -68,10 +68,11 @@ field into tall rows. Long names are clamped with full details in the editor;
 phone cells show two numbers with a count for additional contacts.
 
 The Invitations table combines sending controls under **Invitation**. A selected
-WhatsApp channel shows the direct-send button and, for several contacts, a number
-selector. Other channels offer **Copy message** using the plain-text template;
-mixed-channel households have both actions. Both message formats remain available
-in the sending details dialog.
+WhatsApp channel shows direct sending, WhatsApp message copying and, for several
+contacts, a number selector. Copying also works when the phone is missing.
+Other channels offer **Copy message** using the plain-text template; mixed-channel
+households distinguish **Copy WhatsApp** from **Copy plain text**. Both message
+formats remain available in the sending details dialog.
 
 The overview displays a live countdown to the configured ceremony, using the
 wedding timezone for its wedding-day and past-date states. It preserves the
